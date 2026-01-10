@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TimeTracker from '@/components/TimeTracker'
+import MyOverview from '@/components/MyOverview'
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null)
@@ -62,6 +63,7 @@ export default function HomePage() {
         Welkom {user.email}
       </h1>
       <TimeTracker userId={user.id} />
+      <MyOverview userId={user.id} />
     </div>
   )
 }
