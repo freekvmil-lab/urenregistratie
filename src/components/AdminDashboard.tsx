@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import UserManagement from '@/components/UserManagement'
+
 
 interface TimeEntry {
   id: number
@@ -146,6 +148,7 @@ export default function AdminDashboard() {
           </tbody>
         </table>
       )}
+        <UserManagement />
     </div>
   )
 }
