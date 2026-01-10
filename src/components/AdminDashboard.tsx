@@ -3,10 +3,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-/* =======================
-   TYPES
-======================= */
-
 interface TimeEntry {
   id: number
   user_id: string
@@ -16,18 +12,14 @@ interface TimeEntry {
   name: string
 }
 
-interface User {
+interface Profile {
   id: string
-  name: string
+  name: string | null
 }
-
-/* =======================
-   COMPONENT
-======================= */
 
 export default function AdminDashboard() {
   const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<Profile[]>([])
   const [selectedUser, setSelectedUser] = useState<string>('all')
   const [loading, setLoading] = useState(true)
 
@@ -36,51 +28,47 @@ export default function AdminDashboard() {
   ======================= */
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('profiles')
       .select('id, name')
       .order('name')
 
-    if (!error && data) {
-      setUsers(data)
-    }
+    if (data) setUsers(data)
   }
 
   /* =======================
-     FETCH ENTRIES
+     FETCH ENTRIES (NO JOIN)
   ======================= */
 
   const fetchEntries = async () => {
     setLoading(true)
 
-    const { data, error } = await supabase
+    const { data: entriesData, error } = await supabase
       .from('time_entries')
-      .select(`
-        id,
-        user_id,
-        date,
-        start_time,
-        end_time,
-        profiles ( name )
-      `)
+      .select('id, user_id, date, start_time, end_time')
       .order('date', { ascending: false })
 
-    if (error) {
+    if (error || !entriesData) {
       console.error('fetchEntries error:', error)
       setEntries([])
-    } else {
-      const mapped: TimeEntry[] = (data ?? []).map((d: any) => ({
-        id: d.id,
-        user_id: d.user_id,
-        date: d.date,
-        start_time: d.start_time,
-        end_time: d.end_time,
-        name: d.profiles?.name ?? 'Onbekend',
-      }))
-      
-      setEntries(mapped)
+      setLoading(false)
+      return
     }
 
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, name')
+
+    const profileMap = new Map(
+      (profilesData ?? []).map((p) => [p.id, p.name])
+    )
+
+    const mapped: TimeEntry[] = entriesData.map((e) => ({
+      ...e,
+      name: profileMap.get(e.user_id) ?? 'Onbekend',
+    }))
+
+    setEntries(mapped)
     setLoading(false)
   }
 
@@ -105,31 +93,6 @@ export default function AdminDashboard() {
     ).toFixed(2)
   }
 
-  const exportCSV = () => {
-    const csv = [
-      ['Naam', 'Datum', 'Start', 'Stop', 'Uren'],
-      ...filteredEntries.map((e) => [
-        e.name,
-        e.date,
-        e.start_time ?? '',
-        e.end_time ?? '',
-        calculateHours(e.start_time, e.end_time),
-      ]),
-    ]
-      .map((row) => row.join(','))
-      .join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'urenregistratie.csv'
-    a.click()
-
-    URL.revokeObjectURL(url)
-  }
-
   /* =======================
      RENDER
   ======================= */
@@ -147,17 +110,10 @@ export default function AdminDashboard() {
           <option value="all">Alle werknemers</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>
-              {u.name}
+              {u.name ?? 'Onbekend'}
             </option>
           ))}
         </select>
-
-        <button
-          onClick={exportCSV}
-          className="bg-black text-white px-4 py-2 rounded"
-        >
-          Export CSV
-        </button>
       </div>
 
       {loading ? (
