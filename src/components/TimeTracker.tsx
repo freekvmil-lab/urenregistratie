@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase' // gebruik relatief pad op Windows
+import { supabase } from '@/lib/supabase'
+import WorkButton from '@/components/WorkButton'
 
 interface TimeEntry {
   id: number
@@ -13,111 +14,91 @@ interface TimeEntry {
 
 export default function TimeTracker({ userId }: { userId: string }) {
   const [entry, setEntry] = useState<TimeEntry | null>(null)
-  const [loading, setLoading] = useState(false)
   const [workedHours, setWorkedHours] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Fetch laatste entry van vandaag
+  /* =======================
+     FETCH TODAY
+  ======================= */
+
   const fetchToday = async () => {
     if (!userId) return
 
+    setLoading(true)
     const today = new Date().toISOString().split('T')[0]
 
     const { data, error } = await supabase
       .from('time_entries')
-      .select('*')
+      .select('id, user_id, start_time, end_time, date')
       .eq('user_id', userId)
       .eq('date', today)
       .order('id', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (error) {
-      console.error('fetchToday error:', error)
+    if (error || !data) {
       setEntry(null)
       setWorkedHours(null)
+      setLoading(false)
       return
     }
 
-    if (data) {
-      setEntry(data as TimeEntry)
+    setEntry(data)
 
-      if (data.end_time) {
-        const start = new Date(data.start_time).getTime()
-        const end = new Date(data.end_time).getTime()
-        setWorkedHours(Math.round(((end - start) / 3600000) * 100) / 100)
-      } else {
-        setWorkedHours(null)
-      }
+    if (data.end_time) {
+      const start = new Date(data.start_time).getTime()
+      const end = new Date(data.end_time).getTime()
+      const hours =
+        Math.round(((end - start) / 3600000) * 100) / 100
+      setWorkedHours(hours)
     } else {
-      setEntry(null)
       setWorkedHours(null)
     }
+
+    setLoading(false)
   }
 
   useEffect(() => {
     fetchToday()
   }, [userId])
 
-  // Start werkdag
-  const startWork = async () => {
-    if (!userId) return
-    setLoading(true)
+  /* =======================
+     ACTIVE ENTRY
+  ======================= */
 
-    const today = new Date().toISOString().split('T')[0]
-    console.log('Inserting work entry', { userId, today })
+  const activeEntry =
+    entry && !entry.end_time
+      ? { id: entry.id, start_time: entry.start_time }
+      : null
 
-    const { error } = await supabase.from('time_entries').insert({
-      user_id: userId,
-      start_time: new Date().toISOString(),
-      date: today,
-    })
-
-    if (error) console.error('Start werkdag error:', error)
-    else console.log('Start werkdag success!')
-
-    await fetchToday()
-    setLoading(false)
-  }
-
-  // Stop werkdag
-  const stopWork = async () => {
-    if (!entry) return
-    setLoading(true)
-    console.log('Stopping work entry', entry.id)
-
-    const { error } = await supabase
-      .from('time_entries')
-      .update({ end_time: new Date().toISOString() })
-      .eq('id', entry.id)
-
-    if (error) console.error('Stop werkdag error:', error)
-    else console.log('Stop werkdag success!')
-
-    await fetchToday()
-    setLoading(false)
-  }
+  /* =======================
+     RENDER
+  ======================= */
 
   return (
-    <div className="space-y-4 p-4 border rounded shadow max-w-sm">
-      <h2 className="text-xl font-bold">Vandaag</h2>
+    <div className="relative mt-4">
+      <div className="p-4 border rounded max-w-sm">
+        <h2 className="text-xl font-bold mb-2">Vandaag</h2>
 
-      {entry ? (
-        entry.end_time ? (
-          <p>Gewerkte uren: {workedHours} uur</p>
+        {loading ? (
+          <p>Status laden…</p>
+        ) : entry ? (
+          entry.end_time ? (
+            <p>Gewerkte uren: {workedHours} uur</p>
+          ) : (
+            <p>Je bent momenteel aan het werk</p>
+          )
         ) : (
-          <p>Je bent nog aan het werk</p>
-        )
-      ) : (
-        <p>Je bent nog niet begonnen</p>
-      )}
+          <p>Je bent vandaag nog niet begonnen</p>
+        )}
+      </div>
 
-      <button
-        onClick={entry ? stopWork : startWork}
-        disabled={loading}
-        className="rounded bg-black text-white px-4 py-2 w-full"
-      >
-        {entry ? (entry.end_time ? 'Werkdag voltooid' : 'Stop werkdag') : 'Start werkdag'}
-      </button>
+      {/* Floating Start / Stop Button */}
+      <WorkButton
+        userId={userId}
+        activeEntry={activeEntry}
+        onUpdate={fetchToday}
+      />
     </div>
   )
 }
