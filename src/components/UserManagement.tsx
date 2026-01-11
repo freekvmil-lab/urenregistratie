@@ -68,9 +68,9 @@ export default function UserManagement() {
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td className="border p-2">{u.name ?? '—'}</td>
-              <td className="border p-2">{u.email ?? '—'}</td>
-              <td className="border p-2">
+              <td className="border p-2 text-gray-900 dark:text-gray-100">{u.name ?? '—'}</td>
+              <td className="border p-2 text-gray-900 dark:text-gray-100">{u.email ?? '—'}</td>
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
                 <select
                   value={u.role}
                   disabled={saving === u.id}
