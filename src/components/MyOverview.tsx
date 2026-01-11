@@ -51,7 +51,7 @@ export default function MyOverview({ userId }: { userId: string }) {
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
     const d = new Date()
     const day = d.getDay() || 7
-    d.setDate(d.getDate() - day + 1)
+    d.setDate(d.getDate() - day + 1) // maandag
     return d
   })
   const [view, setView] = useState<'week' | 'month'>('week')
@@ -169,6 +169,11 @@ export default function MyOverview({ userId }: { userId: string }) {
   }
 
   const saveManual = async () => {
+    if (!manualDate || !manualStart || !manualEnd) {
+      alert('Datum, start en eindtijd zijn verplicht')
+      return
+    }
+
     await supabase.from('time_entries').insert({
       user_id: userId,
       date: manualDate,
@@ -219,7 +224,12 @@ export default function MyOverview({ userId }: { userId: string }) {
         </button>
 
         <button
-          onClick={() => setManual(true)}
+          onClick={() => {
+            setManualDate(
+              new Date().toISOString().slice(0, 10)
+            )
+            setManual(true)
+          }}
           className="px-3 py-1 rounded border"
         >
           ➕ Handmatig toevoegen
@@ -349,37 +359,36 @@ export default function MyOverview({ userId }: { userId: string }) {
 
       {/* EDIT MODAL */}
       {editing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded w-80 space-y-4">
-            <h3 className="font-semibold">Uren aanpassen</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-80 border border-gray-700 space-y-4">
+            <h3 className="font-semibold text-lg">
+              Uren aanpassen
+            </h3>
 
-            <label>
-              Start
-              <input
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="border w-full"
-              />
-            </label>
+            <input
+              type="time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-            <label>
-              Stop
-              <input
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                className="border w-full"
-              />
-            </label>
+            <input
+              type="time"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEditing(null)}>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setEditing(null)}
+                className="text-gray-400 hover:text-gray-200"
+              >
                 Annuleren
               </button>
               <button
                 onClick={saveEdit}
-                className="bg-black text-white px-3 py-1 rounded"
+                className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200"
               >
                 Opslaan
               </button>
@@ -389,125 +398,100 @@ export default function MyOverview({ userId }: { userId: string }) {
       )}
 
       {/* MANUAL MODAL */}
-{manual && (
-  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-    <div className="
-      bg-gray-900
-      text-gray-100
-      p-6
-      rounded-lg
-      w-96
-      space-y-4
-      border border-gray-700
-    ">
-      <h3 className="font-semibold text-lg">
-        Uren handmatig invoeren
-      </h3>
+      {manual && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-96 border border-gray-700 space-y-4">
+            <h3 className="font-semibold text-lg">
+              Uren handmatig invoeren
+            </h3>
 
-      <input
-        type="date"
-        value={manualDate}
-        onChange={(e) => setManualDate(e.target.value)}
-        className="w-full px-3 py-2 rounded
-          bg-gray-800 border border-gray-700
-          text-gray-100 placeholder-gray-400
-          focus:outline-none focus:ring-1 focus:ring-gray-500"
-      />
+            <input
+              type="date"
+              value={manualDate}
+              onChange={(e) => setManualDate(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-      <div className="flex gap-2">
-        <input
-          type="time"
-          value={manualStart}
-          onChange={(e) => setManualStart(e.target.value)}
-          className="w-full px-3 py-2 rounded
-            bg-gray-800 border border-gray-700
-            text-gray-100
-            focus:outline-none focus:ring-1 focus:ring-gray-500"
-        />
-        <input
-          type="time"
-          value={manualEnd}
-          onChange={(e) => setManualEnd(e.target.value)}
-          className="w-full px-3 py-2 rounded
-            bg-gray-800 border border-gray-700
-            text-gray-100
-            focus:outline-none focus:ring-1 focus:ring-gray-500"
-        />
-      </div>
+            <div className="flex gap-2">
+              <input
+                type="time"
+                value={manualStart}
+                onChange={(e) => setManualStart(e.target.value)}
+                className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+              />
+              <input
+                type="time"
+                value={manualEnd}
+                onChange={(e) => setManualEnd(e.target.value)}
+                className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+              />
+            </div>
 
-      <input
-        placeholder="Opdrachtgever"
-        value={client}
-        onChange={(e) => setClient(e.target.value)}
-        className="w-full px-3 py-2 rounded
-          bg-gray-800 border border-gray-700
-          text-gray-100 placeholder-gray-400
-          focus:outline-none focus:ring-1 focus:ring-gray-500"
-      />
+            <input
+              placeholder="Opdrachtgever"
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-      <input
-        placeholder="Locatie"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        className="w-full px-3 py-2 rounded
-          bg-gray-800 border border-gray-700
-          text-gray-100 placeholder-gray-400
-          focus:outline-none focus:ring-1 focus:ring-gray-500"
-      />
+            <input
+              placeholder="Locatie"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-      <input
-        type="number"
-        placeholder="Kilometers"
-        value={kilometers}
-        onChange={(e) => setKilometers(Number(e.target.value))}
-        className="w-full px-3 py-2 rounded
-          bg-gray-800 border border-gray-700
-          text-gray-100 placeholder-gray-400
-          focus:outline-none focus:ring-1 focus:ring-gray-500"
-      />
+            <input
+              type="number"
+              placeholder="Kilometers"
+              value={kilometers}
+              onChange={(e) =>
+                setKilometers(Number(e.target.value))
+              }
+              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+            />
 
-      <label className="flex items-center gap-2 text-gray-200">
-        <input
-          type="checkbox"
-          checked={parkingPaid}
-          onChange={(e) => setParkingPaid(e.target.checked)}
-          className="accent-gray-400"
-        />
-        Parkeerkosten gemaakt
-      </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={parkingPaid}
+                onChange={(e) =>
+                  setParkingPaid(e.target.checked)
+                }
+                className="accent-gray-400"
+              />
+              Parkeerkosten gemaakt
+            </label>
 
-      {parkingPaid && (
-        <input
-          type="number"
-          placeholder="Parkeerkosten (€)"
-          value={parkingCost}
-          onChange={(e) => setParkingCost(Number(e.target.value))}
-          className="w-full px-3 py-2 rounded
-            bg-gray-800 border border-gray-700
-            text-gray-100 placeholder-gray-400
-            focus:outline-none focus:ring-1 focus:ring-gray-500"
-        />
+            {parkingPaid && (
+              <input
+                type="number"
+                placeholder="Parkeerkosten (€)"
+                value={parkingCost}
+                onChange={(e) =>
+                  setParkingCost(Number(e.target.value))
+                }
+                className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+              />
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setManual(false)}
+                className="text-gray-400 hover:text-gray-200"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={saveManual}
+                className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200"
+              >
+                Opslaan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-
-      <div className="flex justify-end gap-3 pt-2">
-        <button
-          onClick={() => setManual(false)}
-          className="text-gray-400 hover:text-gray-200"
-        >
-          Annuleren
-        </button>
-        <button
-          onClick={saveManual}
-          className="bg-white text-black px-4 py-2 rounded
-            hover:bg-gray-200"
-        >
-          Opslaan
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
     </div>
   )
 }
