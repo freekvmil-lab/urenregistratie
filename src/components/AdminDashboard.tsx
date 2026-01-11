@@ -158,14 +158,14 @@ export default function AdminDashboard() {
         ) : (
           <table className="w-full border-collapse border border-gray-300">
             <thead>
-              <tr className="bg-gray-100">
-                <th className="border p-2">Naam</th>
-                <th className="border p-2">Datum</th>
-                <th className="border p-2">Start</th>
-                <th className="border p-2">Stop</th>
-                <th className="border p-2">Uren</th>
-                <th className="border p-2">Status</th>
-                <th className="border p-2">Actie</th>
+              <tr className="bg-gray-100 dark:bg-gray-700">
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
+                <th className="border p-2 text-gray-900 dark:text-gray-100">Actie</th>
               </tr>
             </thead>
             <tbody>
