@@ -110,6 +110,19 @@ export default function AdminDashboard() {
     selectedUser === 'all'
       ? entries
       : entries.filter((e) => e.user_id === selectedUser)
+  
+  const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('nl-NL')
+  }
+
+  const formatTime = (date: string | null) => {
+  if (!date) return ''
+  return new Date(date).toLocaleTimeString('nl-NL', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  }
+
 
   const calculateHours = (start: string | null, end: string | null) => {
     if (!start || !end) return ''
@@ -172,9 +185,9 @@ export default function AdminDashboard() {
               {filteredEntries.map((e) => (
                 <tr key={e.id}>
                   <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
-                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.date}</td>
-                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.start_time ?? ''}</td>
-                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.end_time ?? ''}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
                   <td className="border p-2 text-gray-900 dark:text-gray-100">
                     {calculateHours(e.start_time, e.end_time)}
                   </td>

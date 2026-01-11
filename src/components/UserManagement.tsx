@@ -68,7 +68,28 @@ export default function UserManagement() {
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td className="border p-2 text-gray-900 dark:text-gray-100">{u.name ?? '—'}</td>
+              <td className="border p-2">
+               <input
+                  value={u.name ?? ''}
+                  onChange={(e) =>
+                    setUsers((prev) =>
+                      prev.map((p) =>
+                        p.id === u.id ? { ...p, name: e.target.value } : p
+                     )
+                    )
+                  }
+                  onBlur={async () => {
+                    await supabase
+                      .from('profiles')
+                      .update({ name: u.name })
+                      .eq('id', u.id)
+                  }}
+                  className="w-full bg-transparent border-b border-gray-400
+                    text-gray-900 dark:text-gray-100"
+                  placeholder="Naam invoeren"
+                />
+            </td>
+
               <td className="border p-2 text-gray-900 dark:text-gray-100">{u.email ?? '—'}</td>
               <td className="border p-2 text-gray-900 dark:text-gray-100">
                 <select
