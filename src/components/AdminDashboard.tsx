@@ -171,15 +171,15 @@ export default function AdminDashboard() {
             <tbody>
               {filteredEntries.map((e) => (
                 <tr key={e.id}>
-                  <td className="border p-2">{e.name}</td>
-                  <td className="border p-2">{e.date}</td>
-                  <td className="border p-2">{e.start_time ?? ''}</td>
-                  <td className="border p-2">{e.end_time ?? ''}</td>
-                  <td className="border p-2">
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.date}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.start_time ?? ''}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{e.end_time ?? ''}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">
                     {calculateHours(e.start_time, e.end_time)}
                   </td>
-                  <td className="border p-2">{renderStatus(e)}</td>
-                  <td className="border p-2">
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
+                  <td className="border p-2 text-gray-900 dark:text-gray-100">
                     {e.edited && !e.approved && (
                       <button
                         onClick={() => approveEntry(e.id)}
