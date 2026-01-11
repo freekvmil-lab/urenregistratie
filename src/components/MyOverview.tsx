@@ -9,6 +9,8 @@ interface Entry {
   date: string
   start_time: string
   end_time: string | null
+  edited?: boolean
+  approved?: boolean
 }
 
 const canEdit = (date: string) => {
@@ -32,35 +34,52 @@ export default function MyOverview({ userId }: { userId: string }) {
   /* =======================
      FETCH ENTRIES
   ======================= */
+
+  const fetchMyEntries = async () => {
+    setLoading(true)
+
+    const { data } = await supabase
+      .from('time_entries')
+      .select(
+        'id, user_id, date, start_time, end_time, edited, approved'
+      )
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(21)
+
+    if (data) setEntries(data)
+
+    setLoading(false)
+  }
+
   useEffect(() => {
-    const fetchMyEntries = async () => {
-      setLoading(true)
-
-      const { data, error } = await supabase
-        .from('time_entries')
-        .select('id, user_id, date, start_time, end_time')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(14)
-
-      if (!error && data) {
-        setEntries(data)
-      }
-
-      setLoading(false)
-    }
-
     fetchMyEntries()
   }, [userId])
 
   /* =======================
      HELPERS
   ======================= */
+
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('nl-NL', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    })
+
+  const formatTime = (date: string | null) => {
+    if (!date) return ''
+    return new Date(date).toLocaleTimeString('nl-NL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
   const calculateHours = (start: string, end: string | null) => {
-    if (!end) return ''
+    if (!end) return 0
     return (
       (new Date(end).getTime() - new Date(start).getTime()) / 3600000
-    ).toFixed(2)
+    )
   }
 
   const openEdit = (entry: Entry) => {
@@ -81,111 +100,119 @@ export default function MyOverview({ userId }: { userId: string }) {
         start_time: startDateTime,
         end_time: endDateTime,
         edited: true,
+        approved: false,
         edited_at: new Date().toISOString(),
         edited_by: userId,
       })
       .eq('id', editing.id)
 
     setEditing(null)
-    window.location.reload()
+    fetchMyEntries()
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  const todayEntry = entries.find((e) => e.date === today)
+  /* =======================
+     GROUP BY DAY
+  ======================= */
 
-  const weekTotal = entries.reduce((total, e) => {
-    if (!e.end_time) return total
-    return total + Number(calculateHours(e.start_time, e.end_time))
-  }, 0)
+  const grouped = entries.reduce<Record<string, Entry[]>>((acc, e) => {
+    acc[e.date] = acc[e.date] || []
+    acc[e.date].push(e)
+    return acc
+  }, {})
 
   if (loading) return <p>Overzicht laden…</p>
 
   return (
     <div className="mt-6 space-y-6">
-      {/* Vandaag */}
-      <div className="p-4 rounded border">
-        <h2 className="font-semibold mb-2">Vandaag</h2>
-        {todayEntry ? (
-          <p>
-            {todayEntry.start_time.slice(11, 16)} –{' '}
-            {todayEntry.end_time
-              ? todayEntry.end_time.slice(11, 16)
-              : 'bezig'}
-          </p>
-        ) : (
-          <p>Geen uren vandaag</p>
-        )}
-      </div>
+      {/* Overzicht per dag */}
+      <div className="p-4 rounded border bg-white dark:bg-gray-800">
+        <h2 className="font-semibold mb-3">Mijn uren</h2>
 
-      {/* Totaal */}
-      <div className="p-4 rounded border">
-        <h2 className="font-semibold mb-2">Laatste dagen</h2>
-        <p className="text-lg font-bold">
-          {weekTotal.toFixed(1)} uur
-        </p>
-      </div>
-
-      {/* Historie */}
-      <div className="p-4 rounded border">
-        <h2 className="font-semibold mb-2">Mijn uren</h2>
-
-        {entries.length === 0 ? (
+        {Object.keys(grouped).length === 0 ? (
           <p>Geen entries</p>
         ) : (
-          <ul className="divide-y">
-            {entries.map((e) => (
-              <li
-                key={e.id}
-                className="py-2 flex justify-between items-center"
-              >
-                <span>{e.date}</span>
+          <div className="space-y-4">
+            {Object.entries(grouped).map(([date, dayEntries]) => {
+              const total = dayEntries.reduce(
+                (sum, e) =>
+                  sum + calculateHours(e.start_time, e.end_time),
+                0
+              )
 
-                <div className="flex items-center gap-2">
-                  <span>
-                    {e.start_time.slice(11, 16)} –{' '}
-                    {e.end_time
-                      ? e.end_time.slice(11, 16)
-                      : 'bezig'}
-                  </span>
+              return (
+                <div
+                  key={date}
+                  className="border rounded p-3 bg-gray-50 dark:bg-gray-700"
+                >
+                  <div className="flex justify-between font-medium mb-1">
+                    <span>{formatDate(date)}</span>
+                    <span>{total.toFixed(2)} uur</span>
+                  </div>
 
-                  {canEdit(e.date) && (
-                    <button
-                      onClick={() => openEdit(e)}
-                      className="text-blue-600"
+                  {dayEntries.map((e) => (
+                    <div
+                      key={e.id}
+                      className="flex justify-between items-center text-sm"
                     >
-                      ✏️
-                    </button>
-                  )}
+                      <span>
+                        {formatTime(e.start_time)} –{' '}
+                        {formatTime(e.end_time)}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {e.edited && !e.approved && (
+                          <span className="text-orange-500 text-xs">
+                            Wacht op goedkeuring
+                          </span>
+                        )}
+
+                        {e.approved && (
+                          <span className="text-green-600 text-xs">
+                            Goedgekeurd
+                          </span>
+                        )}
+
+                        {canEdit(e.date) && !e.approved && (
+                          <button
+                            onClick={() => openEdit(e)}
+                            className="text-blue-600 text-sm"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </li>
-            ))}
-          </ul>
+              )
+            })}
+          </div>
         )}
       </div>
 
       {/* MODAL */}
       {editing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded w-80 space-y-4">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded w-80 space-y-4">
             <h3 className="font-semibold">Uren aanpassen</h3>
 
-            <label className="block">
+            <label className="block text-sm">
               Start
               <input
                 type="time"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="border w-full p-1"
+                className="border w-full p-1 bg-white dark:bg-gray-700"
               />
             </label>
 
-            <label className="block">
+            <label className="block text-sm">
               Stop
               <input
                 type="time"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="border w-full p-1"
+                className="border w-full p-1 bg-white dark:bg-gray-700"
               />
             </label>
 
