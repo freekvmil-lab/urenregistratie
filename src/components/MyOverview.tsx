@@ -25,24 +25,40 @@ export default function MyOverview({ userId }: { userId: string }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
 
+  /* =======================
+     EDIT EXISTING
+  ======================= */
   const [editing, setEditing] = useState<Entry | null>(null)
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
 
-  // 📅 navigatie
+  /* =======================
+     MANUAL ENTRY
+  ======================= */
+  const [manual, setManual] = useState(false)
+  const [manualDate, setManualDate] = useState('')
+  const [manualStart, setManualStart] = useState('')
+  const [manualEnd, setManualEnd] = useState('')
+  const [client, setClient] = useState('')
+  const [location, setLocation] = useState('')
+  const [kilometers, setKilometers] = useState<number | ''>('')
+  const [parkingPaid, setParkingPaid] = useState(false)
+  const [parkingCost, setParkingCost] = useState<number | ''>('')
+
+  /* =======================
+     NAVIGATION
+  ======================= */
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
     const d = new Date()
     const day = d.getDay() || 7
-    d.setDate(d.getDate() - day + 1) // maandag
+    d.setDate(d.getDate() - day + 1)
     return d
   })
-
   const [view, setView] = useState<'week' | 'month'>('week')
 
   /* =======================
-     FETCH ENTRIES
+     FETCH
   ======================= */
-
   const fetchMyEntries = async () => {
     setLoading(true)
 
@@ -53,7 +69,7 @@ export default function MyOverview({ userId }: { userId: string }) {
       )
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .limit(60)
+      .limit(90)
 
     if (data) setEntries(data)
     setLoading(false)
@@ -66,7 +82,6 @@ export default function MyOverview({ userId }: { userId: string }) {
   /* =======================
      HELPERS
   ======================= */
-
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('nl-NL', {
       weekday: 'short',
@@ -92,7 +107,6 @@ export default function MyOverview({ userId }: { userId: string }) {
   /* =======================
      FILTERS
   ======================= */
-
   const weekStart = new Date(currentWeek)
   const weekEnd = new Date(currentWeek)
   weekEnd.setDate(weekEnd.getDate() + 6)
@@ -119,7 +133,7 @@ export default function MyOverview({ userId }: { userId: string }) {
   const monthGroups = entries.reduce<Record<string, number>>(
     (acc, e) => {
       if (!e.end_time) return acc
-      const key = e.date.slice(0, 7) // YYYY-MM
+      const key = e.date.slice(0, 7)
       acc[key] =
         (acc[key] || 0) +
         calculateHours(e.start_time, e.end_time)
@@ -129,9 +143,8 @@ export default function MyOverview({ userId }: { userId: string }) {
   )
 
   /* =======================
-     EDIT
+     ACTIONS
   ======================= */
-
   const openEdit = (entry: Entry) => {
     setEditing(entry)
     setStart(entry.start_time.slice(11, 16))
@@ -155,16 +168,35 @@ export default function MyOverview({ userId }: { userId: string }) {
     fetchMyEntries()
   }
 
+  const saveManual = async () => {
+    await supabase.from('time_entries').insert({
+      user_id: userId,
+      date: manualDate,
+      start_time: `${manualDate}T${manualStart}:00`,
+      end_time: `${manualDate}T${manualEnd}:00`,
+      manual: true,
+      edited: true,
+      approved: false,
+      client,
+      location,
+      kilometers: kilometers || null,
+      parking_paid: parkingPaid,
+      parking_cost: parkingPaid ? parkingCost : null,
+    })
+
+    setManual(false)
+    fetchMyEntries()
+  }
+
   if (loading) return <p>Overzicht laden…</p>
 
   /* =======================
      RENDER
   ======================= */
-
   return (
     <div className="mt-6 space-y-6">
-      {/* VIEW SWITCH */}
-      <div className="flex gap-2">
+      {/* TOP ACTIONS */}
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setView('week')}
           className={`px-3 py-1 rounded ${
@@ -185,12 +217,19 @@ export default function MyOverview({ userId }: { userId: string }) {
         >
           Maand
         </button>
+
+        <button
+          onClick={() => setManual(true)}
+          className="px-3 py-1 rounded border"
+        >
+          ➕ Handmatig toevoegen
+        </button>
       </div>
 
       {/* WEEK VIEW */}
       {view === 'week' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between">
             <button
               onClick={() =>
                 setCurrentWeek(
@@ -308,7 +347,7 @@ export default function MyOverview({ userId }: { userId: string }) {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* EDIT MODAL */}
       {editing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white p-4 rounded w-80 space-y-4">
@@ -340,6 +379,104 @@ export default function MyOverview({ userId }: { userId: string }) {
               </button>
               <button
                 onClick={saveEdit}
+                className="bg-black text-white px-3 py-1 rounded"
+              >
+                Opslaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANUAL MODAL */}
+      {manual && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded w-96 space-y-3">
+            <h3 className="font-semibold">
+              Uren handmatig invoeren
+            </h3>
+
+            <input
+              type="date"
+              value={manualDate}
+              onChange={(e) =>
+                setManualDate(e.target.value)
+              }
+              className="border w-full"
+            />
+
+            <div className="flex gap-2">
+              <input
+                type="time"
+                value={manualStart}
+                onChange={(e) =>
+                  setManualStart(e.target.value)
+                }
+                className="border w-full"
+              />
+              <input
+                type="time"
+                value={manualEnd}
+                onChange={(e) =>
+                  setManualEnd(e.target.value)
+                }
+                className="border w-full"
+              />
+            </div>
+
+            <input
+              placeholder="Opdrachtgever"
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              className="border w-full"
+            />
+
+            <input
+              placeholder="Locatie"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="border w-full"
+            />
+
+            <input
+              type="number"
+              placeholder="Kilometers"
+              value={kilometers}
+              onChange={(e) =>
+                setKilometers(Number(e.target.value))
+              }
+              className="border w-full"
+            />
+
+            <label className="flex gap-2">
+              <input
+                type="checkbox"
+                checked={parkingPaid}
+                onChange={(e) =>
+                  setParkingPaid(e.target.checked)
+                }
+              />
+              Parkeerkosten gemaakt
+            </label>
+
+            {parkingPaid && (
+              <input
+                type="number"
+                placeholder="Parkeerkosten"
+                value={parkingCost}
+                onChange={(e) =>
+                  setParkingCost(Number(e.target.value))
+                }
+                className="border w-full"
+              />
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setManual(false)}>
+                Annuleren
+              </button>
+              <button
+                onClick={saveManual}
                 className="bg-black text-white px-3 py-1 rounded"
               >
                 Opslaan
