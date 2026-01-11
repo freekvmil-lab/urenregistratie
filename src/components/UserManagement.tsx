@@ -60,9 +60,9 @@ export default function UserManagement() {
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border p-2">Naam</th>
-            <th className="border p-2">E-mail</th>
-            <th className="border p-2">Rol</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Naam</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">E-mail</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Rol</th>
           </tr>
         </thead>
         <tbody>
