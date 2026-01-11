@@ -389,102 +389,125 @@ export default function MyOverview({ userId }: { userId: string }) {
       )}
 
       {/* MANUAL MODAL */}
-      {manual && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded w-96 space-y-3">
-            <h3 className="font-semibold">
-              Uren handmatig invoeren
-            </h3>
+{manual && (
+  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="
+      bg-gray-900
+      text-gray-100
+      p-6
+      rounded-lg
+      w-96
+      space-y-4
+      border border-gray-700
+    ">
+      <h3 className="font-semibold text-lg">
+        Uren handmatig invoeren
+      </h3>
 
-            <input
-              type="date"
-              value={manualDate}
-              onChange={(e) =>
-                setManualDate(e.target.value)
-              }
-              className="border w-full"
-            />
+      <input
+        type="date"
+        value={manualDate}
+        onChange={(e) => setManualDate(e.target.value)}
+        className="w-full px-3 py-2 rounded
+          bg-gray-800 border border-gray-700
+          text-gray-100 placeholder-gray-400
+          focus:outline-none focus:ring-1 focus:ring-gray-500"
+      />
 
-            <div className="flex gap-2">
-              <input
-                type="time"
-                value={manualStart}
-                onChange={(e) =>
-                  setManualStart(e.target.value)
-                }
-                className="border w-full"
-              />
-              <input
-                type="time"
-                value={manualEnd}
-                onChange={(e) =>
-                  setManualEnd(e.target.value)
-                }
-                className="border w-full"
-              />
-            </div>
+      <div className="flex gap-2">
+        <input
+          type="time"
+          value={manualStart}
+          onChange={(e) => setManualStart(e.target.value)}
+          className="w-full px-3 py-2 rounded
+            bg-gray-800 border border-gray-700
+            text-gray-100
+            focus:outline-none focus:ring-1 focus:ring-gray-500"
+        />
+        <input
+          type="time"
+          value={manualEnd}
+          onChange={(e) => setManualEnd(e.target.value)}
+          className="w-full px-3 py-2 rounded
+            bg-gray-800 border border-gray-700
+            text-gray-100
+            focus:outline-none focus:ring-1 focus:ring-gray-500"
+        />
+      </div>
 
-            <input
-              placeholder="Opdrachtgever"
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              className="border w-full"
-            />
+      <input
+        placeholder="Opdrachtgever"
+        value={client}
+        onChange={(e) => setClient(e.target.value)}
+        className="w-full px-3 py-2 rounded
+          bg-gray-800 border border-gray-700
+          text-gray-100 placeholder-gray-400
+          focus:outline-none focus:ring-1 focus:ring-gray-500"
+      />
 
-            <input
-              placeholder="Locatie"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="border w-full"
-            />
+      <input
+        placeholder="Locatie"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="w-full px-3 py-2 rounded
+          bg-gray-800 border border-gray-700
+          text-gray-100 placeholder-gray-400
+          focus:outline-none focus:ring-1 focus:ring-gray-500"
+      />
 
-            <input
-              type="number"
-              placeholder="Kilometers"
-              value={kilometers}
-              onChange={(e) =>
-                setKilometers(Number(e.target.value))
-              }
-              className="border w-full"
-            />
+      <input
+        type="number"
+        placeholder="Kilometers"
+        value={kilometers}
+        onChange={(e) => setKilometers(Number(e.target.value))}
+        className="w-full px-3 py-2 rounded
+          bg-gray-800 border border-gray-700
+          text-gray-100 placeholder-gray-400
+          focus:outline-none focus:ring-1 focus:ring-gray-500"
+      />
 
-            <label className="flex gap-2">
-              <input
-                type="checkbox"
-                checked={parkingPaid}
-                onChange={(e) =>
-                  setParkingPaid(e.target.checked)
-                }
-              />
-              Parkeerkosten gemaakt
-            </label>
+      <label className="flex items-center gap-2 text-gray-200">
+        <input
+          type="checkbox"
+          checked={parkingPaid}
+          onChange={(e) => setParkingPaid(e.target.checked)}
+          className="accent-gray-400"
+        />
+        Parkeerkosten gemaakt
+      </label>
 
-            {parkingPaid && (
-              <input
-                type="number"
-                placeholder="Parkeerkosten"
-                value={parkingCost}
-                onChange={(e) =>
-                  setParkingCost(Number(e.target.value))
-                }
-                className="border w-full"
-              />
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setManual(false)}>
-                Annuleren
-              </button>
-              <button
-                onClick={saveManual}
-                className="bg-black text-white px-3 py-1 rounded"
-              >
-                Opslaan
-              </button>
-            </div>
-          </div>
-        </div>
+      {parkingPaid && (
+        <input
+          type="number"
+          placeholder="Parkeerkosten (€)"
+          value={parkingCost}
+          onChange={(e) => setParkingCost(Number(e.target.value))}
+          className="w-full px-3 py-2 rounded
+            bg-gray-800 border border-gray-700
+            text-gray-100 placeholder-gray-400
+            focus:outline-none focus:ring-1 focus:ring-gray-500"
+        />
       )}
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setManual(false)}
+          className="text-gray-400 hover:text-gray-200"
+        >
+          Annuleren
+        </button>
+        <button
+          onClick={saveManual}
+          className="bg-white text-black px-4 py-2 rounded
+            hover:bg-gray-200"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   )
 }
