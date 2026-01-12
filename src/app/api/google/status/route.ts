@@ -1,18 +1,35 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-export async function GET(req: Request) {
+export async function GET() {
+  // ✅ cookies() is async in nieuwe Next.js
+  const cookieStore = await cookies()
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const authHeader = req.headers.get('cookie') ?? ''
+  // ✅ Type-safe, async-correct
+  const accessToken = cookieStore
+    .getAll()
+    .find(
+      (c) =>
+        c.name.startsWith('sb-') &&
+        c.name.endsWith('-auth-token')
+    )?.value
+
+  if (!accessToken) {
+    return NextResponse.json({ connected: false })
+  }
+
   const {
     data: { user },
-  } = await supabase.auth.getUser(authHeader)
+    error,
+  } = await supabase.auth.getUser(accessToken)
 
-  if (!user) {
+  if (error || !user) {
     return NextResponse.json({ connected: false })
   }
 
@@ -20,7 +37,7 @@ export async function GET(req: Request) {
     .from('google_accounts')
     .select('id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   return NextResponse.json({
     connected: !!data,
