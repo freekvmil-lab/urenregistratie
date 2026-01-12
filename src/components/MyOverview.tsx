@@ -9,6 +9,13 @@ interface Entry {
   date: string
   start_time: string
   end_time: string | null
+
+  client: string | null
+  work_location: string | null
+  kilometers: number | null
+  parking_paid: boolean | null
+  parking_cost: number | null
+
   manual?: boolean
   edited?: boolean
   approved?: boolean
@@ -28,17 +35,20 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [loading, setLoading] = useState(false)
 
   const [view, setView] = useState<'week' | 'month'>('week')
+  const [editing, setEditing] = useState<Entry | null>(null)
   const [showManual, setShowManual] = useState(false)
 
-  const [editing, setEditing] = useState<Entry | null>(null)
+  /* ========= form state ========= */
+  const [date, setDate] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
-  const [manualDate, setManualDate] = useState('')
+  const [client, setClient] = useState('')
+  const [workLocation, setWorkLocation] = useState('')
+  const [kilometers, setKilometers] = useState('')
+  const [parkingPaid, setParkingPaid] = useState(false)
+  const [parkingCost, setParkingCost] = useState('')
 
-  /* =======================
-     CURRENT WEEK
-  ======================= */
-
+  /* ========= current week ========= */
   const [currentWeek, setCurrentWeek] = useState<Date>(() => {
     const d = new Date()
     const day = d.getDay() || 7
@@ -50,27 +60,23 @@ export default function MyOverview({ userId }: { userId?: string }) {
   /* =======================
      FETCH ENTRIES
   ======================= */
+  const fetchEntries = async () => {
+    if (!userId) return
+    setLoading(true)
+
+    const { data, error } = await supabase
+      .from('time_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('start_time', { ascending: false })
+
+    if (!error) setEntries(data ?? [])
+    else console.error(error)
+
+    setLoading(false)
+  }
 
   useEffect(() => {
-    if (!userId) return
-
-    const fetchEntries = async () => {
-      setLoading(true)
-
-      const { data, error } = await supabase
-        .from('time_entries')
-        .select(
-          'id, user_id, date, start_time, end_time, manual, edited, approved'
-        )
-        .eq('user_id', userId)
-        .order('start_time', { ascending: false })
-
-      if (!error) setEntries(data ?? [])
-      else console.error(error)
-
-      setLoading(false)
-    }
-
     fetchEntries()
   }, [userId])
 
@@ -80,7 +86,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
   /* =======================
      HELPERS
   ======================= */
-
   const formatTime = (d: string | null) =>
     d
       ? new Date(d).toLocaleTimeString('nl-NL', {
@@ -89,7 +94,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
         })
       : '—'
 
-  const calcHours = (s: string, e: string | null) =>
+  const hours = (s: string, e: string | null) =>
     e
       ? (
           (new Date(e).getTime() -
@@ -99,9 +104,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
       : '—'
 
   /* =======================
-     WEEK VIEW
+     WEEK FILTER
   ======================= */
-
   const weekStart = new Date(currentWeek)
   const weekEnd = new Date(currentWeek)
   weekEnd.setDate(weekEnd.getDate() + 6)
@@ -111,92 +115,73 @@ export default function MyOverview({ userId }: { userId?: string }) {
     return d >= weekStart && d <= weekEnd
   })
 
-  const groupedWeek = weekEntries.reduce<
-    Record<string, Entry[]>
-  >((acc, e) => {
-    acc[e.date] = acc[e.date] || []
-    acc[e.date].push(e)
-    return acc
-  }, {})
-
-  const weekTotal = weekEntries.reduce(
-    (s, e) =>
-      s +
-      (e.end_time
-        ? (new Date(e.end_time).getTime() -
-            new Date(e.start_time).getTime()) /
-          3600000
-        : 0),
-    0
+  const grouped = weekEntries.reduce<Record<string, Entry[]>>(
+    (acc, e) => {
+      acc[e.date] = acc[e.date] || []
+      acc[e.date].push(e)
+      return acc
+    },
+    {}
   )
-
-  /* =======================
-     MONTH VIEW
-  ======================= */
-
-  const monthGroups = entries.reduce<
-    Record<string, number>
-  >((acc, e) => {
-    if (!e.end_time) return acc
-    const key = e.date.slice(0, 7)
-    acc[key] =
-      (acc[key] || 0) +
-      (new Date(e.end_time).getTime() -
-        new Date(e.start_time).getTime()) /
-        3600000
-    return acc
-  }, {})
 
   /* =======================
      ACTIONS
   ======================= */
-
   const openEdit = (e: Entry) => {
     setEditing(e)
+    setDate(e.date)
     setStart(e.start_time.slice(11, 16))
     setEnd(e.end_time ? e.end_time.slice(11, 16) : '')
+    setClient(e.client ?? '')
+    setWorkLocation(e.work_location ?? '')
+    setKilometers(e.kilometers?.toString() ?? '')
+    setParkingPaid(!!e.parking_paid)
+    setParkingCost(e.parking_cost?.toString() ?? '')
   }
 
-  const saveEdit = async () => {
-    if (!editing) return
+  const saveEntry = async () => {
+    if (!date || !start || !end) return
 
-    await supabase
-      .from('time_entries')
-      .update({
-        start_time: `${editing.date}T${start}:00`,
-        end_time: `${editing.date}T${end}:00`,
-        edited: true,
-        approved: false,
+    const payload = {
+      date,
+      start_time: `${date}T${start}:00`,
+      end_time: `${date}T${end}:00`,
+      client: client || null,
+      work_location: workLocation || null,
+      kilometers: kilometers ? Number(kilometers) : null,
+      parking_paid: parkingPaid,
+      parking_cost:
+        parkingPaid && parkingCost
+          ? Number(parkingCost)
+          : null,
+      edited: true,
+      approved: false,
+    }
+
+    if (editing) {
+      await supabase
+        .from('time_entries')
+        .update(payload)
+        .eq('id', editing.id)
+    } else {
+      await supabase.from('time_entries').insert({
+        ...payload,
+        user_id: userId,
+        manual: true,
       })
-      .eq('id', editing.id)
+    }
 
     setEditing(null)
-    location.reload()
-  }
-
-  const saveManual = async () => {
-    if (!manualDate || !start || !end) return
-
-    await supabase.from('time_entries').insert({
-      user_id: userId,
-      date: manualDate,
-      start_time: `${manualDate}T${start}:00`,
-      end_time: `${manualDate}T${end}:00`,
-      manual: true,
-      approved: false,
-    })
-
     setShowManual(false)
-    location.reload()
+    fetchEntries()
   }
 
   /* =======================
      RENDER
   ======================= */
-
   return (
     <div className="mt-6 space-y-6">
-      {/* VIEW SWITCH */}
+      {/* ACTION BAR */}
       <div className="flex gap-2">
         <button
           onClick={() => setView('week')}
@@ -222,201 +207,162 @@ export default function MyOverview({ userId }: { userId?: string }) {
           onClick={() => setShowManual(true)}
           className="border px-3 py-1 rounded"
         >
-          + Handmatig toevoegen
+          + Uren toevoegen
         </button>
       </div>
 
-      {/* WEEK */}
-      {view === 'week' && (
-        <>
-          <div className="flex justify-between">
-            <button
-              onClick={() =>
-                setCurrentWeek(
-                  new Date(
-                    currentWeek.setDate(
-                      currentWeek.getDate() - 7
-                    )
-                  )
-                )
-              }
-            >
-              ← Vorige
-            </button>
-
-            <strong>
-              Week van{' '}
-              {weekStart.toLocaleDateString('nl-NL')}
-            </strong>
-
-            <button
-              onClick={() =>
-                setCurrentWeek(
-                  new Date(
-                    currentWeek.setDate(
-                      currentWeek.getDate() + 7
-                    )
-                  )
-                )
-              }
-            >
-              Volgende →
-            </button>
-          </div>
-
-          <p className="font-bold">
-            Totaal: {weekTotal.toFixed(2)} uur
-          </p>
-
-          {Object.entries(groupedWeek).map(
-            ([date, list]) => (
-              <div
-                key={date}
-                className="border rounded p-3 space-y-1"
-              >
-                <div className="font-medium">
-                  {new Date(date).toLocaleDateString(
-                    'nl-NL',
-                    {
-                      weekday: 'short',
-                      day: '2-digit',
-                      month: 'short',
-                    }
-                  )}
-                </div>
-
-                {list.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex justify-between text-sm"
-                  >
-                    <span>
-                      {formatTime(e.start_time)} –{' '}
-                      {formatTime(e.end_time)}
-                    </span>
-
-                    {canEdit(e.date) &&
-                      !e.approved && (
-                        <button
-                          onClick={() => openEdit(e)}
-                        >
-                          ✏️
-                        </button>
-                      )}
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </>
-      )}
-
-      {/* MONTH */}
-      {view === 'month' &&
-        Object.entries(monthGroups).map(
-          ([month, total]) => (
-            <div
-              key={month}
-              className="border rounded p-3 flex justify-between"
-            >
+      {/* WEEK VIEW */}
+      {view === 'week' &&
+        Object.entries(grouped).map(([d, list]) => (
+          <div
+            key={d}
+            className="border rounded p-3 space-y-2"
+          >
+            <div className="font-medium flex justify-between">
               <span>
-                {new Date(
-                  month + '-01'
-                ).toLocaleDateString('nl-NL', {
-                  month: 'long',
-                  year: 'numeric',
+                {new Date(d).toLocaleDateString('nl-NL', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'short',
                 })}
               </span>
-              <strong>
-                {total.toFixed(2)} uur
-              </strong>
             </div>
-          )
-        )}
 
-      {/* EDIT MODAL */}
-      {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-white text-black p-4 rounded w-80 space-y-3">
-            <h3 className="font-semibold">
-              Uren aanpassen
-            </h3>
-
-            <input
-              type="time"
-              value={start}
-              onChange={(e) =>
-                setStart(e.target.value)
-              }
-              className="border w-full"
-            />
-            <input
-              type="time"
-              value={end}
-              onChange={(e) =>
-                setEnd(e.target.value)
-              }
-              className="border w-full"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setEditing(null)}
+            {list.map((e) => (
+              <div
+                key={e.id}
+                className="text-sm border-t pt-2 space-y-1"
               >
-                Annuleren
-              </button>
-              <button
-                onClick={saveEdit}
-                className="bg-black text-white px-3 py-1 rounded"
-              >
-                Opslaan
-              </button>
-            </div>
+                <div className="flex justify-between">
+                  <span>
+                    {formatTime(e.start_time)} –{' '}
+                    {formatTime(e.end_time)} (
+                    {hours(e.start_time, e.end_time)}u)
+                  </span>
+
+                  {canEdit(e.date) &&
+                    !e.approved && (
+                      <button
+                        onClick={() => openEdit(e)}
+                        className="text-blue-600"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                </div>
+
+                {(e.client ||
+                  e.work_location ||
+                  e.kilometers ||
+                  e.parking_paid) && (
+                  <div className="text-xs text-gray-600">
+                    {e.client && (
+                      <span>👤 {e.client} </span>
+                    )}
+                    {e.work_location && (
+                      <span>📍 {e.work_location} </span>
+                    )}
+                    {e.kilometers && (
+                      <span>🚗 {e.kilometers} km </span>
+                    )}
+                    {e.parking_paid &&
+                      e.parking_cost && (
+                        <span>
+                          🅿️ €{e.parking_cost}
+                        </span>
+                      )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        ))}
 
-      {/* MANUAL MODAL */}
-      {showManual && (
+      {/* MODAL (EDIT / MANUAL) */}
+      {(editing || showManual) && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-white text-black p-4 rounded w-80 space-y-3">
+          <div className="bg-white text-black p-4 rounded w-96 space-y-2">
             <h3 className="font-semibold">
-              Uren handmatig invoeren
+              {editing
+                ? 'Uren aanpassen'
+                : 'Uren toevoegen'}
             </h3>
 
             <input
               type="date"
-              value={manualDate}
-              onChange={(e) =>
-                setManualDate(e.target.value)
-              }
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
               className="border w-full"
             />
             <input
               type="time"
               value={start}
-              onChange={(e) =>
-                setStart(e.target.value)
-              }
+              onChange={(e) => setStart(e.target.value)}
               className="border w-full"
             />
             <input
               type="time"
               value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="border w-full"
+            />
+
+            <input
+              placeholder="Opdrachtgever"
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+              className="border w-full"
+            />
+            <input
+              placeholder="Locatie"
+              value={workLocation}
               onChange={(e) =>
-                setEnd(e.target.value)
+                setWorkLocation(e.target.value)
+              }
+              className="border w-full"
+            />
+            <input
+              placeholder="Kilometers"
+              value={kilometers}
+              onChange={(e) =>
+                setKilometers(e.target.value)
               }
               className="border w-full"
             />
 
-            <div className="flex justify-end gap-2">
+            <label className="flex gap-2 items-center">
+              <input
+                type="checkbox"
+                checked={parkingPaid}
+                onChange={(e) =>
+                  setParkingPaid(e.target.checked)
+                }
+              />
+              Parkeerkosten
+            </label>
+
+            {parkingPaid && (
+              <input
+                placeholder="Bedrag"
+                value={parkingCost}
+                onChange={(e) =>
+                  setParkingCost(e.target.value)
+                }
+                className="border w-full"
+              />
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setShowManual(false)}
+                onClick={() => {
+                  setEditing(null)
+                  setShowManual(false)
+                }}
               >
                 Annuleren
               </button>
               <button
-                onClick={saveManual}
+                onClick={saveEntry}
                 className="bg-black text-white px-3 py-1 rounded"
               >
                 Opslaan
