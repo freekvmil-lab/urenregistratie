@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabase'
 import TimeTracker from '@/components/TimeTracker'
 import MyOverview from '@/components/MyOverview'
 import Link from 'next/link'
+import GoogleAgendaButton from '@/components/GoogleAgendaButton'
+
+
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null)
@@ -112,6 +115,7 @@ export default function HomePage() {
       📅 Koppel Google Agenda
       </a>
 
+      <GoogleAgendaButton />
 
       {/* ⏱ Time tracking */}
       <TimeTracker userId={user.id} />
