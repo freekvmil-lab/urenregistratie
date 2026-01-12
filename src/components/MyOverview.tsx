@@ -87,6 +87,8 @@ export default function MyOverview({ userId }: { userId: string }) {
 
   const fetchMyEntries = async () => {
     setLoading(true)
+    console.log('entries:', entries)
+    console.log('weekStart:', weekStart)
 
     const { data } = await supabase
       .from('time_entries')
