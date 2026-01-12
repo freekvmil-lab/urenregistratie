@@ -77,6 +77,7 @@ export async function GET(req: Request) {
     console.error('User fetch failed', error)
     return NextResponse.redirect(`${origin}/login`)
   }
+console.log('Saving google account for user:', user.id)
 
   /* =========================
      5️⃣ Google account opslaan
@@ -92,6 +93,7 @@ export async function GET(req: Request) {
     },
     { onConflict: 'user_id' }
   )
+console.log('Google account saved')
 
   /* =========================
      6️⃣ Klaar
