@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
-  const code = searchParams.get('code')
 
-  if (!code) {
-    return NextResponse.redirect(`${origin}/?error=no_code`)
+  const code = searchParams.get('code')
+  const userId = searchParams.get('state') // 🔑
+
+  if (!code || !userId) {
+    return NextResponse.redirect(`${origin}/?error=oauth`)
   }
 
   /* =========================
@@ -38,63 +40,33 @@ export async function GET(req: Request) {
   ========================= */
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   /* =========================
-     3️⃣ Access token uit cookie
+     3️⃣ Google account opslaan
   ========================= */
-  const cookieHeader = req.headers.get('cookie') ?? ''
+  const { error } = await supabase
+    .from('google_accounts')
+    .upsert(
+      {
+        user_id: userId,
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        expires_at: new Date(
+          Date.now() + token.expires_in * 1000
+        ).toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
 
-  // zoek sb-*-auth-token cookie
-  const match = cookieHeader.match(
-    /sb-[^=]+-auth-token=([^;]+)/
-  )
-
-  if (!match) {
-    console.error('No Supabase auth cookie found')
-    return NextResponse.redirect(`${origin}/login`)
-  }
-
-  const supabaseToken = JSON.parse(
-    decodeURIComponent(match[1])
-  )?.access_token
-
-  if (!supabaseToken) {
-    console.error('No access token in cookie')
-    return NextResponse.redirect(`${origin}/login`)
-  }
-
-  /* =========================
-     4️⃣ User ophalen
-  ========================= */
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(supabaseToken)
-
-  if (error || !user) {
-    console.error('User fetch failed', error)
-    return NextResponse.redirect(`${origin}/login`)
+  if (error) {
+    console.error('Supabase upsert error:', error)
+    return NextResponse.redirect(`${origin}/?error=db`)
   }
 
   /* =========================
-     5️⃣ Google account opslaan
-  ========================= */
-  await supabase.from('google_accounts').upsert(
-    {
-      user_id: user.id,
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: new Date(
-        Date.now() + token.expires_in * 1000
-      ).toISOString(),
-    },
-    { onConflict: 'user_id' }
-  )
-
-  /* =========================
-     6️⃣ Klaar
+     4️⃣ Klaar
   ========================= */
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
