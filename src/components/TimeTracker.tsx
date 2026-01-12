@@ -18,21 +18,28 @@ export default function TimeTracker({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true)
 
   /* =======================
-     FETCH TODAY
+     FETCH TODAY (timezone safe)
   ======================= */
 
   const fetchToday = async () => {
     if (!userId) return
 
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0]
+
+    // 🔒 lokale dag (niet UTC!)
+    const startOfDay = new Date()
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const endOfDay = new Date()
+    endOfDay.setHours(23, 59, 59, 999)
 
     const { data, error } = await supabase
       .from('time_entries')
       .select('id, user_id, start_time, end_time, date')
       .eq('user_id', userId)
-      .eq('date', today)
-      .order('id', { ascending: false })
+      .gte('start_time', startOfDay.toISOString())
+      .lte('start_time', endOfDay.toISOString())
+      .order('start_time', { ascending: false })
       .limit(1)
       .maybeSingle()
 
@@ -101,7 +108,7 @@ export default function TimeTracker({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Start / Stop knop */}
+      {/* Floating Start / Stop Button */}
       <WorkButton
         userId={userId}
         activeEntry={activeEntry}
