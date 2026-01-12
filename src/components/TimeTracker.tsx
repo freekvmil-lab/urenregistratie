@@ -36,7 +36,15 @@ export default function TimeTracker({ userId }: { userId: string }) {
       .limit(1)
       .maybeSingle()
 
-    if (error || !data) {
+    if (error) {
+      console.error('fetchToday error:', error)
+      setEntry(null)
+      setWorkedHours(null)
+      setLoading(false)
+      return
+    }
+
+    if (!data) {
       setEntry(null)
       setWorkedHours(null)
       setLoading(false)
@@ -93,7 +101,7 @@ export default function TimeTracker({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Floating Start / Stop Button */}
+      {/* Start / Stop knop */}
       <WorkButton
         userId={userId}
         activeEntry={activeEntry}
