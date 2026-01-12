@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
@@ -10,7 +9,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/?error=no_code`)
   }
 
-  // 1️⃣ Google OAuth code → token
+  // 1️⃣ Google OAuth → token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: {
@@ -32,15 +31,20 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/?error=token`)
   }
 
-  // 2️⃣ ✅ JUISTE Supabase client voor route.ts
-  const supabase = createRouteHandlerClient({ cookies })
+  // 2️⃣ Supabase SERVER client (service role)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-  // 3️⃣ Huidige user
+  // 3️⃣ User ophalen via auth cookie
+  const authHeader = req.headers.get('cookie') ?? ''
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+    error,
+  } = await supabase.auth.getUser(authHeader)
 
-  if (!user) {
+  if (error || !user) {
     return NextResponse.redirect(`${origin}/login`)
   }
 
