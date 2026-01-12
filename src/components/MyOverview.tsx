@@ -35,6 +35,7 @@ const canEdit = (date: string) => {
   return diffDays <= 3
 }
 
+// ✅ timezone-safe
 const toLocalISOString = (date: string, time: string) => {
   const [h, m] = time.split(':').map(Number)
   const d = new Date(date)
@@ -108,7 +109,7 @@ export default function MyOverview({ userId }: { userId: string }) {
   }, [userId])
 
   /* =======================
-     FORMAT
+     FORMATTERS
   ======================= */
 
   const formatDate = (d: string) =>
@@ -223,16 +224,22 @@ export default function MyOverview({ userId }: { userId: string }) {
 
   return (
     <div className="mt-6 space-y-6">
-      {/* TOP */}
+      {/* TOP ACTIONS */}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setView('week')} className={view === 'week' ? 'bg-black text-white px-3 py-1 rounded' : 'border px-3 py-1 rounded'}>Week</button>
         <button onClick={() => setView('month')} className={view === 'month' ? 'bg-black text-white px-3 py-1 rounded' : 'border px-3 py-1 rounded'}>Maand</button>
-        <button onClick={() => { setManualDate(new Date().toISOString().slice(0,10)); setManual(true) }} className="border px-3 py-1 rounded">
+        <button
+          onClick={() => {
+            setManualDate(new Date().toISOString().slice(0, 10))
+            setManual(true)
+          }}
+          className="border px-3 py-1 rounded"
+        >
           ➕ Handmatig toevoegen
         </button>
       </div>
 
-      {/* WEEK */}
+      {/* WEEK VIEW */}
       {view === 'week' && (
         <div className="space-y-4">
           <div className="flex justify-between">
@@ -247,21 +254,15 @@ export default function MyOverview({ userId }: { userId: string }) {
             <div key={date} className="border rounded p-3 space-y-2">
               <div className="flex justify-between font-medium">
                 <span>{formatDate(date)}</span>
-                <span>
-                  {list.reduce((s, e) => s + hours(e.start_time, e.end_time), 0).toFixed(2)} uur
-                </span>
+                <span>{list.reduce((s, e) => s + hours(e.start_time, e.end_time), 0).toFixed(2)} uur</span>
               </div>
 
               {list.map((e) => (
                 <div key={e.id} className="border-t pt-2 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span>
-                      {formatTime(e.start_time)} – {formatTime(e.end_time)}
-                    </span>
+                    <span>{formatTime(e.start_time)} – {formatTime(e.end_time)}</span>
                     {canEdit(e.date) && !e.approved && (
-                      <button onClick={() => openEdit(e)} className="text-blue-600">
-                        ✏️
-                      </button>
+                      <button onClick={() => openEdit(e)} className="text-blue-600">✏️</button>
                     )}
                   </div>
 
@@ -269,9 +270,7 @@ export default function MyOverview({ userId }: { userId: string }) {
                     {e.client && <span>👤 {e.client} · </span>}
                     {e.location && <span>📍 {e.location} · </span>}
                     {e.kilometers && <span>🚗 {e.kilometers} km · </span>}
-                    {e.parking_paid && (
-                      <span>🅿️ €{e.parking_cost ?? 0} · </span>
-                    )}
+                    {e.parking_paid && <span>🅿️ €{e.parking_cost ?? 0} · </span>}
                     {e.manual && <span>✍️ handmatig · </span>}
                     {e.edited && !e.manual && <span>✏️ aangepast · </span>}
                     {e.approved === false && <span>⏳ wacht op goedkeuring</span>}
@@ -283,8 +282,64 @@ export default function MyOverview({ userId }: { userId: string }) {
         </div>
       )}
 
-      {/* MODALS blijven exact zoals eerder */}
-      {/* (edit & manual modals ongewijzigd) */}
+      {/* EDIT MODAL */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-96 border border-gray-700 space-y-3">
+            <h3 className="font-semibold text-lg">Uren aanpassen</h3>
+
+            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input placeholder="Opdrachtgever" value={editClient} onChange={(e) => setEditClient(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input placeholder="Locatie" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input type="number" placeholder="Kilometers" value={editKilometers} onChange={(e) => setEditKilometers(Number(e.target.value))} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={editParkingPaid} onChange={(e) => setEditParkingPaid(e.target.checked)} className="accent-gray-400" />
+              Parkeerkosten gemaakt
+            </label>
+
+            {editParkingPaid && (
+              <input type="number" placeholder="Parkeerkosten (€)" value={editParkingCost} onChange={(e) => setEditParkingCost(Number(e.target.value))} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setEditing(null)} className="text-gray-400">Annuleren</button>
+              <button onClick={saveEdit} className="bg-white text-black px-4 py-2 rounded">Opslaan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANUAL MODAL */}
+      {manual && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-96 border border-gray-700 space-y-3">
+            <h3 className="font-semibold text-lg">Uren handmatig invoeren</h3>
+
+            <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input placeholder="Opdrachtgever" value={client} onChange={(e) => setClient(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            <input type="number" placeholder="Kilometers" value={kilometers} onChange={(e) => setKilometers(Number(e.target.value))} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={parkingPaid} onChange={(e) => setParkingPaid(e.target.checked)} className="accent-gray-400" />
+              Parkeerkosten gemaakt
+            </label>
+
+            {parkingPaid && (
+              <input type="number" placeholder="Parkeerkosten (€)" value={parkingCost} onChange={(e) => setParkingCost(Number(e.target.value))} className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700" />
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setManual(false)} className="text-gray-400">Annuleren</button>
+              <button onClick={saveManual} className="bg-white text-black px-4 py-2 rounded">Opslaan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
