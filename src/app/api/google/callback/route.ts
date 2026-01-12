@@ -9,7 +9,9 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/?error=no_code`)
   }
 
-  // 1️⃣ Google OAuth → token
+  /* =========================
+     1️⃣ Google code → token
+  ========================= */
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: {
@@ -31,24 +33,54 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/?error=token`)
   }
 
-  // 2️⃣ Supabase SERVER client (service role)
+  /* =========================
+     2️⃣ Supabase server client
+  ========================= */
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
   )
 
-  // 3️⃣ User ophalen via auth cookie
-  const authHeader = req.headers.get('cookie') ?? ''
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(authHeader)
+  /* =========================
+     3️⃣ Access token uit cookie
+  ========================= */
+  const cookieHeader = req.headers.get('cookie') ?? ''
 
-  if (error || !user) {
+  // zoek sb-*-auth-token cookie
+  const match = cookieHeader.match(
+    /sb-[^=]+-auth-token=([^;]+)/
+  )
+
+  if (!match) {
+    console.error('No Supabase auth cookie found')
     return NextResponse.redirect(`${origin}/login`)
   }
 
-  // 4️⃣ Google account opslaan
+  const supabaseToken = JSON.parse(
+    decodeURIComponent(match[1])
+  )?.access_token
+
+  if (!supabaseToken) {
+    console.error('No access token in cookie')
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  /* =========================
+     4️⃣ User ophalen
+  ========================= */
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(supabaseToken)
+
+  if (error || !user) {
+    console.error('User fetch failed', error)
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  /* =========================
+     5️⃣ Google account opslaan
+  ========================= */
   await supabase.from('google_accounts').upsert(
     {
       user_id: user.id,
@@ -61,6 +93,8 @@ export async function GET(req: Request) {
     { onConflict: 'user_id' }
   )
 
-  // 5️⃣ Klaar
+  /* =========================
+     6️⃣ Klaar
+  ========================= */
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
