@@ -66,41 +66,7 @@ export async function GET(req: Request) {
   }
 
   /* =========================
-<<<<<<< HEAD
      4️⃣ Klaar
-=======
-     4️⃣ User ophalen
-  ========================= */
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(supabaseToken)
-
-  if (error || !user) {
-    console.error('User fetch failed', error)
-    return NextResponse.redirect(`${origin}/login`)
-  }
-console.log('Saving google account for user:', user.id)
-
-  /* =========================
-     5️⃣ Google account opslaan
-  ========================= */
-  await supabase.from('google_accounts').upsert(
-    {
-      user_id: user.id,
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: new Date(
-        Date.now() + token.expires_in * 1000
-      ).toISOString(),
-    },
-    { onConflict: 'user_id' }
-  )
-console.log('Google account saved')
-
-  /* =========================
-     6️⃣ Klaar
->>>>>>> 982f81c3fd9d6048d8367ab1c28121e5203c85f2
   ========================= */
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
