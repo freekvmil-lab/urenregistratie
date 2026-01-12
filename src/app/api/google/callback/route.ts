@@ -1,18 +1,21 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
 
   if (!code) {
-    return NextResponse.json({ error: 'No code' }, { status: 400 })
+    return NextResponse.redirect(`${origin}/?error=no_code`)
   }
 
-  // 1️⃣ exchange code → token
+  // 1️⃣ Google OAuth code → token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
     body: new URLSearchParams({
       code,
       client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -25,33 +28,35 @@ export async function GET(req: Request) {
   const token = await tokenRes.json()
 
   if (!token.access_token) {
-    console.error(token)
-    return NextResponse.json({ error: 'Token exchange failed' }, { status: 500 })
+    console.error('Google token error:', token)
+    return NextResponse.redirect(`${origin}/?error=token`)
   }
 
-  // 2️⃣ Supabase server client
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // ⚠️ server only
-  )
+  // 2️⃣ ✅ JUISTE Supabase client voor route.ts
+  const supabase = createRouteHandlerClient({ cookies })
 
-  // 3️⃣ huidige user ophalen via cookie
-  const authHeader = req.headers.get('cookie') ?? ''
+  // 3️⃣ Huidige user
   const {
     data: { user },
-  } = await supabase.auth.getUser(authHeader)
+  } = await supabase.auth.getUser()
 
   if (!user) {
     return NextResponse.redirect(`${origin}/login`)
   }
 
-  // 4️⃣ token opslaan
-  await supabase.from('google_accounts').upsert({
-    user_id: user.id,
-    access_token: token.access_token,
-    refresh_token: token.refresh_token,
-    expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
-  })
+  // 4️⃣ Google account opslaan
+  await supabase.from('google_accounts').upsert(
+    {
+      user_id: user.id,
+      access_token: token.access_token,
+      refresh_token: token.refresh_token,
+      expires_at: new Date(
+        Date.now() + token.expires_in * 1000
+      ).toISOString(),
+    },
+    { onConflict: 'user_id' }
+  )
 
+  // 5️⃣ Klaar
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
