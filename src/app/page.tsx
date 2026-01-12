@@ -105,6 +105,14 @@ export default function HomePage() {
         </button>
       </div>
 
+      <a
+        href="/api/google/auth"
+        className="border px-3 py-2 rounded inline-block"
+      >
+      📅 Koppel Google Agenda
+      </a>
+
+
       {/* ⏱ Time tracking */}
       <TimeTracker userId={user.id} />
 
