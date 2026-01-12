@@ -18,55 +18,39 @@ export default function TimeTracker({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true)
 
   /* =======================
-     FETCH TODAY (timezone safe)
+     FETCH ACTIVE ENTRY
+     (NO maybeSingle!)
   ======================= */
 
-  const fetchToday = async () => {
-    console.log('userId from app:', userId)
+  const fetchActive = async () => {
     if (!userId) return
-
     setLoading(true)
-
-    // 🔒 lokale dag (niet UTC!)
-    const startOfDay = new Date()
-    startOfDay.setHours(0, 0, 0, 0)
-
-    const endOfDay = new Date()
-    endOfDay.setHours(23, 59, 59, 999)
 
     const { data, error } = await supabase
       .from('time_entries')
       .select('id, user_id, start_time, end_time, date')
       .eq('user_id', userId)
-      .gte('start_time', startOfDay.toISOString())
-      .lte('start_time', endOfDay.toISOString())
+      .is('end_time', null)
       .order('start_time', { ascending: false })
       .limit(1)
-      .maybeSingle()
 
     if (error) {
-      console.error('fetchToday error:', error)
+      console.error('fetchActive error:', error)
       setEntry(null)
       setWorkedHours(null)
       setLoading(false)
       return
     }
 
-    if (!data) {
-      setEntry(null)
-      setWorkedHours(null)
-      setLoading(false)
-      return
-    }
+    const active = data && data.length > 0 ? data[0] : null
+    setEntry(active)
 
-    setEntry(data)
-
-    if (data.end_time) {
-      const start = new Date(data.start_time).getTime()
-      const end = new Date(data.end_time).getTime()
-      const hours =
+    if (active?.end_time) {
+      const start = new Date(active.start_time).getTime()
+      const end = new Date(active.end_time).getTime()
+      setWorkedHours(
         Math.round(((end - start) / 3600000) * 100) / 100
-      setWorkedHours(hours)
+      )
     } else {
       setWorkedHours(null)
     }
@@ -75,7 +59,7 @@ export default function TimeTracker({ userId }: { userId: string }) {
   }
 
   useEffect(() => {
-    fetchToday()
+    fetchActive()
   }, [userId])
 
   /* =======================
@@ -98,22 +82,17 @@ export default function TimeTracker({ userId }: { userId: string }) {
 
         {loading ? (
           <p>Status laden…</p>
-        ) : entry ? (
-          entry.end_time ? (
-            <p>Gewerkte uren: {workedHours} uur</p>
-          ) : (
-            <p>Je bent momenteel aan het werk</p>
-          )
+        ) : activeEntry ? (
+          <p>Je bent momenteel aan het werk</p>
         ) : (
-          <p>Je bent vandaag nog niet begonnen</p>
+          <p>Je bent momenteel niet aan het werk</p>
         )}
       </div>
 
-      {/* Floating Start / Stop Button */}
       <WorkButton
         userId={userId}
         activeEntry={activeEntry}
-        onUpdate={fetchToday}
+        onUpdate={fetchActive}
       />
     </div>
   )

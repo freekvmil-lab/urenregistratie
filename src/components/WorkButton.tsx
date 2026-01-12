@@ -27,53 +27,42 @@ export default function WorkButton({
     if (!userId) return
     setLoading(true)
 
-    // 🔒 Check of er al een actieve entry bestaat
-    const { data: existing, error: checkError } =
-      await supabase
-        .from('time_entries')
-        .select('id')
-        .eq('user_id', userId)
-        .is('end_time', null)
-        .maybeSingle()
+    // 🔒 check op bestaande actieve entry
+    const { data: existing, error } = await supabase
+      .from('time_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .is('end_time', null)
+      .order('start_time', { ascending: false })
+      .limit(1)
 
-    if (checkError) {
-      console.error('Active check error:', checkError)
+    if (error) {
+      console.error('Active check error:', error)
       setLoading(false)
       return
     }
 
-    if (existing) {
-      alert(
-        'Je bent al gestart. Stop eerst je huidige werkdag.'
-      )
+    if (existing && existing.length > 0) {
+      alert('Je bent al gestart. Stop eerst je huidige werk.')
       setLoading(false)
       return
     }
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from('time_entries')
       .insert({
         user_id: userId,
         date: today,
         start_time: new Date().toISOString(),
-
-        // expliciet type entry
         manual: false,
         edited: false,
         approved: true,
-
-        // optioneel maar veilig
-        client: null,
-        location: null,
-        kilometers: null,
-        parking_paid: false,
-        parking_cost: null,
       })
 
-    if (error) {
-      console.error('startWork error:', error)
+    if (insertError) {
+      console.error('startWork error:', insertError)
     }
 
     setLoading(false)
@@ -129,9 +118,7 @@ export default function WorkButton({
           transition
         "
       >
-        <span className="text-xs font-semibold">
-          STOP
-        </span>
+        <span className="text-xs font-semibold">STOP</span>
         <span className="text-[10px] opacity-80">
           sinds {time}
         </span>
