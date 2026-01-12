@@ -287,6 +287,96 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       {/* EDIT & MANUAL MODALS — ongewijzigd mooi dark UI */}
       {/* (bewust niet verder aangepast) */}
+      {/* MANUAL MODAL */}
+{manual && (
+  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-96 border border-gray-700 space-y-3">
+      <h3 className="font-semibold text-lg">
+        Uren handmatig invoeren
+      </h3>
+
+      <input
+        type="date"
+        value={manualDate}
+        onChange={(e) => setManualDate(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        type="time"
+        value={manualStart}
+        onChange={(e) => setManualStart(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        type="time"
+        value={manualEnd}
+        onChange={(e) => setManualEnd(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        placeholder="Opdrachtgever"
+        value={client}
+        onChange={(e) => setClient(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        placeholder="Locatie"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        type="number"
+        placeholder="Kilometers"
+        value={kilometers}
+        onChange={(e) => setKilometers(Number(e.target.value))}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={parkingPaid}
+          onChange={(e) => setParkingPaid(e.target.checked)}
+          className="accent-gray-400"
+        />
+        Parkeerkosten gemaakt
+      </label>
+
+      {parkingPaid && (
+        <input
+          type="number"
+          placeholder="Parkeerkosten (€)"
+          value={parkingCost}
+          onChange={(e) =>
+            setParkingCost(Number(e.target.value))
+          }
+          className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+        />
+      )}
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setManual(false)}
+          className="text-gray-400"
+        >
+          Annuleren
+        </button>
+        <button
+          onClick={saveManual}
+          className="bg-white text-black px-4 py-2 rounded"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   )
 }
