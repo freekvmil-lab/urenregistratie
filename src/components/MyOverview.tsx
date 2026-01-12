@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import AgendaSuggestions from '@/components/AgendaSuggestions'
 
 /* =======================
    TYPES
@@ -228,6 +229,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   return (
     <div className="mt-6 space-y-6">
       {/* TOP ACTIONS */}
+      
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setView('week')} className={view === 'week' ? 'bg-black text-white px-3 py-1 rounded' : 'border px-3 py-1 rounded'}>Week</button>
         <button onClick={() => setView('month')} className={view === 'month' ? 'bg-black text-white px-3 py-1 rounded' : 'border px-3 py-1 rounded'}>Maand</button>
@@ -241,6 +243,21 @@ export default function MyOverview({ userId }: { userId?: string }) {
           ➕ Handmatig toevoegen
         </button>
       </div>
+      <AgendaSuggestions
+  onUse={(e) => {
+    setManual(true)
+
+    const startDate = new Date(e.start)
+    const endDate = new Date(e.end)
+
+    setManualDate(startDate.toISOString().slice(0, 10))
+    setManualStart(startDate.toISOString().slice(11, 16))
+    setManualEnd(endDate.toISOString().slice(11, 16))
+
+    setClient(e.title)
+    setLocation(e.location ?? '')
+  }}
+/>
 
       {/* WEEK VIEW */}
       {view === 'week' && (
@@ -286,6 +303,88 @@ export default function MyOverview({ userId }: { userId?: string }) {
       )}
 
       {/* EDIT & MANUAL MODALS — ongewijzigd mooi dark UI */}
+      {/* EDIT MODAL */}
+{editing && (
+  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+    <div className="bg-gray-900 text-gray-100 p-6 rounded-lg w-96 border border-gray-700 space-y-3">
+      <h3 className="font-semibold text-lg">Uren aanpassen</h3>
+
+      <input
+        type="time"
+        value={start}
+        onChange={(e) => setStart(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        type="time"
+        value={end}
+        onChange={(e) => setEnd(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        placeholder="Opdrachtgever"
+        value={editClient}
+        onChange={(e) => setEditClient(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        placeholder="Locatie"
+        value={editLocation}
+        onChange={(e) => setEditLocation(e.target.value)}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <input
+        type="number"
+        placeholder="Kilometers"
+        value={editKilometers}
+        onChange={(e) => setEditKilometers(Number(e.target.value))}
+        className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+      />
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={editParkingPaid}
+          onChange={(e) => setEditParkingPaid(e.target.checked)}
+          className="accent-gray-400"
+        />
+        Parkeerkosten gemaakt
+      </label>
+
+      {editParkingPaid && (
+        <input
+          type="number"
+          placeholder="Parkeerkosten (€)"
+          value={editParkingCost}
+          onChange={(e) =>
+            setEditParkingCost(Number(e.target.value))
+          }
+          className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700"
+        />
+      )}
+
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setEditing(null)}
+          className="text-gray-400"
+        >
+          Annuleren
+        </button>
+        <button
+          onClick={saveEdit}
+          className="bg-white text-black px-4 py-2 rounded"
+        >
+          Opslaan
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* (bewust niet verder aangepast) */}
       {/* MANUAL MODAL */}
 {manual && (
