@@ -22,6 +22,7 @@ export default function TimeTracker({ userId }: { userId: string }) {
   ======================= */
 
   const fetchToday = async () => {
+    console.log('userId from app:', userId)
     if (!userId) return
 
     setLoading(true)
