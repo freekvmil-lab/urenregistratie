@@ -192,7 +192,7 @@ export default function AdminDashboard() {
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
-            className="border rounded px-2 py-1"
+            className="border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="all">Alle werknemers</option>
             {users.map((u) => (
