@@ -1,69 +1,39 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET() {
-  const cookieStore = await cookies()
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId')
 
+  // 1️⃣ userId is verplicht
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'userId_missing' },
+      { status: 400 }
+    )
+  }
+
+  // 2️⃣ Supabase admin client (GEEN auth nodig)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const authCookie = cookieStore
-    .getAll()
-    .find(
-      (c) =>
-        c.name.startsWith('sb-') &&
-        c.name.endsWith('-auth-token')
-    )
-
-  if (!authCookie) {
-    return NextResponse.json(
-      { error: 'not_authenticated' },
-      { status: 401 }
-    )
-  }
-
-  const session = JSON.parse(
-    decodeURIComponent(authCookie.value)
-  )
-
-  const accessToken = session?.access_token
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: 'no_access_token' },
-      { status: 401 }
-    )
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser(accessToken)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: 'user_not_found' },
-      { status: 401 }
-    )
-  }
-
-  // 🔑 Google account ophalen
-  const { data: google } = await supabase
+  // 3️⃣ Google account ophalen
+  const { data: googleAccount, error } = await supabase
     .from('google_accounts')
-    .select('access_token')
-    .eq('user_id', user.id)
+    .select('access_token, expires_at')
+    .eq('user_id', userId)
     .maybeSingle()
 
-  if (!google?.access_token) {
+  if (error || !googleAccount?.access_token) {
     return NextResponse.json(
       { error: 'google_not_connected' },
       { status: 400 }
     )
   }
 
-  // 📅 gisteren → morgen
+  // 4️⃣ Tijdsperiode: gisteren → morgen
   const start = new Date()
   start.setDate(start.getDate() - 1)
   start.setHours(0, 0, 0, 0)
@@ -72,6 +42,7 @@ export async function GET() {
   end.setDate(end.getDate() + 1)
   end.setHours(23, 59, 59, 999)
 
+  // 5️⃣ Google Calendar API call
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
       new URLSearchParams({
@@ -82,26 +53,31 @@ export async function GET() {
       }),
     {
       headers: {
-        Authorization: `Bearer ${google.access_token}`,
+        Authorization: `Bearer ${googleAccount.access_token}`,
       },
     }
   )
 
+  if (!res.ok) {
+    const err = await res.text()
+    return NextResponse.json(
+      { error: 'google_api_error', details: err },
+      { status: 500 }
+    )
+  }
+
   const json = await res.json()
 
+  // 6️⃣ Normaliseren
   const events =
-    json.items
-      ?.filter(
-        (e: any) =>
-          e.start?.dateTime &&
-          e.end?.dateTime
-      )
-      .map((e: any) => ({
-        title: e.summary ?? '',
-        start: e.start.dateTime,
-        end: e.end.dateTime,
-        location: e.location ?? null,
-      })) ?? []
+    json.items?.map((e: any) => ({
+      title: e.summary ?? '',
+      start: e.start.dateTime ?? e.start.date,
+      end: e.end.dateTime ?? e.end.date,
+      location: e.location ?? null,
+      source: 'google',
+    })) ?? []
 
+  // 7️⃣ Klaar
   return NextResponse.json({ events })
 }
