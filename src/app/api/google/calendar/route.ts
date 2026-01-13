@@ -170,14 +170,20 @@ export async function GET(req: Request) {
           if (retry.ok) {
             const events =
               dataRetry.items
-                ?.filter((e: any) => e.start?.dateTime && e.end?.dateTime)
-                .map((e: any) => ({
-                  title: e.summary ?? '',
-                  start: e.start.dateTime,
-                  end: e.end.dateTime,
-                  location: e.location ?? null,
-                  source: 'google',
-                })) ?? []
+                ?.map((e: any) => {
+                  const isAllDay = !!e.start?.date
+                  const startVal = e.start?.dateTime ?? e.start?.date
+                  const endVal = e.end?.dateTime ?? e.end?.date
+                  return {
+                    title: e.summary ?? '',
+                    start: startVal,
+                    end: endVal,
+                    location: e.location ?? null,
+                    source: 'google',
+                    isAllDay,
+                  }
+                })
+                .filter((ev: any) => ev.start && ev.end) ?? []
 
             return NextResponse.json({ events })
           }
@@ -196,17 +202,20 @@ export async function GET(req: Request) {
 
     const events =
       data.items
-        ?.filter(
-          (e: any) =>
-            e.start?.dateTime && e.end?.dateTime
-        )
-        .map((e: any) => ({
-          title: e.summary ?? '',
-          start: e.start.dateTime,
-          end: e.end.dateTime,
-          location: e.location ?? null,
-          source: 'google',
-        })) ?? []
+        ?.map((e: any) => {
+          const isAllDay = !!e.start?.date
+          const startVal = e.start?.dateTime ?? e.start?.date
+          const endVal = e.end?.dateTime ?? e.end?.date
+          return {
+            title: e.summary ?? '',
+            start: startVal,
+            end: endVal,
+            location: e.location ?? null,
+            source: 'google',
+            isAllDay,
+          }
+        })
+        .filter((ev: any) => ev.start && ev.end) ?? []
 
     /* =========================
        5️⃣ Klaar

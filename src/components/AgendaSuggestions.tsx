@@ -79,7 +79,7 @@ export default function AgendaSuggestions({
         📅 Agenda suggesties
       </h3>
 
-      {events.map((e, i) => (
+      {events.map((e: any, i) => (
         <button
           key={i}
           onClick={() => onUse?.(e)}
@@ -90,15 +90,21 @@ export default function AgendaSuggestions({
             {e.title}
           </div>
           <div className="text-xs text-gray-500">
-            {new Date(e.start).toLocaleTimeString('nl-NL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}{' '}
-            –{' '}
-            {new Date(e.end).toLocaleTimeString('nl-NL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {e.isAllDay ? (
+              <span>Hele dag</span>
+            ) : (
+              <>
+                {new Date(e.start).toLocaleTimeString('nl-NL', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}{' '}
+                –{' '}
+                {new Date(e.end).toLocaleTimeString('nl-NL', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </>
+            )}
             {e.location && ` · ${e.location}`}
           </div>
         </button>
