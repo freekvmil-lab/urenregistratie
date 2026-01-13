@@ -1,118 +1,137 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const userId = searchParams.get('userId')
-
-  if (!userId) {
-    return NextResponse.json({ error: 'userId_missing' }, { status: 400 })
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  // 1️⃣ Google account ophalen
-  const { data: googleAccount } = await supabase
-    .from('google_accounts')
-    .select('access_token, refresh_token, expires_at')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (!googleAccount?.refresh_token) {
-    return NextResponse.json(
-      { error: 'google_not_connected' },
-      { status: 400 }
-    )
-  }
-
-  let accessToken = googleAccount.access_token
-  const isExpired =
-    !googleAccount.expires_at ||
-    new Date(googleAccount.expires_at).getTime() < Date.now()
-
-  // 2️⃣ 🔁 Token refresh indien verlopen
-  if (isExpired) {
-    const refreshRes = await fetch(
-      'https://oauth2.googleapis.com/token',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: process.env.GOOGLE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          refresh_token: googleAccount.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      }
+export async function GET() {
+  try {
+    /* =========================
+       1️⃣ Supabase server client
+    ========================= */
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const refreshed = await refreshRes.json()
+    /* =========================
+       2️⃣ Auth cookie → user
+    ========================= */
+    const cookieStore = await cookies()
+    const authCookie = cookieStore
+      .getAll()
+      .find(
+        (c) =>
+          c.name.startsWith('sb-') &&
+          c.name.endsWith('-auth-token')
+      )
 
-    if (!refreshed.access_token) {
+    if (!authCookie) {
       return NextResponse.json(
-        { error: 'google_refresh_failed', details: refreshed },
+        { error: 'not_authenticated' },
         { status: 401 }
       )
     }
 
-    accessToken = refreshed.access_token
+    const session = JSON.parse(
+      decodeURIComponent(authCookie.value)
+    )
 
-    // 3️⃣ Nieuw token opslaan
-    await supabase.from('google_accounts').update({
-      access_token: refreshed.access_token,
-      expires_at: new Date(
-        Date.now() + refreshed.expires_in * 1000
-      ).toISOString(),
-    }).eq('user_id', userId)
-  }
+    const accessToken = session?.access_token
 
-  // 4️⃣ Agenda ophalen (gisteren → morgen)
-  const start = new Date()
-  start.setDate(start.getDate() - 1)
-  start.setHours(0, 0, 0, 0)
-
-  const end = new Date()
-  end.setDate(end.getDate() + 1)
-  end.setHours(23, 59, 59, 999)
-
-  const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-      new URLSearchParams({
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        singleEvents: 'true',
-        orderBy: 'startTime',
-      }),
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'not_authenticated' },
+        { status: 401 }
+      )
     }
-  )
 
-  if (!res.ok) {
-    const err = await res.text()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(accessToken)
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'not_authenticated' },
+        { status: 401 }
+      )
+    }
+
+    /* =========================
+       3️⃣ Google token ophalen
+    ========================= */
+    const { data: googleAccount } = await supabase
+      .from('google_accounts')
+      .select('access_token')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!googleAccount?.access_token) {
+      return NextResponse.json(
+        { error: 'google_not_connected' },
+        { status: 400 }
+      )
+    }
+
+    /* =========================
+       4️⃣ Agenda ophalen
+       (gisteren, vandaag, morgen)
+    ========================= */
+    const start = new Date()
+    start.setDate(start.getDate() - 1)
+    start.setHours(0, 0, 0, 0)
+
+    const end = new Date()
+    end.setDate(end.getDate() + 1)
+    end.setHours(23, 59, 59, 999)
+
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?' +
+        new URLSearchParams({
+          timeMin: start.toISOString(),
+          timeMax: end.toISOString(),
+          singleEvents: 'true',
+          orderBy: 'startTime',
+        }),
+      {
+        headers: {
+          Authorization: `Bearer ${googleAccount.access_token}`,
+        },
+      }
+    )
+
+    const raw = await res.text()
+    const data = JSON.parse(raw)
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: 'google_api_error', details: data },
+        { status: 500 }
+      )
+    }
+
+    const events =
+      data.items
+        ?.filter(
+          (e: any) =>
+            e.start?.dateTime && e.end?.dateTime
+        )
+        .map((e: any) => ({
+          title: e.summary ?? '',
+          start: e.start.dateTime,
+          end: e.end.dateTime,
+          location: e.location ?? null,
+          source: 'google',
+        })) ?? []
+
+    /* =========================
+       5️⃣ Klaar
+    ========================= */
+    return NextResponse.json({ events })
+  } catch (e: any) {
+    console.error('Calendar API crash', e)
     return NextResponse.json(
-      { error: 'google_api_error', details: err },
+      { error: 'server_error' },
       { status: 500 }
     )
   }
-
-  const json = await res.json()
-
-  const events =
-    json.items?.map((e: any) => ({
-      title: e.summary ?? '',
-      start: e.start.dateTime ?? e.start.date,
-      end: e.end.dateTime ?? e.end.date,
-      location: e.location ?? null,
-      source: 'google',
-    })) ?? []
-
-  return NextResponse.json({ events })
 }
