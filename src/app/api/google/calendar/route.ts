@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     /* =========================
        1️⃣ Supabase server client
@@ -13,29 +13,31 @@ export async function GET() {
     )
 
     /* =========================
-       2️⃣ Auth cookie → user
+       2️⃣ Auth token (header OR cookie) → user
+       Support Authorization: Bearer <token> from client
     ========================= */
-    const cookieStore = await cookies()
-    const authCookie = cookieStore
-      .getAll()
-      .find(
-        (c) =>
-          c.name.startsWith('sb-') &&
-          c.name.endsWith('-auth-token')
-      )
+    const authHeader = req.headers.get('authorization')
+    let accessToken: string | undefined
 
-    if (!authCookie) {
-      return NextResponse.json(
-        { error: 'not_authenticated' },
-        { status: 401 }
-      )
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.split(' ')[1]
+    } else {
+      const cookieStore = await cookies()
+      const authCookie = cookieStore
+        .getAll()
+        .find(
+          (c) =>
+            c.name.startsWith('sb-') &&
+            c.name.endsWith('-auth-token')
+        )
+
+      if (authCookie) {
+        const session = JSON.parse(
+          decodeURIComponent(authCookie.value)
+        )
+        accessToken = session?.access_token
+      }
     }
-
-    const session = JSON.parse(
-      decodeURIComponent(authCookie.value)
-    )
-
-    const accessToken = session?.access_token
 
     if (!accessToken) {
       return NextResponse.json(

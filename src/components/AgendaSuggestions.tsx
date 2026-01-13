@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface AgendaEvent {
   title: string
@@ -19,24 +20,33 @@ export default function AgendaSuggestions({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/google/calendar', {
-      credentials: 'include', // 🔑 DIT WAS HET PROBLEEM
-      cache: 'no-store',
-    })
-      .then(async (r) => {
+    const load = async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        const accessToken = data?.session?.access_token
+
+        const headers: Record<string, string> = {}
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+
+        const r = await fetch('/api/google/calendar', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers,
+        })
+
         const json = await r.json()
         if (!r.ok) throw new Error(json.error ?? 'Agenda fout')
-        return json
-      })
-      .then((data) => {
-        setEvents(data.events ?? [])
+        setEvents(json.events ?? [])
         setError(null)
-      })
-      .catch((e) => {
+      } catch (e: any) {
         console.error('Agenda error:', e)
         setError(e.message)
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
   }, [])
 
   if (loading) {
