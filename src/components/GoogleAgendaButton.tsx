@@ -3,54 +3,22 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function GoogleAgendaButton() {
+export default function GoogleAgendaButton({ userId }: { userId: string }) {
   const [connected, setConnected] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const loadStatus = async () => {
-    try {
-      const r = await fetch('/api/google/status', {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      const d = await r.json()
-      setConnected(d.connected)
-    } catch {
-      setConnected(false)
-    }
-  }
 
   useEffect(() => {
-    // ✅ 1️⃣ check status normaal
-    loadStatus()
+    const load = async () => {
+      const { data } = await supabase
+        .from('google_accounts')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
 
-    // ✅ 2️⃣ check of we net terugkomen van OAuth
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('google') === 'connected') {
-      // force refresh status
-      loadStatus()
-
-      // optioneel: URL opschonen
-      window.history.replaceState({}, '', '/')
-    }
-  }, [])
-
-  const connectGoogle = async () => {
-    setLoading(true)
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      alert('Je bent niet ingelogd')
-      setLoading(false)
-      return
+      setConnected(!!data)
     }
 
-    window.location.href =
-      `/api/google/auth?access_token=${session.access_token}`
-  }
+    load()
+  }, [userId])
 
   if (connected === null) return null
 
@@ -63,12 +31,11 @@ export default function GoogleAgendaButton() {
   }
 
   return (
-    <button
-      onClick={connectGoogle}
-      disabled={loading}
+    <a
+      href={`/api/google/auth?state=${userId}`}
       className="border px-3 py-2 rounded inline-block"
     >
-      {loading ? 'Bezig…' : '📅 Koppel Google Agenda'}
-    </button>
+      📅 Koppel Google Agenda
+    </a>
   )
 }

@@ -108,7 +108,7 @@ export default function HomePage() {
         </button>
       </div>
 
-      <GoogleAgendaButton />
+      <GoogleAgendaButton userId={user.id} />
 
       {/* ⏱ Time tracking */}
       <TimeTracker userId={user.id} />
