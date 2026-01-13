@@ -79,36 +79,45 @@ export default function AgendaSuggestions({
         📅 Agenda suggesties
       </h3>
 
-      {events.map((e: any, i) => (
-        <button
-          key={i}
-          onClick={() => onUse?.(e)}
-          className="w-full text-left border rounded p-2 hover:bg-gray-50"
-          type="button"
-        >
-          <div className="font-medium text-sm">
-            {e.title}
-          </div>
-          <div className="text-xs text-gray-500">
-            {e.isAllDay ? (
-              <span>Hele dag</span>
-            ) : (
-              <>
-                {new Date(e.start).toLocaleTimeString('nl-NL', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}{' '}
-                –{' '}
-                {new Date(e.end).toLocaleTimeString('nl-NL', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </>
-            )}
-            {e.location && ` · ${e.location}`}
-          </div>
-        </button>
-      ))}
+      {events.map((e: any, i) => {
+        const dateLabel = new Date(e.start).toLocaleDateString('nl-NL', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })
+
+        return (
+          <button
+            key={i}
+            onClick={() => onUse?.(e)}
+            className="w-full text-left border rounded p-2 hover:bg-gray-50"
+            type="button"
+          >
+            <div className="font-medium text-sm flex items-center justify-between">
+              <div className="truncate">{e.title}</div>
+              <div className="text-xs text-gray-500 ml-2">{dateLabel}</div>
+            </div>
+            <div className="text-xs text-gray-500">
+              {e.isAllDay ? (
+                <span>Hele dag</span>
+              ) : (
+                <>
+                  {new Date(e.start).toLocaleTimeString('nl-NL', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}{' '}
+                  –{' '}
+                  {new Date(e.end).toLocaleTimeString('nl-NL', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </>
+              )}
+              {e.location && ` · ${e.location}`}
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
