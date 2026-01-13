@@ -59,8 +59,8 @@ export default function WorkButton({
         date: today,
         start_time: new Date().toISOString(),
         manual: false,
-        edited: false,
-        approved: true,
+        edited: true,
+        approved: false,
       })
 
     if (insertError) {
@@ -98,66 +98,23 @@ export default function WorkButton({
      RENDER
   ======================= */
 
+  if (!inline) {
+    return null
+  }
+
   if (activeEntry) {
     const start = new Date(activeEntry.start_time)
     const time = start.toLocaleTimeString('nl-NL', {
       hour: '2-digit',
       minute: '2-digit',
     })
-    if (inline) {
-      return (
-        <button onClick={stopWork} disabled={loading} className="px-3 py-1 bg-red-600 text-white rounded">
-          STOP (sinds {time})
-        </button>
-      )
-    }
-
     return (
-      <button
-        onClick={stopWork}
-        disabled={loading}
-        className="
-          fixed bottom-6 right-6
-          w-20 h-20
-          rounded-full
-          bg-red-600 text-white
-          flex flex-col items-center justify-center
-          shadow-lg
-          active:scale-95
-          transition
-        "
-      >
-        <span className="text-xs font-semibold">STOP</span>
-        <span className="text-[10px] opacity-80">
-          sinds {time}
-        </span>
+      <button onClick={stopWork} disabled={loading} className="px-3 py-1 bg-red-600 text-white rounded">
+        STOP (sinds {time})
       </button>
     )
   }
-  if (inline) {
-    return (
-      <button onClick={startWork} disabled={loading} className="px-3 py-1 bg-green-600 text-white rounded">START</button>
-    )
-  }
-
   return (
-    <button
-      onClick={startWork}
-      disabled={loading}
-      className="
-        fixed bottom-6 right-6
-        w-20 h-20
-        rounded-full
-        bg-green-600 text-white
-        flex items-center justify-center
-        shadow-lg
-        active:scale-95
-        transition
-        animate-pulse
-        font-semibold
-      "
-    >
-      START
-    </button>
+    <button onClick={startWork} disabled={loading} className="px-3 py-1 bg-green-600 text-white rounded">START</button>
   )
 }

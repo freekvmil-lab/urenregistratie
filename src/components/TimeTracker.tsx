@@ -93,6 +93,7 @@ export default function TimeTracker({ userId }: { userId: string }) {
         userId={userId}
         activeEntry={activeEntry}
         onUpdate={fetchActive}
+        inline
       />
     </div>
   )
