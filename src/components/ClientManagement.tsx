@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface Client {
-  id: number
+  id: string
   name: string
   note?: string | null
 }
@@ -14,7 +14,7 @@ export default function ClientManagement() {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingNote, setEditingNote] = useState('')
 
