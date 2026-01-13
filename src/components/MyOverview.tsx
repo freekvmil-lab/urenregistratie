@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AgendaSuggestions from '@/components/AgendaSuggestions'
-import WorkButton from '@/components/WorkButton'
 
 /* =======================
    TYPES
@@ -299,17 +298,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
               <span>{dayTotal.toFixed(2)} uur</span>
             </div>
 
-            {/* show inline start/stop button in today's box */}
-            {date === new Date().toISOString().slice(0, 10) && (
-              <div className="mt-2">
-                <WorkButton
-                  userId={userId}
-                  activeEntry={entries.find((x) => !x.end_time) ? { id: entries.find((x) => !x.end_time)!.id, start_time: entries.find((x) => !x.end_time)!.start_time } : null}
-                  onUpdate={fetchEntries}
-                  inline
-                />
-              </div>
-            )}
+            {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
 
             {list.map((e) => (
               <div
@@ -421,7 +410,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     <span className="text-purple-400 ml-2">Start/Stop knop</span>
                   )}
                   {e.edited && !e.manual && (
-                    <span className="text-gray-400 ml-2">✏️ Aangepast</span>
+                    <span className="text-gray-400 ml-2">✏️ Data invullen</span>
                   )}
                 </div>
               </div>
