@@ -102,6 +102,21 @@ export default function AdminDashboard() {
     fetchEntries()
   }
 
+  const deleteEntry = async (entryId: number) => {
+    const ok = confirm('Weet je zeker dat je deze uren wilt verwijderen?')
+    if (!ok) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    await supabase
+      .from('time_entries')
+      .delete()
+      .eq('id', entryId)
+
+    fetchEntries()
+  }
+
   /* =======================
      HELPERS
   ======================= */
@@ -193,14 +208,23 @@ export default function AdminDashboard() {
                   </td>
                   <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
                   <td className="border p-2 text-gray-900 dark:text-gray-100">
-                    {e.edited && !e.approved && (
+                    <div className="flex gap-2">
+                      {e.edited && !e.approved && (
+                        <button
+                          onClick={() => approveEntry(e.id)}
+                          className="bg-green-600 text-white px-2 py-1 rounded"
+                        >
+                          Goedkeuren
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => approveEntry(e.id)}
-                        className="bg-green-600 text-white px-2 py-1 rounded"
+                        onClick={() => deleteEntry(e.id)}
+                        className="bg-red-600 text-white px-2 py-1 rounded"
                       >
-                        Goedkeuren
+                        Verwijderen
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
