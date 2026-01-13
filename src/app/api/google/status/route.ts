@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function GET() {
-  // ✅ cookies() is async in nieuwe Next.js
   const cookieStore = await cookies()
 
   const supabase = createClient(
@@ -11,19 +10,35 @@ export async function GET() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // ✅ Type-safe, async-correct
-  const accessToken = cookieStore
+  // 🔍 Supabase auth cookie zoeken
+  const authCookie = cookieStore
     .getAll()
     .find(
-      (c) =>
+      (c: { name: string; value: string }) =>
         c.name.startsWith('sb-') &&
         c.name.endsWith('-auth-token')
-    )?.value
+    )
+
+  if (!authCookie) {
+    return NextResponse.json({ connected: false })
+  }
+
+  // 🔑 cookie JSON parsen → access_token eruit halen
+  let accessToken: string | undefined
+  try {
+    const session = JSON.parse(
+      decodeURIComponent(authCookie.value)
+    )
+    accessToken = session?.access_token
+  } catch {
+    return NextResponse.json({ connected: false })
+  }
 
   if (!accessToken) {
     return NextResponse.json({ connected: false })
   }
 
+  // 👤 User ophalen
   const {
     data: { user },
     error,
@@ -33,6 +48,7 @@ export async function GET() {
     return NextResponse.json({ connected: false })
   }
 
+  // 📅 Check of Google account bestaat
   const { data } = await supabase
     .from('google_accounts')
     .select('id')
