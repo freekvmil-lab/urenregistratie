@@ -25,11 +25,18 @@ export default function ExportPage() {
   const [loading, setLoading] = useState(false)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [clients, setClients] = useState<string[]>([])
+  const [onlyClient, setOnlyClient] = useState<string | ''>('')
+  const [groupByClient, setGroupByClient] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from('profiles').select('id, name').order('name')
       setUsers(data ?? [])
+      // load client list (distinct clients from time_entries)
+      const { data: clientRows } = await supabase.from('time_entries').select('client').not('client', 'is', null)
+      const uniq = Array.from(new Set((clientRows ?? []).map((r: any) => r.client).filter(Boolean)))
+      setClients(uniq)
     }
     load()
   }, [])
@@ -52,7 +59,9 @@ export default function ExportPage() {
       if (to) q.lte('date', to)
 
       const { data } = await q
-      setEntries((data ?? []) as Entry[])
+      let rows = (data ?? []) as Entry[]
+      if (onlyClient) rows = rows.filter((r) => r.client === onlyClient)
+      setEntries(rows)
     } finally {
       setLoading(false)
     }
@@ -64,6 +73,25 @@ export default function ExportPage() {
 
   const toggle = (id: string) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+  }
+
+  const setThisWeek = () => {
+    const now = new Date()
+    const day = now.getDay() || 7
+    const start = new Date(now)
+    start.setDate(now.getDate() - day + 1)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    setFrom(start.toISOString().slice(0, 10))
+    setTo(end.toISOString().slice(0, 10))
+  }
+
+  const setThisMonth = () => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), 1)
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    setFrom(start.toISOString().slice(0, 10))
+    setTo(end.toISOString().slice(0, 10))
   }
 
   const formatTime = (t: string | null) =>
@@ -105,16 +133,34 @@ export default function ExportPage() {
       ]
     })
 
-    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const buildAndDownload = (rowsForFile: any[], suffix = '') => {
+      const csv = [header, ...rowsForFile].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const now = new Date().toISOString().slice(0, 10)
+      a.download = `export-entries-${suffix || 'all'}-${now}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const now = new Date().toISOString().slice(0, 10)
-    a.download = `export-entries-${now}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (groupByClient) {
+      // group by client field
+      const groups = new Map<string, any[]>()
+      rows.forEach((r) => {
+        const clientName = (r[5] || 'Onbekend') as string
+        if (!groups.has(clientName)) groups.set(clientName, [])
+        groups.get(clientName)!.push(r)
+      })
+
+      for (const [clientName, groupRows] of groups) {
+        buildAndDownload(groupRows, clientName.replace(/[^a-z0-9]/gi, '_'))
+      }
+      return
+    }
+
+    buildAndDownload(rows)
   }
 
   return (
@@ -132,12 +178,32 @@ export default function ExportPage() {
           ))}
         </div>
 
-        <div className="mt-4 flex gap-2 items-center">
-          <label className="text-sm">Vanaf</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded px-2 py-1" />
-          <label className="text-sm">Tot</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded px-2 py-1" />
-          <button onClick={loadEntries} className="ml-auto px-3 py-1 bg-gray-800 text-white rounded">Laad</button>
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex gap-2 items-center">
+            <label className="text-sm">Vanaf</label>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded px-2 py-1" />
+            <label className="text-sm">Tot</label>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded px-2 py-1" />
+            <button onClick={loadEntries} className="ml-auto px-3 py-1 bg-gray-800 text-white rounded">Laad</button>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            <button onClick={setThisWeek} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze week</button>
+            <button onClick={setThisMonth} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze maand</button>
+            <label className="ml-4 flex items-center gap-2">
+              <input type="checkbox" checked={groupByClient} onChange={(e) => setGroupByClient(e.target.checked)} />
+              Per opdrachtgever exporteren
+            </label>
+            <label className="ml-4 flex items-center gap-2">
+              <span className="text-sm">Opdrachtgever (filter)</span>
+              <select value={onlyClient} onChange={(e) => setOnlyClient(e.target.value)} className="border rounded px-2 py-1">
+                <option value="">Alle</option>
+                {clients.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
       </div>
 
