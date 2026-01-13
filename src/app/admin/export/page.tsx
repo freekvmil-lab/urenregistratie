@@ -97,8 +97,13 @@ export default function ExportPage() {
   const formatTime = (t: string | null) =>
     t ? new Date(t).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : ''
 
+  const approvedEntries = entries.filter((e) => e.approved)
+
   const exportCSV = () => {
-    if (!entries.length) return
+    if (!approvedEntries.length) {
+      alert('Geen goedgekeurde entries om te exporteren')
+      return
+    }
     const header = [
       'Naam',
       'Datum',
@@ -116,7 +121,7 @@ export default function ExportPage() {
     // build profile map
     const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
 
-    const rows = entries.map((e) => {
+    const rows = approvedEntries.map((e) => {
       const hours = e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''
       return [
         profileMap.get(e.user_id) ?? e.user_id,
@@ -168,14 +173,14 @@ export default function ExportPage() {
   const exportClient = async (clientName: string) => {
     setLoading(true)
     try {
-      let q = supabase.from('time_entries').select('*').eq('client', clientName).order('date', { ascending: true })
+      let q = supabase.from('time_entries').select('*').eq('client', clientName).eq('approved', true).order('date', { ascending: true })
       if (from) q = q.gte('date', from)
       if (to) q = q.lte('date', to)
 
       const { data } = await q
       const rowsData = (data ?? []) as Entry[]
       if (!rowsData.length) {
-        alert('Geen entries voor opdrachtgever ' + clientName)
+        alert('Geen goedgekeurde entries voor opdrachtgever ' + clientName)
         return
       }
 
@@ -307,6 +312,11 @@ export default function ExportPage() {
 
       <div className="mb-4">
         <h2 className="font-semibold mb-2">Preview ({entries.length})</h2>
+        {entries.length - approvedEntries.length > 0 && (
+          <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 rounded">
+            Let op: {entries.length - approvedEntries.length} niet-goedgekeurde entry(s) zichtbaar in de preview. Export zal alleen goedgekeurde uren bevatten.
+          </div>
+        )}
         {loading ? (
           <p>Laden…</p>
         ) : entries.length === 0 ? (
@@ -322,17 +332,19 @@ export default function ExportPage() {
                     <th className="border p-2 text-gray-900 dark:text-gray-100">Eind</th>
                     <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
                     <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
                   </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
-                  <tr key={e.id}>
+                  <tr key={e.id} className={!e.approved ? 'bg-yellow-50 dark:bg-yellow-900' : ''}>
                     <td className="border p-2">{users.find((u) => u.id === e.user_id)?.name ?? e.user_id}</td>
                     <td className="border p-2">{e.date}</td>
                     <td className="border p-2">{formatTime(e.start_time)}</td>
                     <td className="border p-2">{formatTime(e.end_time)}</td>
                     <td className="border p-2">{e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''}</td>
                     <td className="border p-2">{e.client ?? ''}</td>
+                    <td className="border p-2">{e.approved ? <span className="text-green-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -342,7 +354,7 @@ export default function ExportPage() {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={exportCSV} className="px-3 py-2 bg-green-600 text-white rounded" disabled={!entries.length}>Export CSV</button>
+        <button onClick={exportCSV} className="px-3 py-2 bg-green-600 text-white rounded" disabled={!approvedEntries.length}>Export CSV</button>
       </div>
     </main>
   )
