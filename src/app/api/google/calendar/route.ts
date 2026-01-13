@@ -53,6 +53,12 @@ end.setHours(23, 59, 59, 999)
       },
     }
   )
+  const raw = await res.text()
+
+console.log('Google raw response:', raw)
+
+const data = JSON.parse(raw)
+
 
   const json = await res.json()
 
@@ -71,4 +77,9 @@ end.setHours(23, 59, 59, 999)
       })) ?? []
 
   return NextResponse.json({ events })
+  return Response.json({
+  debug: true,
+  raw: data,
+})
+
 }
