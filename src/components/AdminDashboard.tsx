@@ -106,15 +106,33 @@ export default function AdminDashboard() {
     const ok = confirm('Weet je zeker dat je deze uren wilt verwijderen?')
     if (!ok) return
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Niet ingelogd')
+        return
+      }
 
-    await supabase
-      .from('time_entries')
-      .delete()
-      .eq('id', entryId)
+      const { error } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('id', entryId)
 
-    fetchEntries()
+      if (error) {
+        console.error('deleteEntry error:', error)
+        alert('Verwijderen mislukt: ' + error.message)
+      } else {
+        // refresh
+        fetchEntries()
+        alert('Entry verwijderd')
+      }
+    } catch (e) {
+      console.error('deleteEntry crash', e)
+      alert('Er ging iets mis bij verwijderen')
+    } finally {
+      setLoading(false)
+    }
   }
 
   /* =======================
