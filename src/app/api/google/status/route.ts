@@ -1,18 +1,20 @@
-export const runtime = 'nodejs'
-
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
-  const cookieStore = await cookies()
-
-  const supabaseAdmin = createClient(
+  /* =========================
+     1️⃣ Supabase admin client
+  ========================= */
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1️⃣ Zoek Supabase auth cookie
+  /* =========================
+     2️⃣ Auth cookie ophalen
+  ========================= */
+  const cookieStore = await cookies()
   const authCookie = cookieStore
     .getAll()
     .find(
@@ -22,42 +24,50 @@ export async function GET() {
     )
 
   if (!authCookie) {
-    return NextResponse.json({ connected: false })
+    return NextResponse.json(
+      { connected: false, error: 'not_authenticated' },
+      { status: 401 }
+    )
   }
 
-  // 2️⃣ Parse cookie JSON
-  let session: any
-  try {
-    session = JSON.parse(decodeURIComponent(authCookie.value))
-  } catch {
-    return NextResponse.json({ connected: false })
-  }
-console.log('STATUS session user id:', session?.user?.id)
+  const session = JSON.parse(
+    decodeURIComponent(authCookie.value)
+  )
 
   const accessToken = session?.access_token
+
   if (!accessToken) {
-    return NextResponse.json({ connected: false })
+    return NextResponse.json(
+      { connected: false, error: 'no_token' },
+      { status: 401 }
+    )
   }
 
-  // 3️⃣ Haal user op
+  /* =========================
+     3️⃣ User ophalen
+  ========================= */
   const {
     data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(accessToken)
+    error: userError,
+  } = await supabase.auth.getUser(accessToken)
 
-  if (error || !user) {
-    return NextResponse.json({ connected: false })
+  if (userError || !user) {
+    return NextResponse.json(
+      { connected: false, error: 'user_not_found' },
+      { status: 401 }
+    )
   }
-console.log('STATUS auth user id:', user?.id)
 
-  // 4️⃣ Check google_accounts
-  const { data } = await supabaseAdmin
+  /* =========================
+     4️⃣ Google account check
+  ========================= */
+  const { data } = await supabase
     .from('google_accounts')
     .select('id')
     .eq('user_id', user.id)
     .maybeSingle()
 
   return NextResponse.json({
-    connected: !!data,
+    connected: Boolean(data),
   })
 }
