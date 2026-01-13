@@ -117,18 +117,6 @@ export default function HomePage() {
       {/* 🗓️ Maand overzicht */}
       <MonthOverview userId={user.id} />
 
-      <div>
-        <button
-          onClick={() => {
-            const ev = new CustomEvent('openManual', { detail: { date: new Date().toISOString().slice(0, 10) } })
-            window.dispatchEvent(ev)
-          }}
-          className="border px-3 py-1 rounded"
-        >
-          ➕ Handmatig toevoegen
-        </button>
-      </div>
-
       {/* 📊 Overzicht */}
       <MyOverview userId={user.id} />
     </div>
