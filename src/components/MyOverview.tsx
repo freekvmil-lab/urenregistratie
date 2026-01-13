@@ -83,6 +83,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [manualEnd, setManualEnd] = useState('')
   const [client, setClient] = useState('')
   const [location, setLocation] = useState('')
+  const [editKilometers, setEditKilometers] = useState<number | ''>('')
+  const [editParkingPaid, setEditParkingPaid] = useState(false)
+  const [editParkingCost, setEditParkingCost] = useState<number | ''>('')
+  const [manualKilometers, setManualKilometers] = useState<number | ''>('')
+  const [manualParkingPaid, setManualParkingPaid] = useState(false)
+  const [manualParkingCost, setManualParkingCost] = useState<number | ''>('')
 
   /* =======================
      FETCH
@@ -112,6 +118,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
     setEnd(e.end_time ? e.end_time.slice(11, 16) : '')
     setClient(e.client ?? '')
     setLocation(e.location ?? '')
+    setEditKilometers(e.kilometers ?? '')
+    setEditParkingPaid(Boolean(e.parking_paid))
+    setEditParkingCost(e.parking_cost ?? '')
   }
 
   const saveEdit = async () => {
@@ -121,6 +130,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
       end_time: toLocalISOString(editing.date, end),
       client: client || null,
       location: location || null,
+      kilometers: editKilometers || null,
+      parking_paid: editParkingPaid,
+      parking_cost: editParkingPaid ? editParkingCost : null,
       edited: true,
       approved: false,
     }).eq('id', editing.id)
@@ -141,6 +153,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
       approved: false,
       client: client || null,
       location: location || null,
+      kilometers: manualKilometers || null,
+      parking_paid: manualParkingPaid,
+      parking_cost: manualParkingPaid ? manualParkingCost : null,
     })
 
     setManual(false)
@@ -224,6 +239,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
           setManualEnd(en.toISOString().slice(11, 16))
           setClient(e.title)
           setLocation(e.location ?? '')
+          setManualKilometers('')
+          setManualParkingPaid(false)
+          setManualParkingCost('')
         }}
       />
 
@@ -266,13 +284,23 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
                   {editing && (
                     <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-                      <div className="bg-white p-6 rounded space-y-3 w-full max-w-sm">
+                      <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
                         <h3 className="font-semibold">Bewerk uren</h3>
                         <div className="space-y-2">
-                          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded border p-2" />
-                          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded border p-2" />
-                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded border p-2" />
-                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded border p-2" />
+                          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <div className="flex gap-2">
+                            <input type="number" placeholder="Kilometers" value={editKilometers === '' ? '' : editKilometers} onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                            <label className="flex items-center gap-2">
+                              <input type="checkbox" checked={editParkingPaid} onChange={(e) => setEditParkingPaid(e.target.checked)} />
+                              Parkeren
+                            </label>
+                          </div>
+                          {editParkingPaid && (
+                            <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          )}
                         </div>
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
@@ -292,6 +320,16 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded border p-2" />
                           <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded border p-2" />
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded border p-2" />
+                          <div className="flex gap-2">
+                            <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded border p-2" />
+                            <label className="flex items-center gap-2">
+                              <input type="checkbox" checked={manualParkingPaid} onChange={(e) => setManualParkingPaid(e.target.checked)} />
+                              Parkeren
+                            </label>
+                          </div>
+                          {manualParkingPaid && (
+                            <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded border p-2" />
+                          )}
                         </div>
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setManual(false)} className="px-3 py-1">Annuleren</button>
