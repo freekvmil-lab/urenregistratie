@@ -312,23 +312,23 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
                   {manual && (
                     <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-                      <div className="bg-white p-6 rounded space-y-3 w-full max-w-sm">
+                      <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
                         <h3 className="font-semibold">Nieuwe entry van agenda</h3>
                         <div className="space-y-2">
-                          <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded border p-2" />
-                          <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded border p-2" />
-                          <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded border p-2" />
-                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded border p-2" />
-                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded border p-2" />
+                          <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
-                            <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded border p-2" />
-                            <label className="flex items-center gap-2">
+                            <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                            <label className="flex items-center gap-2 text-white">
                               <input type="checkbox" checked={manualParkingPaid} onChange={(e) => setManualParkingPaid(e.target.checked)} />
                               Parkeren
                             </label>
                           </div>
                           {manualParkingPaid && (
-                            <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded border p-2" />
+                            <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           )}
                         </div>
                         <div className="flex gap-2 justify-end">
