@@ -237,7 +237,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
           setManualDate(s.toISOString().slice(0, 10))
           setManualStart(s.toISOString().slice(11, 16))
           setManualEnd(en.toISOString().slice(11, 16))
-          setClient(e.title)
+          // If title looks like "OPDRACHTGEVER - rest", set opdrachtgever automatically
+          const [maybeClient] = e.title.split(' - ', 1)
+          setClient(maybeClient)
+          // only use explicit event location; do not touch/derive from rest of title
           setLocation(e.location ?? '')
           setManualKilometers('')
           setManualParkingPaid(false)
