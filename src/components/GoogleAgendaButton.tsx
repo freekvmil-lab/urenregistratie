@@ -10,6 +10,7 @@ export default function GoogleAgendaButton() {
   const loadStatus = async () => {
     try {
       const r = await fetch('/api/google/status', {
+        credentials: 'include',
         cache: 'no-store',
       })
       const d = await r.json()
