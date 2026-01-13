@@ -127,95 +127,71 @@ export async function GET(req: Request) {
     end.setDate(end.getDate() + 1)
     end.setHours(23, 59, 59, 999)
 
-    const res = await fetch(
-      'https://www.googleapis.com/calendar/v3/calendars/primary/events?' +
-        new URLSearchParams({
+    // Fetch events with pagination (in case there are many) and handle auth refresh
+    const fetchEventsFromGoogle = async (accessToken: string) => {
+      let pageToken: string | undefined = undefined
+      const items: any[] = []
+
+      do {
+        const params: Record<string, string> = {
           timeMin: start.toISOString(),
           timeMax: end.toISOString(),
           singleEvents: 'true',
           orderBy: 'startTime',
-        }),
-      {
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-        },
-      }
-    )
-
-    const raw = await res.text()
-    const data = JSON.parse(raw)
-
-    // If request failed due to auth, try refresh once and retry
-    if (!res.ok) {
-      if (res.status === 401 && googleAccount.refresh_token) {
-        const refreshed = await refreshAccessToken(googleAccount.refresh_token)
-        if (refreshed) {
-          const retry = await fetch(
-            'https://www.googleapis.com/calendar/v3/calendars/primary/events?' +
-              new URLSearchParams({
-                timeMin: start.toISOString(),
-                timeMax: end.toISOString(),
-                singleEvents: 'true',
-                orderBy: 'startTime',
-              }),
-            {
-              headers: {
-                Authorization: `Bearer ${refreshed}`,
-              },
-            }
-          )
-
-          const rawRetry = await retry.text()
-          const dataRetry = JSON.parse(rawRetry)
-          if (retry.ok) {
-            const events =
-              dataRetry.items
-                ?.map((e: any) => {
-                  const isAllDay = !!e.start?.date
-                  const startVal = e.start?.dateTime ?? e.start?.date
-                  const endVal = e.end?.dateTime ?? e.end?.date
-                  return {
-                    title: e.summary ?? '',
-                    start: startVal,
-                    end: endVal,
-                    location: e.location ?? null,
-                    source: 'google',
-                    isAllDay,
-                  }
-                })
-                .filter((ev: any) => ev.start && ev.end) ?? []
-
-            return NextResponse.json({ events })
-          }
-          return NextResponse.json(
-            { error: 'google_api_error', details: dataRetry },
-            { status: 500 }
-          )
+          maxResults: '2500',
         }
-      }
+        if (pageToken) params.pageToken = pageToken
 
-      return NextResponse.json(
-        { error: 'google_api_error', details: data },
-        { status: 500 }
-      )
+        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?' + new URLSearchParams(params), {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+
+        const text = await res.text()
+        let parsed: any
+        try {
+          parsed = JSON.parse(text)
+        } catch (err) {
+          parsed = { error: 'invalid_json', raw: text }
+        }
+
+        if (!res.ok) return { ok: false, status: res.status, body: parsed }
+
+        items.push(...(parsed.items ?? []))
+        pageToken = parsed.nextPageToken
+      } while (pageToken)
+
+      return { ok: true, items }
     }
 
-    const events =
-      data.items
-        ?.map((e: any) => {
-          const isAllDay = !!e.start?.date
-          const startVal = e.start?.dateTime ?? e.start?.date
-          const endVal = e.end?.dateTime ?? e.end?.date
-          return {
-            title: e.summary ?? '',
-            start: startVal,
-            end: endVal,
-            location: e.location ?? null,
-            source: 'google',
-            isAllDay,
-          }
-        })
-        .filter((ev: any) => ev.start && ev.end) ?? []
+    let googleFetch = await fetchEventsFromGoogle(googleAccessToken)
+    if (!googleFetch.ok && googleFetch.status === 401 && googleAccount.refresh_token) {
+      const refreshed = await refreshAccessToken(googleAccount.refresh_token)
+      if (refreshed) {
+        googleFetch = await fetchEventsFromGoogle(refreshed)
+      }
+    }
+
+    if (!googleFetch.ok) {
+      return NextResponse.json({ error: 'google_api_error', details: googleFetch.body }, { status: 500 })
+    }
+
+    const events = (googleFetch.items ?? [])
+      .filter((e: any) => e.status !== 'cancelled')
+      .map((e: any) => {
+        const isAllDay = !!e.start?.date
+        const startVal = e.start?.dateTime ?? e.start?.date
+        const endVal = e.end?.dateTime ?? e.end?.date
+        return {
+          title: e.summary ?? '',
+          start: startVal,
+          end: endVal,
+          location: e.location ?? null,
+          source: 'google',
+          isAllDay,
+          attendees: e.attendees ?? null,
+        }
+      })
+      .filter((ev: any) => ev.start && ev.end)
 
     /* =========================
        5️⃣ Klaar
