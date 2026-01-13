@@ -28,7 +28,7 @@ export default function GoogleAgendaButton() {
 
   return (
     <a
-      href="/api/google/auth"
+      href="/api/google/auth?userId=${user.id}"
       onClick={() => {
         // kleine delay zodat callback kan opslaan
         setTimeout(loadStatus, 3000)
