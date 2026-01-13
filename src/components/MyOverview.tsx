@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AgendaSuggestions from '@/components/AgendaSuggestions'
 
+/* =======================
+   TYPES
+======================= */
+
 interface Entry {
   id: number
   user_id: string
@@ -20,12 +24,15 @@ interface Entry {
   parking_cost?: number | null
 }
 
+/* =======================
+   HELPERS
+======================= */
+
 const canEdit = (date: string) => {
-  const entryDate = new Date(date)
-  const today = new Date()
-  const diffDays =
-    (today.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
-  return diffDays <= 3
+  const diff =
+    (Date.now() - new Date(date).getTime()) /
+    (1000 * 60 * 60 * 24)
+  return diff <= 3
 }
 
 const toLocalISOString = (date: string, time: string) => {
@@ -35,30 +42,33 @@ const toLocalISOString = (date: string, time: string) => {
   return d.toISOString()
 }
 
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('nl-NL', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  })
+
+const formatTime = (d: string | null) =>
+  d
+    ? new Date(d).toLocaleTimeString('nl-NL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—'
+
+const hours = (s: string, e: string | null) =>
+  e ? (new Date(e).getTime() - new Date(s).getTime()) / 3600000 : 0
+
+/* =======================
+   COMPONENT
+======================= */
+
 export default function MyOverview({ userId }: { userId?: string }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [editing, setEditing] = useState<Entry | null>(null)
-  const [start, setStart] = useState('')
-  const [end, setEnd] = useState('')
-  const [editClient, setEditClient] = useState('')
-  const [editLocation, setEditLocation] = useState('')
-  const [editKilometers, setEditKilometers] = useState<number | ''>('')
-  const [editParkingPaid, setEditParkingPaid] = useState(false)
-  const [editParkingCost, setEditParkingCost] = useState<number | ''>('')
-
-  const [manual, setManual] = useState(false)
-  const [manualDate, setManualDate] = useState('')
-  const [manualStart, setManualStart] = useState('')
-  const [manualEnd, setManualEnd] = useState('')
-  const [client, setClient] = useState('')
-  const [location, setLocation] = useState('')
-  const [kilometers, setKilometers] = useState<number | ''>('')
-  const [parkingPaid, setParkingPaid] = useState(false)
-  const [parkingCost, setParkingCost] = useState<number | ''>('')
-
-  const [view, setView] = useState<'week' | 'month'>('week')
+  /* ===== VIEW ===== */
   const [currentWeek, setCurrentWeek] = useState(() => {
     const d = new Date()
     const day = d.getDay() || 7
@@ -67,7 +77,24 @@ export default function MyOverview({ userId }: { userId?: string }) {
     return d
   })
 
-  const fetchMyEntries = async () => {
+  /* ===== EDIT ===== */
+  const [editing, setEditing] = useState<Entry | null>(null)
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+
+  /* ===== MANUAL ===== */
+  const [manual, setManual] = useState(false)
+  const [manualDate, setManualDate] = useState('')
+  const [manualStart, setManualStart] = useState('')
+  const [manualEnd, setManualEnd] = useState('')
+  const [client, setClient] = useState('')
+  const [location, setLocation] = useState('')
+
+  /* =======================
+     FETCH
+  ======================= */
+
+  const fetchEntries = async () => {
     if (!userId) return
     setLoading(true)
 
@@ -76,15 +103,18 @@ export default function MyOverview({ userId }: { userId?: string }) {
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .limit(90)
 
     if (data) setEntries(data)
     setLoading(false)
   }
 
   useEffect(() => {
-    fetchMyEntries()
+    fetchEntries()
   }, [userId])
+
+  /* =======================
+     FILTERS
+  ======================= */
 
   const weekStart = new Date(currentWeek)
   const weekEnd = new Date(currentWeek)
@@ -95,7 +125,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
     return d >= weekStart && d <= weekEnd
   })
 
-  const groupedWeek = weekEntries.reduce<Record<string, Entry[]>>(
+  const grouped = weekEntries.reduce<Record<string, Entry[]>>(
     (acc, e) => {
       acc[e.date] = acc[e.date] || []
       acc[e.date].push(e)
@@ -104,18 +134,19 @@ export default function MyOverview({ userId }: { userId?: string }) {
     {}
   )
 
-  const hours = (s: string, e: string | null) =>
-    e ? (new Date(e).getTime() - new Date(s).getTime()) / 3600000 : 0
+  const weekTotal = weekEntries.reduce(
+    (s, e) => s + hours(e.start_time, e.end_time),
+    0
+  )
+
+  /* =======================
+     ACTIONS
+  ======================= */
 
   const openEdit = (e: Entry) => {
     setEditing(e)
     setStart(e.start_time.slice(11, 16))
     setEnd(e.end_time ? e.end_time.slice(11, 16) : '')
-    setEditClient(e.client ?? '')
-    setEditLocation(e.location ?? '')
-    setEditKilometers(e.kilometers ?? '')
-    setEditParkingPaid(Boolean(e.parking_paid))
-    setEditParkingCost(e.parking_cost ?? '')
   }
 
   const saveEdit = async () => {
@@ -124,17 +155,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
     await supabase.from('time_entries').update({
       start_time: toLocalISOString(editing.date, start),
       end_time: toLocalISOString(editing.date, end),
-      client: editClient || null,
-      location: editLocation || null,
-      kilometers: editKilometers || null,
-      parking_paid: editParkingPaid,
-      parking_cost: editParkingPaid ? editParkingCost : null,
       edited: true,
       approved: false,
     }).eq('id', editing.id)
 
     setEditing(null)
-    fetchMyEntries()
+    fetchEntries()
   }
 
   const saveManual = async () => {
@@ -148,82 +174,166 @@ export default function MyOverview({ userId }: { userId?: string }) {
       approved: false,
       client,
       location,
-      kilometers,
-      parking_paid: parkingPaid,
-      parking_cost: parkingPaid ? parkingCost : null,
     })
 
     setManual(false)
-    fetchMyEntries()
+    fetchEntries()
   }
+
+  /* =======================
+     RENDER
+  ======================= */
+
+  if (!userId) return <p>Gebruiker laden…</p>
+  if (loading) return <p>Overzicht laden…</p>
 
   return (
     <div className="mt-6 space-y-6">
-      {!userId && <p>Gebruiker laden…</p>}
-      {loading && <p>Overzicht laden…</p>}
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <button onClick={() =>
+          setCurrentWeek(new Date(currentWeek.setDate(currentWeek.getDate() - 7)))
+        }>
+          ← Vorige
+        </button>
 
-      {!loading && userId && (
-        <>
-          <div className="flex gap-2">
-            <button onClick={() => setView('week')}>Week</button>
-            <button onClick={() => setView('month')}>Maand</button>
-            <button
-              onClick={() => {
-                setManualDate(new Date().toISOString().slice(0, 10))
-                setManual(true)
-              }}
-            >
-              ➕ Handmatig
-            </button>
+        <strong>
+          Week van {weekStart.toLocaleDateString('nl-NL')}
+        </strong>
+
+        <button onClick={() =>
+          setCurrentWeek(new Date(currentWeek.setDate(currentWeek.getDate() + 7)))
+        }>
+          Volgende →
+        </button>
+      </div>
+
+      <p className="font-bold">
+        Totaal: {weekTotal.toFixed(2)} uur
+      </p>
+
+      {/* AGENDA */}
+      <AgendaSuggestions
+        onUse={(e) => {
+          setManual(true)
+          const s = new Date(e.start)
+          const en = new Date(e.end)
+          setManualDate(s.toISOString().slice(0, 10))
+          setManualStart(s.toISOString().slice(11, 16))
+          setManualEnd(en.toISOString().slice(11, 16))
+          setClient(e.title)
+          setLocation(e.location ?? '')
+        }}
+      />
+
+      {/* DAYS */}
+      {Object.entries(grouped).map(([date, list]) => (
+        <div
+          key={date}
+          className="border border-gray-700 rounded-lg p-4 bg-black/30"
+        >
+          <div className="flex justify-between font-medium mb-2">
+            <span>{formatDate(date)}</span>
+            <span>
+              {list.reduce(
+                (s, e) => s + hours(e.start_time, e.end_time),
+                0
+              ).toFixed(2)} uur
+            </span>
           </div>
 
-          <AgendaSuggestions
-            onUse={(e) => {
-              setManual(true)
-              const s = new Date(e.start)
-              const en = new Date(e.end)
-              setManualDate(s.toISOString().slice(0, 10))
-              setManualStart(s.toISOString().slice(11, 16))
-              setManualEnd(en.toISOString().slice(11, 16))
-              setClient(e.title)
-              setLocation(e.location ?? '')
-            }}
-          />
+          {list.map((e) => (
+            <div
+              key={e.id}
+              className="flex justify-between text-sm py-1 border-t border-gray-700"
+            >
+              <span>
+                {formatTime(e.start_time)} – {formatTime(e.end_time)}
+              </span>
 
-          {view === 'week' &&
-            Object.entries(groupedWeek).map(([d, list]) => (
-              <div key={d}>
-                <strong>{d}</strong>
-                {list.map((e) => (
-                  <div key={e.id}>
-                    {e.start_time} – {e.end_time}
-                    {canEdit(e.date) && (
-                      <button onClick={() => openEdit(e)}>✏️</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-        </>
-      )}
+              {canEdit(e.date) && !e.approved && (
+                <button
+                  onClick={() => openEdit(e)}
+                  className="text-blue-500"
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
 
+      {/* EDIT MODAL */}
       {editing && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-gray-900 p-6 rounded space-y-2">
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-            <button onClick={saveEdit}>Opslaan</button>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-lg space-y-3 w-80">
+            <h3 className="font-semibold">Uren aanpassen</h3>
+
+            <input
+              type="time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 px-2 py-1 rounded"
+            />
+
+            <input
+              type="time"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 px-2 py-1 rounded"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditing(null)}>
+                Annuleren
+              </button>
+              <button
+                onClick={saveEdit}
+                className="bg-white text-black px-3 py-1 rounded"
+              >
+                Opslaan
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* MANUAL MODAL */}
       {manual && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-gray-900 p-6 rounded space-y-2">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-lg space-y-3 w-80">
+            <h3 className="font-semibold">
+              Uren handmatig invoeren
+            </h3>
+
             <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} />
             <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} />
             <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} />
-            <button onClick={saveManual}>Opslaan</button>
+
+            <input
+              placeholder="Opdrachtgever"
+              value={client}
+              onChange={(e) => setClient(e.target.value)}
+            />
+
+            <input
+              placeholder="Locatie"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setManual(false)}>
+                Annuleren
+              </button>
+              <button
+                onClick={saveManual}
+                className="bg-white text-black px-3 py-1 rounded"
+              >
+                Opslaan
+              </button>
+            </div>
           </div>
         </div>
       )}
