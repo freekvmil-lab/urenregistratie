@@ -125,7 +125,6 @@ export default function AdminDashboard() {
       } else {
         // refresh
         fetchEntries()
-        alert('Entry verwijderd')
       }
     } catch (e) {
       console.error('deleteEntry crash', e)
