@@ -23,39 +23,58 @@ export default function AgendaSuggestions({
   useEffect(() => {
     const load = async () => {
       try {
-        const { data } = await supabase.auth.getSession()
-        let accessToken = data?.session?.access_token
+        const getAccessToken = async (): Promise<string | null> => {
+          const { data } = await supabase.auth.getSession()
+          if (data?.session?.access_token) return data.session.access_token
 
-        // fallback: some setups store the Supabase session in localStorage (no cookie)
-        if (!accessToken && typeof window !== 'undefined') {
-          for (const k of Object.keys(localStorage)) {
-            if (k.startsWith('sb-') && k.endsWith('-auth-token')) {
-              try {
-                const raw = localStorage.getItem(k)
-                const parsed = raw ? JSON.parse(raw) : null
-                if (parsed?.access_token) {
-                  accessToken = parsed.access_token
-                  break
+          // If session isn't loaded/available yet, try refresh using refresh token
+          const refreshed = await supabase.auth.refreshSession()
+          if (refreshed.data?.session?.access_token) return refreshed.data.session.access_token
+
+          // fallback: some setups store the Supabase session in localStorage (no cookie)
+          if (typeof window !== 'undefined') {
+            for (const k of Object.keys(localStorage)) {
+              if (k.startsWith('sb-') && k.endsWith('-auth-token')) {
+                try {
+                  const raw = localStorage.getItem(k)
+                  const parsed = raw ? JSON.parse(raw) : null
+                  if (parsed?.access_token) return parsed.access_token
+                } catch {
+                  // ignore parse errors
                 }
-              } catch (e) {
-                // ignore parse errors
               }
             }
           }
+
+          return null
         }
 
-        const headers: Record<string, string> = {}
-        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+        const callApi = async (accessToken: string | null) => {
+          const headers: Record<string, string> = {}
+          if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
 
-        const r = await fetch('/api/google/calendar', {
-          credentials: 'include',
-          cache: 'no-store',
-          headers,
-        })
+          const r = await fetch('/api/google/calendar', {
+            credentials: 'include',
+            cache: 'no-store',
+            headers,
+          })
 
-        const json = await r.json()
-        if (!r.ok) throw new Error(json.error ?? 'Agenda fout')
-        setEvents(json.events ?? [])
+          const json = await r.json().catch(() => ({}))
+          return { ok: r.ok, status: r.status, json }
+        }
+
+        let token = await getAccessToken()
+        let res = await callApi(token)
+
+        // If token expired on server, refresh session and retry once.
+        if (!res.ok && res.status === 401 && res.json?.error === 'not_authenticated') {
+          const refreshed = await supabase.auth.refreshSession()
+          token = refreshed.data?.session?.access_token ?? (await getAccessToken())
+          res = await callApi(token)
+        }
+
+        if (!res.ok) throw new Error(res.json?.error ?? 'Agenda fout')
+        setEvents(res.json?.events ?? [])
         setError(null)
       } catch (e: any) {
         console.error('Agenda error:', e)
