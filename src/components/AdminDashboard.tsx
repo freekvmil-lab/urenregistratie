@@ -183,6 +183,7 @@ export default function AdminDashboard() {
           <a href="/" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Home</a>
           <a href="/admin/roles" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Rolbeheer</a>
           <a href="/admin/export" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Export</a>
+          <a href="/admin/clients" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Opdrachtgevers</a>
           <a href="/admin" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Admin</a>
         </div>
       </nav>
