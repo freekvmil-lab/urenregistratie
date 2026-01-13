@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import TimeTracker from '@/components/TimeTracker'
 import MyOverview from '@/components/MyOverview'
+import MonthOverview from '@/components/MonthOverview'
 import Link from 'next/link'
 import GoogleAgendaButton from '@/components/GoogleAgendaButton'
 
@@ -112,6 +113,9 @@ export default function HomePage() {
 
       {/* ⏱ Time tracking */}
       <TimeTracker userId={user.id} />
+
+      {/* 🗓️ Maand overzicht */}
+      <MonthOverview userId={user.id} />
 
       <div>
         <button
