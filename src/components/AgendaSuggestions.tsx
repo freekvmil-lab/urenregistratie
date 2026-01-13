@@ -1,8 +1,8 @@
 'use client'
-console.log('AgendaSuggestions mounted')
+
 import { useEffect, useState } from 'react'
 
-interface AgendaEvent {
+interface Suggestion {
   title: string
   start: string
   end: string
@@ -12,9 +12,9 @@ interface AgendaEvent {
 export default function AgendaSuggestions({
   onUse,
 }: {
-  onUse: (e: AgendaEvent) => void
+  onUse: (e: Suggestion) => void
 }) {
-  const [events, setEvents] = useState<AgendaEvent[]>([])
+  const [events, setEvents] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,20 +23,14 @@ export default function AgendaSuggestions({
         const res = await fetch('/api/google/calendar', {
           cache: 'no-store',
         })
+
         const json = await res.json()
 
-        if (json.events) {
-          // ⛔ filter all-day events eruit
-          const usable = json.events.filter(
-            (e: any) =>
-              e.start?.includes('T') &&
-              e.end?.includes('T')
-          )
-
-          setEvents(usable)
+        if (json?.events?.length) {
+          setEvents(json.events)
         }
       } catch (e) {
-        console.error('Agenda load failed', e)
+        console.error('Agenda fetch failed', e)
       } finally {
         setLoading(false)
       }
@@ -45,25 +39,44 @@ export default function AgendaSuggestions({
     load()
   }, [])
 
-  if (loading || events.length === 0) return null
+  if (loading) return null
+  if (!events.length) return null
 
   return (
-    <div className="border rounded p-4 space-y-3 bg-gray-50">
-      <h3 className="font-semibold">
-        🧠 Agenda suggesties
+    <div className="border rounded p-3 space-y-2 bg-gray-50">
+      <h3 className="font-medium text-sm">
+        📅 Agenda suggesties
       </h3>
 
-      {events.map((e, i) => {
-        const start = new Date(e.start)
-        const end = new Date(e.end)
+      {events.map((e, i) => (
+        <div
+          key={i}
+          className="flex justify-between items-center text-sm border-t pt-2"
+        >
+          <div>
+            <div className="font-medium">{e.title}</div>
+            <div className="text-xs text-gray-500">
+              {new Date(e.start).toLocaleTimeString('nl-NL', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}{' '}
+              –{' '}
+              {new Date(e.end).toLocaleTimeString('nl-NL', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+              {e.location && ` · ${e.location}`}
+            </div>
+          </div>
 
-        return (
-  <div className="border p-4">
-    <strong>AgendaSuggestions zichtbaar</strong>
-  </div>
-)
-
-      })}
+          <button
+            onClick={() => onUse(e)}
+            className="text-blue-600 text-xs"
+          >
+            ➕ gebruiken
+          </button>
+        </div>
+      ))}
     </div>
   )
 }
