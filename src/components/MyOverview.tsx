@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import AgendaSuggestions from '@/components/AgendaSuggestions'
+import WorkButton from '@/components/WorkButton'
 
 /* =======================
    TYPES
@@ -174,6 +175,17 @@ export default function MyOverview({ userId }: { userId?: string }) {
     fetchEntries()
   }
 
+  useEffect(() => {
+    const handler = (ev: any) => {
+      const date = ev?.detail?.date ?? new Date().toISOString().slice(0, 10)
+      setManualDate(date)
+      setManual(true)
+    }
+
+    window.addEventListener('openManual', handler as EventListener)
+    return () => window.removeEventListener('openManual', handler as EventListener)
+  }, [])
+
   if (!userId) return <p>Gebruiker laden…</p>
   if (loading) return <p>Overzicht laden…</p>
 
@@ -287,6 +299,18 @@ export default function MyOverview({ userId }: { userId?: string }) {
               <span>{dayTotal.toFixed(2)} uur</span>
             </div>
 
+            {/* show inline start/stop button in today's box */}
+            {date === new Date().toISOString().slice(0, 10) && (
+              <div className="mt-2">
+                <WorkButton
+                  userId={userId}
+                  activeEntry={entries.find((x) => !x.end_time) ? { id: entries.find((x) => !x.end_time)!.id, start_time: entries.find((x) => !x.end_time)!.start_time } : null}
+                  onUpdate={fetchEntries}
+                  inline
+                />
+              </div>
+            )}
+
             {list.map((e) => (
               <div
                 key={e.id}
@@ -391,15 +415,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
                       ⏳ Wacht op goedkeuring
                     </span>
                   )}
-                  {e.manual && (
-                    <span className="text-blue-400 ml-2">
-                      ✍️ Handmatig
-                    </span>
+                  {e.manual ? (
+                    <span className="text-blue-400 ml-2">Handmatig ingevoerd</span>
+                  ) : (
+                    <span className="text-purple-400 ml-2">Start/Stop knop</span>
                   )}
                   {e.edited && !e.manual && (
-                    <span className="text-gray-400 ml-2">
-                      ✏️ Aangepast
-                    </span>
+                    <span className="text-gray-400 ml-2">✏️ Aangepast</span>
                   )}
                 </div>
               </div>

@@ -10,12 +10,14 @@ interface Props {
     start_time: string
   } | null
   onUpdate: () => void
+  inline?: boolean
 }
 
 export default function WorkButton({
   userId,
   activeEntry,
   onUpdate,
+  inline = false,
 }: Props) {
   const [loading, setLoading] = useState(false)
 
@@ -102,6 +104,13 @@ export default function WorkButton({
       hour: '2-digit',
       minute: '2-digit',
     })
+    if (inline) {
+      return (
+        <button onClick={stopWork} disabled={loading} className="px-3 py-1 bg-red-600 text-white rounded">
+          STOP (sinds {time})
+        </button>
+      )
+    }
 
     return (
       <button
@@ -123,6 +132,11 @@ export default function WorkButton({
           sinds {time}
         </span>
       </button>
+    )
+  }
+  if (inline) {
+    return (
+      <button onClick={startWork} disabled={loading} className="px-3 py-1 bg-green-600 text-white rounded">START</button>
     )
   }
 
