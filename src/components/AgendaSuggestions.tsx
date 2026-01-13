@@ -2,34 +2,41 @@
 
 import { useEffect, useState } from 'react'
 
-interface Event {
-  id: string
+interface AgendaEvent {
   title: string
-  location?: string
   start: string
   end: string
+  location?: string | null
 }
 
 export default function AgendaSuggestions({
   onUse,
 }: {
-  onUse: (e: Event) => void
+  onUse: (e: AgendaEvent) => void
 }) {
-  const [events, setEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<AgendaEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/google/calendar')
-        if (!res.ok) {
-          throw new Error('Geen toegang tot agenda')
+        const res = await fetch('/api/google/calendar', {
+          cache: 'no-store',
+        })
+        const json = await res.json()
+
+        if (json.events) {
+          // ⛔ filter all-day events eruit
+          const usable = json.events.filter(
+            (e: any) =>
+              e.start?.includes('T') &&
+              e.end?.includes('T')
+          )
+
+          setEvents(usable)
         }
-        const data = await res.json()
-        setEvents(data)
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e) {
+        console.error('Agenda load failed', e)
       } finally {
         setLoading(false)
       }
@@ -38,44 +45,59 @@ export default function AgendaSuggestions({
     load()
   }, [])
 
-  if (loading) return <p>📅 Agenda laden…</p>
-  if (error) return null
-  if (events.length === 0)
-    return <p className="text-sm text-gray-500">Geen agenda-suggesties vandaag</p>
+  if (loading || events.length === 0) return null
 
   return (
-    <div className="space-y-2">
-      <h3 className="font-semibold">📅 Agenda-suggesties</h3>
+    <div className="border rounded p-4 space-y-3 bg-gray-50">
+      <h3 className="font-semibold">
+        🧠 Agenda suggesties
+      </h3>
 
-      {events.map((e) => (
-        <div
-          key={e.id}
-          className="border rounded p-2 text-sm flex justify-between items-center"
-        >
-          <div>
-            <div className="font-medium">{e.title}</div>
-            <div className="text-xs text-gray-500">
-              {new Date(e.start).toLocaleTimeString('nl-NL', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-              {' – '}
-              {new Date(e.end).toLocaleTimeString('nl-NL', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-              {e.location && ` · 📍 ${e.location}`}
-            </div>
-          </div>
+      {events.map((e, i) => {
+        const start = new Date(e.start)
+        const end = new Date(e.end)
 
-          <button
-            onClick={() => onUse(e)}
-            className="text-blue-600 text-sm"
+        return (
+          <div
+            key={i}
+            className="flex justify-between items-center border-t pt-2 text-sm"
           >
-            Gebruik
-          </button>
-        </div>
-      ))}
+            <div>
+              <div className="font-medium">
+                {e.title}
+              </div>
+              <div className="text-gray-600">
+                {start.toLocaleDateString('nl-NL', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: 'short',
+                })}{' '}
+                {start.toLocaleTimeString('nl-NL', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {' – '}
+                {end.toLocaleTimeString('nl-NL', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </div>
+              {e.location && (
+                <div className="text-xs text-gray-500">
+                  📍 {e.location}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => onUse(e)}
+              className="border px-2 py-1 rounded text-xs"
+            >
+              ➕ Gebruik
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }
