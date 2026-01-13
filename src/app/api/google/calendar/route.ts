@@ -1,99 +1,61 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET() {
-  try {
-    const cookieStore = await cookies()
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId')
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'userId_missing' },
+      { status: 400 }
     )
+  }
 
-    // 1️⃣ Supabase auth cookie → user
-    const authCookie = cookieStore
-      .getAll()
-      .find(
-        (c) =>
-          c.name.startsWith('sb-') &&
-          c.name.endsWith('-auth-token')
-      )
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
+  )
 
-    if (!authCookie) {
-      return NextResponse.json(
-        { error: 'not_authenticated' },
-        { status: 401 }
-      )
-    }
+  // 1️⃣ Google account ophalen
+  const { data: googleAccount } = await supabase
+    .from('google_accounts')
+    .select('access_token')
+    .eq('user_id', userId)
+    .maybeSingle()
 
-    const session = JSON.parse(
-      decodeURIComponent(authCookie.value)
+  if (!googleAccount?.access_token) {
+    return NextResponse.json(
+      { error: 'google_not_connected' },
+      { status: 400 }
     )
+  }
 
-    const accessToken = session?.access_token
+  // 2️⃣ Agenda ophalen (vandaag + morgen)
+  const now = new Date()
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'no_access_token' },
-        { status: 401 }
-      )
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+      new URLSearchParams({
+        timeMin: now.toISOString(),
+        timeMax: tomorrow.toISOString(),
+        singleEvents: 'true',
+        orderBy: 'startTime',
+      }),
+    {
+      headers: {
+        Authorization: `Bearer ${googleAccount.access_token}`,
+      },
     }
+  )
 
-    const {
-      data: { user },
-    } = await supabaseAdmin.auth.getUser(accessToken)
+  const json = await res.json()
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'user_not_found' },
-        { status: 401 }
-      )
-    }
-
-    // 2️⃣ Google account ophalen
-    const { data: googleAccount } = await supabaseAdmin
-      .from('google_accounts')
-      .select('access_token')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!googleAccount?.access_token) {
-      return NextResponse.json(
-        { error: 'google_not_connected' },
-        { status: 400 }
-      )
-    }
-
-    // 3️⃣ Google Calendar API call
-    const now = new Date()
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-        new URLSearchParams({
-          timeMin: now.toISOString(),
-          timeMax: tomorrow.toISOString(),
-          singleEvents: 'true',
-          orderBy: 'startTime',
-        }),
-      {
-        headers: {
-          Authorization: `Bearer ${googleAccount.access_token}`,
-        },
-      }
-    )
-
-    const json = await res.json()
-
-    if (!json.items) {
-      return NextResponse.json({ events: [] })
-    }
-
-    // 4️⃣ Normaliseren (alleen bruikbare events)
-    const events = json.items
-      .filter(
+  const events =
+    json.items
+      ?.filter(
         (e: any) =>
           e.start?.dateTime && e.end?.dateTime
       )
@@ -103,14 +65,7 @@ export async function GET() {
         end: e.end.dateTime,
         location: e.location ?? null,
         source: 'google',
-      }))
+      })) ?? []
 
-    return NextResponse.json({ events })
-  } catch (err) {
-    console.error('calendar error', err)
-    return NextResponse.json(
-      { error: 'server_error' },
-      { status: 500 }
-    )
-  }
+  return NextResponse.json({ events })
 }
