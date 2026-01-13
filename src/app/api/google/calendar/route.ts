@@ -127,8 +127,22 @@ export async function GET(req: Request) {
     end.setDate(end.getDate() + 1)
     end.setHours(23, 59, 59, 999)
 
-    // Fetch events with pagination (in case there are many) and handle auth refresh
-    const fetchEventsFromGoogle = async (accessToken: string) => {
+    // Fetch list of calendars for the user, then fetch events from each calendar
+    const listCalendars = async (accessToken: string) => {
+      const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (!res.ok) {
+        const txt = await res.text()
+        let body: any
+        try { body = JSON.parse(txt) } catch (err) { body = txt }
+        return { ok: false, status: res.status, body }
+      }
+      const json = await res.json()
+      return { ok: true, items: json.items ?? [] }
+    }
+
+    const fetchEventsFromCalendar = async (accessToken: string, calendarId: string) => {
       let pageToken: string | undefined = undefined
       const items: any[] = []
 
@@ -143,17 +157,11 @@ export async function GET(req: Request) {
         }
         if (pageToken) params.pageToken = pageToken
 
-        const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?' + new URLSearchParams(params), {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-
+        const url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(calendarId) + '/events?' + new URLSearchParams(params)
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
         const text = await res.text()
         let parsed: any
-        try {
-          parsed = JSON.parse(text)
-        } catch (err) {
-          parsed = { error: 'invalid_json', raw: text }
-        }
+        try { parsed = JSON.parse(text) } catch (err) { parsed = { error: 'invalid_json', raw: text } }
 
         if (!res.ok) return { ok: false, status: res.status, body: parsed }
 
@@ -164,19 +172,30 @@ export async function GET(req: Request) {
       return { ok: true, items }
     }
 
-    let googleFetch = await fetchEventsFromGoogle(googleAccessToken)
-    if (!googleFetch.ok && googleFetch.status === 401 && googleAccount.refresh_token) {
+    // get calendars
+    let calendarList = await listCalendars(googleAccessToken)
+    if (!calendarList.ok && calendarList.status === 401 && googleAccount.refresh_token) {
       const refreshed = await refreshAccessToken(googleAccount.refresh_token)
       if (refreshed) {
-        googleFetch = await fetchEventsFromGoogle(refreshed)
+        googleAccessToken = refreshed
+        calendarList = await listCalendars(refreshed)
       }
     }
 
-    if (!googleFetch.ok) {
-      return NextResponse.json({ error: 'google_api_error', details: googleFetch.body }, { status: 500 })
+    if (!calendarList.ok) {
+      return NextResponse.json({ error: 'google_api_error', details: calendarList.body }, { status: 500 })
     }
 
-    const events = (googleFetch.items ?? [])
+    const calendars = (calendarList.items ?? []).filter((c: any) => !c.deleted)
+
+    const allItems: any[] = []
+    for (const cal of calendars) {
+      const calFetch = await fetchEventsFromCalendar(googleAccessToken, cal.id)
+      if (!calFetch.ok) continue
+      allItems.push(...(calFetch.items ?? []))
+    }
+
+    const events = (allItems ?? [])
       .filter((e: any) => e.status !== 'cancelled')
       .map((e: any) => {
         const isAllDay = !!e.start?.date
@@ -190,6 +209,7 @@ export async function GET(req: Request) {
           source: 'google',
           isAllDay,
           attendees: e.attendees ?? null,
+          raw: e,
         }
       })
       .filter((ev: any) => ev.start && ev.end)
