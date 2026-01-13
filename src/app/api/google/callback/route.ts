@@ -72,6 +72,7 @@ export async function GET(req: Request) {
       },
       { onConflict: 'user_id' }
     )
+    console.log('CALLBACK saving for user:', user.id)
 
   if (error) {
     console.error('Supabase upsert error:', error)
