@@ -254,9 +254,6 @@ export default function AdminDashboard() {
           </table>
         )}
       </div>
-
-      {/* Rolbeheer */}
-      <UserManagement />
     </div>
   )
 }
