@@ -139,6 +139,7 @@ export async function GET(req: Request) {
           singleEvents: 'true',
           orderBy: 'startTime',
           maxResults: '2500',
+          showHiddenInvitations: 'true',
         }
         if (pageToken) params.pageToken = pageToken
 
