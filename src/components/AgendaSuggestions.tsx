@@ -1,5 +1,5 @@
 'use client'
-
+console.log('AgendaSuggestions mounted')
 import { useEffect, useState } from 'react'
 
 interface AgendaEvent {
@@ -58,45 +58,11 @@ export default function AgendaSuggestions({
         const end = new Date(e.end)
 
         return (
-          <div
-            key={i}
-            className="flex justify-between items-center border-t pt-2 text-sm"
-          >
-            <div>
-              <div className="font-medium">
-                {e.title}
-              </div>
-              <div className="text-gray-600">
-                {start.toLocaleDateString('nl-NL', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: 'short',
-                })}{' '}
-                {start.toLocaleTimeString('nl-NL', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                {' – '}
-                {end.toLocaleTimeString('nl-NL', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </div>
-              {e.location && (
-                <div className="text-xs text-gray-500">
-                  📍 {e.location}
-                </div>
-              )}
-            </div>
+  <div className="border p-4">
+    <strong>AgendaSuggestions zichtbaar</strong>
+  </div>
+)
 
-            <button
-              onClick={() => onUse(e)}
-              className="border px-2 py-1 rounded text-xs"
-            >
-              ➕ Gebruik
-            </button>
-          </div>
-        )
       })}
     </div>
   )
