@@ -134,7 +134,9 @@ export default function ExportPage() {
     })
 
     const buildAndDownload = (rowsForFile: any[], suffix = '') => {
-      const csv = [header, ...rowsForFile].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+      const csv = [header, ...rowsForFile]
+        .map((r) => (r as any[]).map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+        .join('\n')
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
