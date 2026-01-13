@@ -114,8 +114,20 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   const openEdit = (e: Entry) => {
     setEditing(e)
-    setStart(e.start_time.slice(11, 16))
-    setEnd(e.end_time ? e.end_time.slice(11, 16) : '')
+    setStart(
+      new Date(e.start_time).toLocaleTimeString('nl-NL', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    )
+    setEnd(
+      e.end_time
+        ? new Date(e.end_time).toLocaleTimeString('nl-NL', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : ''
+    )
     setClient(e.client ?? '')
     setLocation(e.location ?? '')
     setEditKilometers(e.kilometers ?? '')
@@ -235,8 +247,18 @@ export default function MyOverview({ userId }: { userId?: string }) {
           const s = new Date(e.start)
           const en = new Date(e.end)
           setManualDate(s.toISOString().slice(0, 10))
-          setManualStart(s.toISOString().slice(11, 16))
-          setManualEnd(en.toISOString().slice(11, 16))
+          setManualStart(
+            s.toLocaleTimeString('nl-NL', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          )
+          setManualEnd(
+            en.toLocaleTimeString('nl-NL', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          )
           // If title looks like "OPDRACHTGEVER - rest", set opdrachtgever automatically
           const [maybeClient] = e.title.split(' - ', 1)
           setClient(maybeClient)
