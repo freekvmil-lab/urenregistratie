@@ -32,15 +32,18 @@ export async function GET(req: Request) {
   }
 
   // 2️⃣ Agenda ophalen (vandaag + morgen)
-  const now = new Date()
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const start = new Date()
+start.setHours(0, 0, 0, 0)
+
+const end = new Date()
+end.setDate(end.getDate() + 7)
+end.setHours(23, 59, 59, 999)
 
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
       new URLSearchParams({
-        timeMin: now.toISOString(),
-        timeMax: tomorrow.toISOString(),
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
         singleEvents: 'true',
         orderBy: 'startTime',
       }),
