@@ -77,6 +77,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [editing, setEditing] = useState<Entry | null>(null)
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
+  const [manual, setManual] = useState(false)
+  const [manualDate, setManualDate] = useState('')
+  const [manualStart, setManualStart] = useState('')
+  const [manualEnd, setManualEnd] = useState('')
+  const [client, setClient] = useState('')
+  const [location, setLocation] = useState('')
 
   /* =======================
      FETCH
@@ -99,6 +105,47 @@ export default function MyOverview({ userId }: { userId?: string }) {
   useEffect(() => {
     fetchEntries()
   }, [userId])
+
+  const openEdit = (e: Entry) => {
+    setEditing(e)
+    setStart(e.start_time.slice(11, 16))
+    setEnd(e.end_time ? e.end_time.slice(11, 16) : '')
+    setClient(e.client ?? '')
+    setLocation(e.location ?? '')
+  }
+
+  const saveEdit = async () => {
+    if (!editing) return
+    await supabase.from('time_entries').update({
+      start_time: toLocalISOString(editing.date, start),
+      end_time: toLocalISOString(editing.date, end),
+      client: client || null,
+      location: location || null,
+      edited: true,
+      approved: false,
+    }).eq('id', editing.id)
+
+    setEditing(null)
+    fetchEntries()
+  }
+
+  const saveManual = async () => {
+    if (!userId) return
+    await supabase.from('time_entries').insert({
+      user_id: userId,
+      date: manualDate,
+      start_time: toLocalISOString(manualDate, manualStart),
+      end_time: toLocalISOString(manualDate, manualEnd),
+      manual: true,
+      edited: true,
+      approved: false,
+      client: client || null,
+      location: location || null,
+    })
+
+    setManual(false)
+    fetchEntries()
+  }
 
   if (!userId) return <p>Gebruiker laden…</p>
   if (loading) return <p>Overzicht laden…</p>
@@ -167,7 +214,18 @@ export default function MyOverview({ userId }: { userId?: string }) {
         Totaal: {weekTotal.toFixed(2)} uur
       </p>
 
-      <AgendaSuggestions />
+      <AgendaSuggestions
+        onUse={(e) => {
+          setManual(true)
+          const s = new Date(e.start)
+          const en = new Date(e.end)
+          setManualDate(s.toISOString().slice(0, 10))
+          setManualStart(s.toISOString().slice(11, 16))
+          setManualEnd(en.toISOString().slice(11, 16))
+          setClient(e.title)
+          setLocation(e.location ?? '')
+        }}
+      />
 
       {/* DAYS */}
       {Object.entries(grouped).map(([date, list]) => {
@@ -199,11 +257,48 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
                   {canEdit(e.date) && !e.approved && (
                     <button
-                      onClick={() => setEditing(e)}
+                      onClick={() => openEdit(e)}
                       className="text-blue-500"
                     >
                       ✏️
                     </button>
+                  )}
+
+                  {editing && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+                      <div className="bg-white p-6 rounded space-y-3 w-full max-w-sm">
+                        <h3 className="font-semibold">Bewerk uren</h3>
+                        <div className="space-y-2">
+                          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded border p-2" />
+                          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded border p-2" />
+                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded border p-2" />
+                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded border p-2" />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
+                          <button onClick={saveEdit} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {manual && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+                      <div className="bg-white p-6 rounded space-y-3 w-full max-w-sm">
+                        <h3 className="font-semibold">Nieuwe entry van agenda</h3>
+                        <div className="space-y-2">
+                          <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded border p-2" />
+                          <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded border p-2" />
+                          <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded border p-2" />
+                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded border p-2" />
+                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded border p-2" />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setManual(false)} className="px-3 py-1">Annuleren</button>
+                          <button onClick={saveManual} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
 
