@@ -69,7 +69,7 @@ export default function ExportPage() {
 
   useEffect(() => {
     loadEntries()
-  }, [selected, from, to])
+  }, [selected, from, to, onlyClient])
 
   const toggle = (id: string) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
@@ -170,7 +170,14 @@ export default function ExportPage() {
       <h1 className="text-2xl font-bold mb-4">Exporteer uren</h1>
 
       <div className="mb-4 p-4 border rounded">
-        <div className="mb-2">Selecteer werknemers</div>
+        <div className="mb-2 flex items-center justify-between">
+          <div>Selecteer werknemers</div>
+          <div className="flex gap-2">
+            <button onClick={() => setSelected(users.map((u) => u.id))} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Selecteer alles</button>
+            <button onClick={() => setSelected([])} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Wis selectie</button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2 max-w-xl">
           {users.map((u) => (
             <label key={u.id} className="flex items-center gap-2">
@@ -179,33 +186,40 @@ export default function ExportPage() {
             </label>
           ))}
         </div>
+      </div>
 
-        <div className="mt-4 flex flex-col gap-2">
-          <div className="flex gap-2 items-center">
-            <label className="text-sm">Vanaf</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded px-2 py-1" />
-            <label className="text-sm">Tot</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded px-2 py-1" />
-            <button onClick={loadEntries} className="ml-auto px-3 py-1 bg-gray-800 text-white rounded">Laad</button>
-          </div>
+      <div className="mb-4 p-4 border rounded">
+        <div className="flex gap-2 items-center">
+          <label className="text-sm">Vanaf</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded px-2 py-1" />
+          <label className="text-sm">Tot</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded px-2 py-1" />
+          <button onClick={loadEntries} className="ml-auto px-3 py-1 bg-gray-800 text-white rounded">Laad</button>
+        </div>
 
-          <div className="flex gap-2 items-center">
-            <button onClick={setThisWeek} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze week</button>
-            <button onClick={setThisMonth} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze maand</button>
-            <label className="ml-4 flex items-center gap-2">
-              <input type="checkbox" checked={groupByClient} onChange={(e) => setGroupByClient(e.target.checked)} />
-              Per opdrachtgever exporteren
-            </label>
-            <label className="ml-4 flex items-center gap-2">
-              <span className="text-sm">Opdrachtgever (filter)</span>
-              <select value={onlyClient} onChange={(e) => setOnlyClient(e.target.value)} className="border rounded px-2 py-1">
-                <option value="">Alle</option>
-                {clients.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <div className="mt-3 flex gap-2 items-center">
+          <button onClick={setThisWeek} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze week</button>
+          <button onClick={setThisMonth} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">Deze maand</button>
+        </div>
+      </div>
+
+      <div className="mb-4 p-4 border rounded">
+        <div className="mb-2">Opdrachtgever export</div>
+        <div className="flex gap-4 items-center">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={groupByClient} onChange={(e) => setGroupByClient(e.target.checked)} />
+            Per opdrachtgever exporteren
+          </label>
+
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Opdrachtgever (filter)</span>
+            <select value={onlyClient} onChange={(e) => setOnlyClient(e.target.value)} className="border rounded px-2 py-1">
+              <option value="">Alle</option>
+              {clients.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
