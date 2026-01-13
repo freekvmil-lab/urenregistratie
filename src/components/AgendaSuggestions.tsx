@@ -23,7 +23,25 @@ export default function AgendaSuggestions({
     const load = async () => {
       try {
         const { data } = await supabase.auth.getSession()
-        const accessToken = data?.session?.access_token
+        let accessToken = data?.session?.access_token
+
+        // fallback: some setups store the Supabase session in localStorage (no cookie)
+        if (!accessToken && typeof window !== 'undefined') {
+          for (const k of Object.keys(localStorage)) {
+            if (k.startsWith('sb-') && k.endsWith('-auth-token')) {
+              try {
+                const raw = localStorage.getItem(k)
+                const parsed = raw ? JSON.parse(raw) : null
+                if (parsed?.access_token) {
+                  accessToken = parsed.access_token
+                  break
+                }
+              } catch (e) {
+                // ignore parse errors
+              }
+            }
+          }
+        }
 
         const headers: Record<string, string> = {}
         if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
