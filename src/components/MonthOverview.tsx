@@ -8,12 +8,20 @@ type Entry = {
   date: string
   start_time: string | null
   end_time: string | null
+  client?: string | null
 }
 
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
 
-const ymd = (d: Date) => d.toISOString().slice(0, 10)
+const ymd = (d: Date) => {
+  // IMPORTANT: use local date parts (not UTC via toISOString)
+  // to avoid off-by-one day when clicking calendar cells.
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
 
 const hoursBetween = (start: string | null, end: string | null) => {
   if (!start || !end) return 0
@@ -48,7 +56,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
 
     const { data, error } = await supabase
       .from('time_entries')
-      .select('id, date, start_time, end_time')
+      .select('id, date, start_time, end_time, client')
       .eq('user_id', userId)
       .gte('date', ymd(range.start))
       .lte('date', ymd(range.end))
@@ -94,17 +102,51 @@ export default function MonthOverview({ userId }: { userId: string }) {
   }, [userId])
 
   const byDay = useMemo(() => {
-    const m = new Map<string, { hours: number; count: number }>()
+    const m = new Map<
+      string,
+      { hours: number; count: number; perClient: Map<string, number> }
+    >()
     for (const e of entries) {
       const key = e.date
-      const prev = m.get(key) ?? { hours: 0, count: 0 }
+      const prev = m.get(key) ?? {
+        hours: 0,
+        count: 0,
+        perClient: new Map<string, number>(),
+      }
+
+      const clientNameRaw = (e.client ?? '').trim()
+      const clientName = clientNameRaw.length > 0 ? clientNameRaw : '—'
+      const entryHours = hoursBetween(e.start_time, e.end_time)
+      prev.perClient.set(
+        clientName,
+        (prev.perClient.get(clientName) ?? 0) + entryHours
+      )
+
       m.set(key, {
-        hours: prev.hours + hoursBetween(e.start_time, e.end_time),
+        hours: prev.hours + entryHours,
         count: prev.count + 1,
+        perClient: prev.perClient,
       })
     }
     return m
   }, [entries])
+
+  const clientSummary = (info: { perClient: Map<string, number> }) => {
+    const pairs = Array.from(info.perClient.entries())
+      .filter(([name, hrs]) => name && hrs > 0)
+      .sort((a, b) => b[1] - a[1])
+
+    if (pairs.length === 0) return null
+
+    const top = pairs.slice(0, 2)
+    const more = pairs.length - top.length
+
+    const label = top
+      .map(([name, hrs]) => `${name} ${hrs.toFixed(1)}u`)
+      .join(' • ')
+
+    return more > 0 ? `${label} • +${more}` : label
+  }
 
   const monthTotal = useMemo(() => {
     let total = 0
@@ -198,6 +240,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
           const key = ymd(date)
           const info = byDay.get(key)
           const isToday = key === ymd(new Date())
+          const summary = info ? clientSummary(info) : null
 
           return (
             <button
@@ -229,6 +272,12 @@ export default function MonthOverview({ userId }: { userId: string }) {
               ) : (
                 <div className="mt-1 text-[11px] text-gray-500">—</div>
               )}
+
+              {summary ? (
+                <div className="mt-1 text-[10px] leading-snug text-gray-400 line-clamp-2">
+                  {summary}
+                </div>
+              ) : null}
             </button>
           )
         })}
