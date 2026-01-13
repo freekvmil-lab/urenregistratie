@@ -229,6 +229,15 @@ export default function ExportPage() {
 
   return (
     <main className="p-6">
+      <nav className="flex gap-3 items-center mb-4">
+        <div className="inline-flex gap-2 items-center bg-gray-100 dark:bg-gray-800 rounded px-2 py-1">
+          <a href="/" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Home</a>
+          <a href="/admin/roles" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Rolbeheer</a>
+          <a href="/admin/export" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Export</a>
+          <a href="/admin" className="text-sm text-gray-900 dark:text-white px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Admin</a>
+        </div>
+      </nav>
+
       <h1 className="text-2xl font-bold mb-4">Exporteer uren</h1>
 
       <div className="mb-4 p-4 border rounded">
@@ -273,9 +282,9 @@ export default function ExportPage() {
             Per opdrachtgever exporteren
           </label>
 
-          <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2">
             <span className="text-sm">Opdrachtgever (filter)</span>
-            <select value={onlyClient} onChange={(e) => setOnlyClient(e.target.value)} className="border rounded px-2 py-1">
+            <select value={onlyClient} onChange={(e) => setOnlyClient(e.target.value)} className="border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
               <option value="">Alle</option>
               {clients.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -306,14 +315,14 @@ export default function ExportPage() {
           <div className="overflow-auto max-w-full">
             <table className="w-full border-collapse border">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border p-2">Naam</th>
-                  <th className="border p-2">Datum</th>
-                  <th className="border p-2">Start</th>
-                  <th className="border p-2">Eind</th>
-                  <th className="border p-2">Uren</th>
-                  <th className="border p-2">Opdrachtgever</th>
-                </tr>
+                <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Eind</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
+                    <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
+                  </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
