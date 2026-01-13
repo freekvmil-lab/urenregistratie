@@ -52,7 +52,7 @@ export default function ClientManagement() {
     await load()
   }
 
-  const remove = async (id: number) => {
+  const remove = async (id: string) => {
     if (!confirm('Weet je zeker dat je deze opdrachtgever wilt verwijderen?')) return
     setLoading(true)
     await supabase.from('clients').delete().eq('id', id)
