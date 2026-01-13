@@ -7,15 +7,31 @@ export default function GoogleAgendaButton() {
   const [connected, setConnected] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const loadStatus = () => {
-    fetch('/api/google/status', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => setConnected(d.connected))
-      .catch(() => setConnected(false))
+  const loadStatus = async () => {
+    try {
+      const r = await fetch('/api/google/status', {
+        cache: 'no-store',
+      })
+      const d = await r.json()
+      setConnected(d.connected)
+    } catch {
+      setConnected(false)
+    }
   }
 
   useEffect(() => {
+    // ✅ 1️⃣ check status normaal
     loadStatus()
+
+    // ✅ 2️⃣ check of we net terugkomen van OAuth
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google') === 'connected') {
+      // force refresh status
+      loadStatus()
+
+      // optioneel: URL opschonen
+      window.history.replaceState({}, '', '/')
+    }
   }, [])
 
   const connectGoogle = async () => {
@@ -31,7 +47,6 @@ export default function GoogleAgendaButton() {
       return
     }
 
-    // 🔑 expliciet access_token meesturen
     window.location.href =
       `/api/google/auth?access_token=${session.access_token}`
   }
