@@ -24,7 +24,8 @@ export default function MonthOverview({ userId }: { userId: string }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(false)
-  const [hourlyRate, setHourlyRate] = useState<number | ''>('')
+  const [hourlyRate, setHourlyRate] = useState<number | null>(null)
+  const [rateLoading, setRateLoading] = useState(false)
 
   const range = useMemo(() => {
     const start = startOfMonth(month)
@@ -70,15 +71,26 @@ export default function MonthOverview({ userId }: { userId: string }) {
   }, [userId, range.start.getTime(), range.end.getTime()])
 
   useEffect(() => {
-    // user-scoped key so rates don't clash across accounts on same device
-    const key = `hourly_rate_${userId}`
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
-    if (raw) {
-      const parsed = Number(raw)
-      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-        setHourlyRate(parsed)
+    const loadRate = async () => {
+      if (!userId) return
+      setRateLoading(true)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('hourly_rate')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.warn('MonthOverview hourly_rate load error:', error)
+        setHourlyRate(null)
+      } else {
+        const rate = (data as any)?.hourly_rate
+        setHourlyRate(typeof rate === 'number' ? rate : rate == null ? null : Number(rate))
       }
+      setRateLoading(false)
     }
+
+    loadRate()
   }, [userId])
 
   const byDay = useMemo(() => {
@@ -101,9 +113,9 @@ export default function MonthOverview({ userId }: { userId: string }) {
   }, [byDay])
 
   const earnings = useMemo(() => {
-    const rate = typeof hourlyRate === 'number' ? hourlyRate : null
-    if (!rate) return null
-    return monthTotal * rate
+    if (hourlyRate == null) return null
+    if (!Number.isFinite(hourlyRate)) return null
+    return monthTotal * hourlyRate
   }, [monthTotal, hourlyRate])
 
   const days = useMemo(() => {
@@ -131,15 +143,6 @@ export default function MonthOverview({ userId }: { userId: string }) {
   const openManualForDate = (d: Date) => {
     const ev = new CustomEvent('openManual', { detail: { date: ymd(d) } })
     window.dispatchEvent(ev)
-  }
-
-  const saveRate = () => {
-    const key = `hourly_rate_${userId}`
-    if (typeof hourlyRate === 'number' && Number.isFinite(hourlyRate)) {
-      window.localStorage.setItem(key, String(hourlyRate))
-    } else {
-      window.localStorage.removeItem(key)
-    }
   }
 
   return (
@@ -178,45 +181,19 @@ export default function MonthOverview({ userId }: { userId: string }) {
             <div className="text-xs text-gray-400">
               {earnings != null
                 ? `Schatting: ${earnings.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })}`
-                : 'Verdiensten: stel uurtarief in'}
+                : rateLoading
+                  ? 'Uurtarief laden…'
+                  : 'Verdiensten: uurtarief nog niet ingesteld'}
+            </div>
+            <div className="text-[11px] text-gray-500">
+              {rateLoading
+                ? '—'
+                : hourlyRate == null
+                  ? 'Uurtarief: —'
+                  : `Uurtarief: ${hourlyRate.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })} / uur`}
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 text-sm">
-        <label className="text-gray-300">Uurtarief (€)</label>
-        <input
-          value={hourlyRate}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v === '') {
-              setHourlyRate('')
-              return
-            }
-            const n = Number(v)
-            if (Number.isFinite(n)) setHourlyRate(n)
-          }}
-          inputMode="decimal"
-          className="w-24 px-2 py-1 rounded bg-gray-800 border border-gray-700"
-          placeholder="bijv. 20"
-        />
-        <button
-          onClick={saveRate}
-          className="px-2 py-1 rounded bg-gray-900 text-white border border-gray-700"
-        >
-          Opslaan
-        </button>
-        <button
-          onClick={() => {
-            setHourlyRate('')
-            const key = `hourly_rate_${userId}`
-            window.localStorage.removeItem(key)
-          }}
-          className="px-2 py-1 rounded border border-gray-700"
-        >
-          Wissen
-        </button>
       </div>
 
       <div className="grid grid-cols-7 text-xs text-gray-400">

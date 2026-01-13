@@ -8,6 +8,7 @@ interface Profile {
   name: string | null
   email: string | null
   role: 'admin' | 'employee'
+  hourly_rate?: number | null
 }
 
 export default function UserManagement() {
@@ -20,7 +21,7 @@ export default function UserManagement() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email, role')
+      .select('id, name, email, role, hourly_rate')
       .order('name')
 
     if (!error && data) {
@@ -51,6 +52,23 @@ export default function UserManagement() {
     setSaving(null)
   }
 
+  const updateHourlyRate = async (userId: string, hourly_rate: number | null) => {
+    setSaving(userId)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ hourly_rate })
+      .eq('id', userId)
+
+    if (error) {
+      alert('Uurtarief wijzigen mislukt')
+      console.error(error)
+    }
+
+    await fetchUsers()
+    setSaving(null)
+  }
+
   if (loading) return <p>Gebruikers laden…</p>
 
   return (
@@ -62,6 +80,7 @@ export default function UserManagement() {
           <tr className="bg-gray-100">
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Naam</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">E-mail</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Uurtarief</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Rol</th>
           </tr>
         </thead>
@@ -91,6 +110,32 @@ export default function UserManagement() {
             </td>
 
               <td className="border p-2 text-gray-900 dark:text-gray-100">{u.email ?? '—'}</td>
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={u.hourly_rate ?? ''}
+                  disabled={saving === u.id}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setUsers((prev) =>
+                      prev.map((p) =>
+                        p.id === u.id
+                          ? { ...p, hourly_rate: v === '' ? null : Number(v) }
+                          : p
+                      )
+                    )
+                  }}
+                  onBlur={async () => {
+                    const current = users.find((x) => x.id === u.id)?.hourly_rate ?? null
+                    await updateHourlyRate(u.id, current)
+                  }}
+                  className="w-24 bg-transparent border-b border-gray-400 text-gray-900 dark:text-gray-100"
+                  placeholder="€ / uur"
+                />
+              </td>
               <td className="border p-2 text-gray-900 dark:text-gray-100">
                 <select
                   value={u.role}
