@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import TimeTracker from '@/components/TimeTracker'
 import MyOverview from '@/components/MyOverview'
 import MonthOverview from '@/components/MonthOverview'
+import AgendaSuggestions from '@/components/AgendaSuggestions'
 import Link from 'next/link'
 import GoogleAgendaButton from '@/components/GoogleAgendaButton'
 
@@ -15,6 +16,7 @@ export default function HomePage() {
   const [ready, setReady] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [showMonthOverview, setShowMonthOverview] = useState(false)
+  const [showAgendaSuggestions, setShowAgendaSuggestions] = useState(false)
 
   useEffect(() => {
     // 1️⃣ Check bestaande sessie
@@ -142,10 +144,37 @@ export default function HomePage() {
         >
           {showMonthOverview ? '📅 Maandoverzicht verbergen' : '📅 Maandoverzicht tonen'}
         </button>
+
+        <button
+          onClick={() => setShowAgendaSuggestions((v) => !v)}
+          className="border px-3 py-1 rounded"
+        >
+          {showAgendaSuggestions ? '🗓️ Agenda suggesties verbergen' : '🗓️ Agenda suggesties tonen'}
+        </button>
       </div>
 
       {/* 🗓️ Maand overzicht */}
       {showMonthOverview && <MonthOverview userId={user.id} />}
+
+      {/* 🗓️ Agenda suggesties */}
+      {showAgendaSuggestions && (
+        <section className="bg-black/30 border border-gray-700 rounded-lg p-4 space-y-3">
+          <AgendaSuggestions
+            onUse={(e) => {
+              const ev = new CustomEvent('openManualPrefill', {
+                detail: {
+                  start: e.start,
+                  end: e.end,
+                  title: e.title,
+                  location: e.location ?? null,
+                  isAllDay: (e as any).isAllDay ?? false,
+                },
+              })
+              window.dispatchEvent(ev)
+            }}
+          />
+        </section>
+      )}
 
       {/* 📊 Overzicht */}
       <MyOverview userId={user.id} />

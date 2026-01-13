@@ -8,6 +8,7 @@ interface AgendaEvent {
   start: string
   end: string
   location?: string | null
+  isAllDay?: boolean
 }
 
 export default function AgendaSuggestions({
@@ -69,7 +70,7 @@ export default function AgendaSuggestions({
 
   if (loading) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-gray-400">
         📅 Agenda laden…
       </div>
     )
@@ -85,7 +86,7 @@ export default function AgendaSuggestions({
 
   if (!events.length) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-gray-400">
         ℹ️ Geen agenda suggesties gevonden
       </div>
     )
@@ -93,7 +94,7 @@ export default function AgendaSuggestions({
 
   return (
     <div className="space-y-2">
-      <h3 className="font-semibold text-sm">
+      <h3 className="font-semibold text-sm text-gray-100">
         📅 Agenda suggesties
       </h3>
 
@@ -108,14 +109,14 @@ export default function AgendaSuggestions({
           <button
             key={i}
             onClick={() => onUse?.(e)}
-            className="w-full text-left border rounded p-2 hover:bg-gray-50"
+            className="w-full text-left border border-gray-700 rounded p-2 bg-black/20 hover:bg-black/30"
             type="button"
           >
             <div className="font-medium text-sm flex items-center justify-between">
-              <div className="truncate">{e.title}</div>
-              <div className="text-xs text-gray-500 ml-2">{dateLabel}</div>
+              <div className="truncate text-gray-100">{e.title}</div>
+              <div className="text-xs text-gray-400 ml-2">{dateLabel}</div>
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-400">
               {e.isAllDay ? (
                 <span>Hele dag</span>
               ) : (

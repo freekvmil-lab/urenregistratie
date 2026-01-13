@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import AgendaSuggestions from '@/components/AgendaSuggestions'
 
 /* =======================
    TYPES
@@ -37,6 +36,13 @@ const toLocalISOString = (date: string, time: string) => {
   const d = new Date(date)
   d.setHours(h, m, 0, 0)
   return d.toISOString()
+}
+
+const toLocalYmd = (d: Date) => {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 const formatDate = (d: string) =>
@@ -185,6 +191,58 @@ export default function MyOverview({ userId }: { userId?: string }) {
     return () => window.removeEventListener('openManual', handler as EventListener)
   }, [])
 
+  useEffect(() => {
+    const handler = (ev: any) => {
+      const startIso = ev?.detail?.start
+      const endIso = ev?.detail?.end
+      const title = String(ev?.detail?.title ?? '')
+      const eventLocation = ev?.detail?.location ?? null
+      const isAllDay = Boolean(ev?.detail?.isAllDay)
+
+      if (!startIso || !endIso) {
+        // fallback: just open manual for today
+        const d = new Date()
+        setManualDate(toLocalYmd(d))
+        setManual(true)
+        return
+      }
+
+      setManual(true)
+      const s = new Date(startIso)
+      const en = new Date(endIso)
+
+      setManualDate(toLocalYmd(s))
+      if (isAllDay) {
+        setManualStart('09:00')
+        setManualEnd('17:00')
+      } else {
+        setManualStart(
+          s.toLocaleTimeString('nl-NL', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        )
+        setManualEnd(
+          en.toLocaleTimeString('nl-NL', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        )
+      }
+
+      // If title looks like "OPDRACHTGEVER - rest", set opdrachtgever automatically
+      const [maybeClient] = title.split(' - ', 1)
+      setClient(maybeClient)
+      setLocation(eventLocation ?? '')
+      setManualKilometers('')
+      setManualParkingPaid(false)
+      setManualParkingCost('')
+    }
+
+    window.addEventListener('openManualPrefill', handler as EventListener)
+    return () => window.removeEventListener('openManualPrefill', handler as EventListener)
+  }, [])
+
   if (!userId) return <p>Gebruiker laden…</p>
   if (loading) return <p>Overzicht laden…</p>
 
@@ -251,35 +309,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
       <p className="font-bold">
         Totaal: {weekTotal.toFixed(2)} uur
       </p>
-
-      <AgendaSuggestions
-        onUse={(e) => {
-          setManual(true)
-          const s = new Date(e.start)
-          const en = new Date(e.end)
-          setManualDate(s.toISOString().slice(0, 10))
-          setManualStart(
-            s.toLocaleTimeString('nl-NL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          )
-          setManualEnd(
-            en.toLocaleTimeString('nl-NL', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          )
-          // If title looks like "OPDRACHTGEVER - rest", set opdrachtgever automatically
-          const [maybeClient] = e.title.split(' - ', 1)
-          setClient(maybeClient)
-          // only use explicit event location; do not touch/derive from rest of title
-          setLocation(e.location ?? '')
-          setManualKilometers('')
-          setManualParkingPaid(false)
-          setManualParkingCost('')
-        }}
-      />
 
       {/* DAYS */}
       {Object.entries(grouped).map(([date, list]) => {
