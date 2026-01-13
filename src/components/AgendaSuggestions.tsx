@@ -13,7 +13,7 @@ interface AgendaEvent {
 export default function AgendaSuggestions({
   onUse,
 }: {
-  onUse: (e: AgendaEvent) => void
+  onUse?: (e: AgendaEvent) => void
 }) {
   const [events, setEvents] = useState<AgendaEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -82,8 +82,9 @@ export default function AgendaSuggestions({
       {events.map((e, i) => (
         <button
           key={i}
-          onClick={() => onUse(e)}
+          onClick={() => onUse?.(e)}
           className="w-full text-left border rounded p-2 hover:bg-gray-50"
+          type="button"
         >
           <div className="font-medium text-sm">
             {e.title}
