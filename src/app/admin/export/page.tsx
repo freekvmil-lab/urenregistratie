@@ -165,6 +165,68 @@ export default function ExportPage() {
     buildAndDownload(rows)
   }
 
+  const exportClient = async (clientName: string) => {
+    setLoading(true)
+    try {
+      let q = supabase.from('time_entries').select('*').eq('client', clientName).order('date', { ascending: true })
+      if (from) q = q.gte('date', from)
+      if (to) q = q.lte('date', to)
+
+      const { data } = await q
+      const rowsData = (data ?? []) as Entry[]
+      if (!rowsData.length) {
+        alert('Geen entries voor opdrachtgever ' + clientName)
+        return
+      }
+
+      // build profile map
+      const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
+
+      const rows = rowsData.map((e) => {
+        const hours = e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''
+        return [
+          profileMap.get(e.user_id) ?? e.user_id,
+          e.date,
+          formatTime(e.start_time),
+          formatTime(e.end_time),
+          hours,
+          e.client ?? '',
+          e.location ?? '',
+          e.kilometers ?? '',
+          e.parking_paid ? 'Ja' : 'Nee',
+          e.parking_cost ?? '',
+          e.approved ? 'Ja' : 'Nee',
+        ]
+      })
+
+      const header = [
+        'Naam',
+        'Datum',
+        'Start',
+        'Eind',
+        'Uren',
+        'Opdrachtgever',
+        'Locatie',
+        'Kilometers',
+        'Parkeren',
+        'Parkeerkosten',
+        'Goedgekeurd',
+      ]
+
+      const csv = [header, ...rows].map((r) => (r as any[]).map((c: any) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const now = new Date().toISOString().slice(0, 10)
+      a.download = `export-${clientName.replace(/[^a-z0-9]/gi, '_')}-${now}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <main className="p-6">
       <h1 className="text-2xl font-bold mb-4">Exporteer uren</h1>
@@ -220,6 +282,17 @@ export default function ExportPage() {
               ))}
             </select>
           </label>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {clients.map((c) => (
+            <div key={c} className="flex items-center justify-between border rounded p-2">
+              <div className="truncate">{c}</div>
+              <div className="flex gap-2">
+                <button onClick={() => { setOnlyClient(c); loadEntries(); }} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Filter</button>
+                <button onClick={() => exportClient(c)} className="px-2 py-1 bg-green-600 text-white rounded">Export alle werknemers</button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
