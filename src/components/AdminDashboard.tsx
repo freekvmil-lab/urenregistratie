@@ -178,6 +178,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-8">
+      <nav className="flex gap-3 items-center mb-2">
+        <a href="/" className="text-sm text-gray-700 hover:underline">Home</a>
+        <a href="/admin/roles" className="text-sm text-gray-700 hover:underline">Rolbeheer</a>
+        <a href="/admin" className="text-sm text-gray-700 hover:underline">Admin</a>
+      </nav>
       <div>
         <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
 
