@@ -166,32 +166,23 @@ export default function MonthOverview({ userId }: { userId: string }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => openManualForDate(new Date())}
-            className="border border-gray-600 px-3 py-1 rounded"
-          >
-            ➕ Handmatig toevoegen
-          </button>
-
-          <div className="text-right">
-            <div className="text-sm text-gray-200 font-semibold">
-              {loading ? 'Laden…' : `Totaal: ${monthTotal.toFixed(2)} uur`}
-            </div>
-            <div className="text-xs text-gray-400">
-              {earnings != null
-                ? `Schatting: ${earnings.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })}`
-                : rateLoading
-                  ? 'Uurtarief laden…'
-                  : 'Verdiensten: uurtarief nog niet ingesteld'}
-            </div>
-            <div className="text-[11px] text-gray-500">
-              {rateLoading
-                ? '—'
-                : hourlyRate == null
-                  ? 'Uurtarief: —'
-                  : `Uurtarief: ${hourlyRate.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })} / uur`}
-            </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-200 font-semibold">
+            {loading ? 'Laden…' : `Totaal: ${monthTotal.toFixed(2)} uur`}
+          </div>
+          <div className="text-xs text-gray-400">
+            {earnings != null
+              ? `Schatting: ${earnings.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })}`
+              : rateLoading
+                ? 'Uurtarief laden…'
+                : 'Verdiensten: uurtarief nog niet ingesteld'}
+          </div>
+          <div className="text-[11px] text-gray-500">
+            {rateLoading
+              ? '—'
+              : hourlyRate == null
+                ? 'Uurtarief: —'
+                : `Uurtarief: ${hourlyRate.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })} / uur`}
           </div>
         </div>
       </div>

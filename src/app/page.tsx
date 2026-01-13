@@ -14,6 +14,7 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null)
   const [ready, setReady] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showMonthOverview, setShowMonthOverview] = useState(false)
 
   useEffect(() => {
     // 1️⃣ Check bestaande sessie
@@ -114,8 +115,29 @@ export default function HomePage() {
       {/* ⏱ Time tracking */}
       <TimeTracker userId={user.id} />
 
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            const ev = new CustomEvent('openManual', {
+              detail: { date: new Date().toISOString().slice(0, 10) },
+            })
+            window.dispatchEvent(ev)
+          }}
+          className="border px-3 py-1 rounded"
+        >
+          ➕ Handmatig toevoegen
+        </button>
+
+        <button
+          onClick={() => setShowMonthOverview((v) => !v)}
+          className="border px-3 py-1 rounded"
+        >
+          {showMonthOverview ? '📅 Maandoverzicht verbergen' : '📅 Maandoverzicht tonen'}
+        </button>
+      </div>
+
       {/* 🗓️ Maand overzicht */}
-      <MonthOverview userId={user.id} />
+      {showMonthOverview && <MonthOverview userId={user.id} />}
 
       {/* 📊 Overzicht */}
       <MyOverview userId={user.id} />
