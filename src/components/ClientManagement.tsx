@@ -12,6 +12,8 @@ interface Client {
 export default function ClientManagement() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -20,9 +22,33 @@ export default function ClientManagement() {
 
   const load = async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('clients').select('*').order('name')
-    console.log('clients data', data, error)
-    setClients((data ?? []) as Client[])
+    setLoadError(null)
+
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const userId = userData?.user?.id ?? null
+    setAuthUserId(userId)
+
+    if (userError) {
+      console.warn('clients auth.getUser error', userError)
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name')
+
+    console.log('clients load', { userId, userError, data, error })
+
+    if (error) {
+      setClients([])
+      setLoadError(error.message)
+    } else {
+      setClients((data ?? []) as Client[])
+      // If you have data in DB but get 0 rows here, it's almost always RLS/auth.
+      if ((data ?? []).length === 0 && !userId) {
+        setLoadError('Niet ingelogd (RLS blokkeert opdrachtgevers).')
+      }
+    }
     setLoading(false)
   }
 
@@ -63,6 +89,18 @@ export default function ClientManagement() {
   return (
     <div className="p-4 border rounded bg-white/5">
       <h3 className="text-lg font-semibold mb-3">Opdrachtgevers beheer</h3>
+
+      {loadError && (
+        <div className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm">
+          <div className="font-semibold">Kan opdrachtgevers niet laden</div>
+          <div className="opacity-90">{loadError}</div>
+          {!authUserId && (
+            <div className="mt-2">
+              <a href="/login" className="underline">Ga naar login</a>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-4 grid grid-cols-3 gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naam" className="col-span-2 p-2 rounded bg-gray-800 border border-gray-700" />
