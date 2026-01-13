@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-
+  console.log(userId)
   /* =========================
      3️⃣ Google account opslaan
   ========================= */
