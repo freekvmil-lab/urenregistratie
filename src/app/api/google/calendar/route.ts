@@ -17,10 +17,10 @@ export async function GET(req: Request) {
        Support Authorization: Bearer <token> from client
     ========================= */
     const authHeader = req.headers.get('authorization')
-    let accessToken: string | undefined
+    let supabaseAccessToken: string | undefined
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      accessToken = authHeader.split(' ')[1]
+      supabaseAccessToken = authHeader.split(' ')[1]
     } else {
       const cookieStore = await cookies()
       const authCookie = cookieStore
@@ -35,11 +35,11 @@ export async function GET(req: Request) {
         const session = JSON.parse(
           decodeURIComponent(authCookie.value)
         )
-        accessToken = session?.access_token
+        supabaseAccessToken = session?.access_token
       }
     }
 
-    if (!accessToken) {
+    if (!supabaseAccessToken) {
       return NextResponse.json(
         { error: 'not_authenticated' },
         { status: 401 }
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser(accessToken)
+    } = await supabase.auth.getUser(supabaseAccessToken)
 
     if (userError || !user) {
       return NextResponse.json(
@@ -59,11 +59,11 @@ export async function GET(req: Request) {
     }
 
     /* =========================
-       3️⃣ Google token ophalen
+       3️⃣ Google token ophalen (en refresh handling)
     ========================= */
     const { data: googleAccount } = await supabase
       .from('google_accounts')
-      .select('access_token')
+      .select('access_token, refresh_token, expires_at')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -72,6 +72,47 @@ export async function GET(req: Request) {
         { error: 'google_not_connected' },
         { status: 400 }
       )
+    }
+
+    // Helper to refresh access token using stored refresh_token
+    const refreshAccessToken = async (refreshToken: string) => {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.GOOGLE_CLIENT_ID!,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
+      })
+
+      if (!tokenRes.ok) return null
+      const tokenJson = await tokenRes.json()
+      if (!tokenJson.access_token) return null
+
+      const newExpiresAt = new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
+
+      await supabase
+        .from('google_accounts')
+        .update({
+          access_token: tokenJson.access_token,
+          refresh_token: tokenJson.refresh_token ?? refreshToken,
+          expires_at: newExpiresAt,
+        })
+        .eq('user_id', user.id)
+
+      return tokenJson.access_token
+    }
+
+    // If expires_at exists and is in the past, try to refresh now
+    let googleAccessToken = googleAccount.access_token
+    if (googleAccount.expires_at) {
+      const expiresAt = new Date(googleAccount.expires_at)
+      if (expiresAt.getTime() <= Date.now() && googleAccount.refresh_token) {
+        const refreshed = await refreshAccessToken(googleAccount.refresh_token)
+        if (refreshed) googleAccessToken = refreshed
+      }
     }
 
     /* =========================
@@ -96,7 +137,7 @@ export async function GET(req: Request) {
         }),
       {
         headers: {
-          Authorization: `Bearer ${googleAccount.access_token}`,
+          Authorization: `Bearer ${googleAccessToken}`,
         },
       }
     )
@@ -104,7 +145,49 @@ export async function GET(req: Request) {
     const raw = await res.text()
     const data = JSON.parse(raw)
 
+    // If request failed due to auth, try refresh once and retry
     if (!res.ok) {
+      if (res.status === 401 && googleAccount.refresh_token) {
+        const refreshed = await refreshAccessToken(googleAccount.refresh_token)
+        if (refreshed) {
+          const retry = await fetch(
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events?' +
+              new URLSearchParams({
+                timeMin: start.toISOString(),
+                timeMax: end.toISOString(),
+                singleEvents: 'true',
+                orderBy: 'startTime',
+              }),
+            {
+              headers: {
+                Authorization: `Bearer ${refreshed}`,
+              },
+            }
+          )
+
+          const rawRetry = await retry.text()
+          const dataRetry = JSON.parse(rawRetry)
+          if (retry.ok) {
+            const events =
+              dataRetry.items
+                ?.filter((e: any) => e.start?.dateTime && e.end?.dateTime)
+                .map((e: any) => ({
+                  title: e.summary ?? '',
+                  start: e.start.dateTime,
+                  end: e.end.dateTime,
+                  location: e.location ?? null,
+                  source: 'google',
+                })) ?? []
+
+            return NextResponse.json({ events })
+          }
+          return NextResponse.json(
+            { error: 'google_api_error', details: dataRetry },
+            { status: 500 }
+          )
+        }
+      }
+
       return NextResponse.json(
         { error: 'google_api_error', details: data },
         { status: 500 }
