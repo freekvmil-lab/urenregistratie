@@ -123,9 +123,9 @@ export async function GET(req: Request) {
     start.setDate(start.getDate() - 1)
     start.setHours(0, 0, 0, 0)
 
-    // extend window to include upcoming days (e.g. this week)
+    // window: 1 day back, up to 3 days ahead
     const end = new Date()
-    end.setDate(end.getDate() + 7)
+    end.setDate(end.getDate() + 3)
     end.setHours(23, 59, 59, 999)
 
     // Fetch list of calendars for the user, then fetch events from each calendar
