@@ -5,16 +5,16 @@ import { cookies } from 'next/headers'
 export async function GET() {
   const cookieStore = await cookies()
 
-  const supabase = createClient(
+  const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // server only
   )
 
-  // 🔍 Supabase auth cookie zoeken
+  // 1️⃣ Zoek Supabase auth cookie
   const authCookie = cookieStore
     .getAll()
     .find(
-      (c: { name: string; value: string }) =>
+      (c) =>
         c.name.startsWith('sb-') &&
         c.name.endsWith('-auth-token')
     )
@@ -23,33 +23,31 @@ export async function GET() {
     return NextResponse.json({ connected: false })
   }
 
-  // 🔑 cookie JSON parsen → access_token eruit halen
-  let accessToken: string | undefined
+  // 2️⃣ Parse cookie JSON
+  let session: any
   try {
-    const session = JSON.parse(
-      decodeURIComponent(authCookie.value)
-    )
-    accessToken = session?.access_token
+    session = JSON.parse(decodeURIComponent(authCookie.value))
   } catch {
     return NextResponse.json({ connected: false })
   }
 
+  const accessToken = session?.access_token
   if (!accessToken) {
     return NextResponse.json({ connected: false })
   }
 
-  // 👤 User ophalen
+  // 3️⃣ Haal user op
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser(accessToken)
+  } = await supabaseAdmin.auth.getUser(accessToken)
 
   if (error || !user) {
     return NextResponse.json({ connected: false })
   }
 
-  // 📅 Check of Google account bestaat
-  const { data } = await supabase
+  // 4️⃣ Check google_accounts
+  const { data } = await supabaseAdmin
     .from('google_accounts')
     .select('id')
     .eq('user_id', user.id)
