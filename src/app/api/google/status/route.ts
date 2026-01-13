@@ -30,6 +30,7 @@ export async function GET() {
   } catch {
     return NextResponse.json({ connected: false })
   }
+console.log('STATUS session user id:', session?.user?.id)
 
   const accessToken = session?.access_token
   if (!accessToken) {
@@ -45,6 +46,7 @@ export async function GET() {
   if (error || !user) {
     return NextResponse.json({ connected: false })
   }
+console.log('STATUS auth user id:', user?.id)
 
   // 4️⃣ Check google_accounts
   const { data } = await supabaseAdmin
