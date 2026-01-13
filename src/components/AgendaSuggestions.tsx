@@ -14,33 +14,62 @@ export default function AgendaSuggestions({
 }: {
   onUse: (e: Suggestion) => void
 }) {
-  const [events, setEvents] = useState<Suggestion[]>([])
-  const [loading, setLoading] = useState(true)
+  const [events, setEvents] = useState<Suggestion[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch('/api/google/calendar', {
+          credentials: 'include', // 🔑 ZEER BELANGRIJK
           cache: 'no-store',
         })
 
         const json = await res.json()
+        console.log('AgendaSuggestions API result:', json)
 
-        if (json?.events?.length) {
-          setEvents(json.events)
+        if (!res.ok) {
+          setError(json.error || 'API error')
+          setEvents([])
+          return
         }
-      } catch (e) {
-        console.error('Agenda fetch failed', e)
-      } finally {
-        setLoading(false)
+
+        setEvents(json.events || [])
+      } catch (e: any) {
+        console.error('AgendaSuggestions fetch error', e)
+        setError('fetch_failed')
+        setEvents([])
       }
     }
 
     load()
   }, [])
 
-  if (loading) return null
-  if (!events.length) return null
+  /* 🔴 NU ALTIJD IETS RENDEREN */
+
+  if (events === null) {
+    return (
+      <div className="border p-3 text-sm text-gray-500">
+        📅 Agenda laden…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="border p-3 text-sm text-red-600">
+        ❌ Agenda fout: {error}
+      </div>
+    )
+  }
+
+  if (!events.length) {
+    return (
+      <div className="border p-3 text-sm text-gray-500">
+        ℹ️ Geen agenda-items gevonden
+      </div>
+    )
+  }
 
   return (
     <div className="border rounded p-3 space-y-2 bg-gray-50">
