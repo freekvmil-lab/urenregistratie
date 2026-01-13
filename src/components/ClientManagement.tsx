@@ -20,7 +20,8 @@ export default function ClientManagement() {
 
   const load = async () => {
     setLoading(true)
-    const { data } = await supabase.from('clients').select('*').order('name')
+    const { data, error } = await supabase.from('clients').select('*').order('name')
+    console.log('clients data', data, error)
     setClients((data ?? []) as Client[])
     setLoading(false)
   }
