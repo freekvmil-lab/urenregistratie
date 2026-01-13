@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function GoogleAgendaButton() {
   const [connected, setConnected] = useState<boolean | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const loadStatus = () => {
     fetch('/api/google/status', { cache: 'no-store' })
@@ -16,6 +18,24 @@ export default function GoogleAgendaButton() {
     loadStatus()
   }, [])
 
+  const connectGoogle = async () => {
+    setLoading(true)
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      alert('Je bent niet ingelogd')
+      setLoading(false)
+      return
+    }
+
+    // 🔑 expliciet access_token meesturen
+    window.location.href =
+      `/api/google/auth?access_token=${session.access_token}`
+  }
+
   if (connected === null) return null
 
   if (connected) {
@@ -27,15 +47,12 @@ export default function GoogleAgendaButton() {
   }
 
   return (
-    <a
-      href="/api/google/auth"
-      onClick={() => {
-        // kleine delay zodat callback kan opslaan
-        setTimeout(loadStatus, 3000)
-      }}
+    <button
+      onClick={connectGoogle}
+      disabled={loading}
       className="border px-3 py-2 rounded inline-block"
     >
-      📅 Koppel Google Agenda
-    </a>
+      {loading ? 'Bezig…' : '📅 Koppel Google Agenda'}
+    </button>
   )
 }

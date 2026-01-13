@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
-  const code = searchParams.get('code')
 
-  if (!code) {
-    return NextResponse.redirect(`${origin}/?error=no_code`)
+  const code = searchParams.get('code')
+  const accessToken = searchParams.get('state') // 🔑 HIER
+
+  if (!code || !accessToken) {
+    return NextResponse.redirect(`${origin}/?error=oauth`)
   }
 
   /* =========================
@@ -33,8 +34,7 @@ export async function GET(req: Request) {
   }
 
   /* =========================
-     2️⃣ Supabase server client
-     (SERVICE ROLE, server only)
+     2️⃣ Supabase admin client
   ========================= */
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,35 +42,7 @@ export async function GET(req: Request) {
   )
 
   /* =========================
-     3️⃣ Supabase user via auth cookie
-  ========================= */
-  const cookieStore = await cookies()
-  const authCookie = cookieStore
-    .getAll()
-    .find(
-      (c) =>
-        c.name.startsWith('sb-') &&
-        c.name.endsWith('-auth-token')
-    )
-
-  if (!authCookie) {
-    console.error('No Supabase auth cookie found')
-    return NextResponse.redirect(`${origin}/login`)
-  }
-
-  const session = JSON.parse(
-    decodeURIComponent(authCookie.value)
-  )
-
-  const accessToken = session?.access_token
-
-  if (!accessToken) {
-    console.error('No access token in auth cookie')
-    return NextResponse.redirect(`${origin}/login`)
-  }
-
-  /* =========================
-     4️⃣ User ophalen
+     3️⃣ User ophalen via access_token
   ========================= */
   const {
     data: { user },
@@ -85,7 +57,7 @@ export async function GET(req: Request) {
   console.log('Saving Google account for user:', user.id)
 
   /* =========================
-     5️⃣ Google account opslaan
+     4️⃣ Google account opslaan
   ========================= */
   const { error } = await supabaseAdmin
     .from('google_accounts')
@@ -107,7 +79,7 @@ export async function GET(req: Request) {
   }
 
   /* =========================
-     6️⃣ Klaar
+     5️⃣ Klaar
   ========================= */
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
