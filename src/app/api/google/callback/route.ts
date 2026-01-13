@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url)
-
   const code = searchParams.get('code')
-  const userId = searchParams.get('state') // 🔑
 
-  if (!code || !userId) {
-    return NextResponse.redirect(`${origin}/?error=oauth`)
+  if (!code) {
+    return NextResponse.redirect(`${origin}/?error=no_code`)
   }
 
   /* =========================
@@ -16,9 +15,7 @@ export async function GET(req: Request) {
   ========================= */
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
       client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -37,20 +34,64 @@ export async function GET(req: Request) {
 
   /* =========================
      2️⃣ Supabase server client
+     (SERVICE ROLE, server only)
   ========================= */
-  const supabase = createClient(
+  const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  console.log(userId)
+
   /* =========================
-     3️⃣ Google account opslaan
+     3️⃣ Supabase user via auth cookie
   ========================= */
-  const { error } = await supabase
+  const cookieStore = await cookies()
+  const authCookie = cookieStore
+    .getAll()
+    .find(
+      (c) =>
+        c.name.startsWith('sb-') &&
+        c.name.endsWith('-auth-token')
+    )
+
+  if (!authCookie) {
+    console.error('No Supabase auth cookie found')
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  const session = JSON.parse(
+    decodeURIComponent(authCookie.value)
+  )
+
+  const accessToken = session?.access_token
+
+  if (!accessToken) {
+    console.error('No access token in auth cookie')
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  /* =========================
+     4️⃣ User ophalen
+  ========================= */
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseAdmin.auth.getUser(accessToken)
+
+  if (userError || !user) {
+    console.error('User fetch failed', userError)
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  console.log('Saving Google account for user:', user.id)
+
+  /* =========================
+     5️⃣ Google account opslaan
+  ========================= */
+  const { error } = await supabaseAdmin
     .from('google_accounts')
     .upsert(
       {
-        user_id: userId,
+        user_id: user.id,
         access_token: token.access_token,
         refresh_token: token.refresh_token,
         expires_at: new Date(
@@ -66,7 +107,7 @@ export async function GET(req: Request) {
   }
 
   /* =========================
-     4️⃣ Klaar
+     6️⃣ Klaar
   ========================= */
   return NextResponse.redirect(`${origin}/?google=connected`)
 }
