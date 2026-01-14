@@ -74,7 +74,7 @@ const needsDetails = (e: Entry) => {
   // Only nudge after the shift is stopped
   if (!e.end_time) return false
 
-  const missingClient = !e.client || !String(e.client).trim()
+  const missingClient = !(e.client_id && String(e.client_id).trim()) && (!e.client || !String(e.client).trim())
   const missingLocation = !e.location || !String(e.location).trim()
   const parkingMissingCost = Boolean(e.parking_paid) && (e.parking_cost === null || e.parking_cost === undefined)
 
@@ -191,6 +191,16 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   const clientsById = new Map(clients.map((c) => [c.id, c]))
   const clientsByNameLower = new Map(clients.map((c) => [c.name.trim().toLowerCase(), c]))
+
+  const displayClientName = (e: Entry) => {
+    const id = String(e.client_id ?? '').trim()
+    if (id) {
+      const row = clientsById.get(id)
+      if (row?.name) return row.name
+    }
+    const raw = String(e.client ?? '').trim()
+    return raw || null
+  }
 
   const isKnownClientName = (name: string | null | undefined) => {
     const raw = String(name ?? '').trim()
@@ -331,10 +341,19 @@ export default function MyOverview({ userId }: { userId?: string }) {
       }
     }
 
-    const { error } = await supabase.from('time_entries').update(payload).eq('id', editing.id)
+    const { data, error } = await supabase
+      .from('time_entries')
+      .update(payload)
+      .eq('id', editing.id)
+      .select('id')
 
     if (error) {
       setEditError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
+      return
+    }
+
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      setEditError('Opslaan faalde door rechten (RLS). Voeg een admin UPDATE policy toe op time_entries.')
       return
     }
 
@@ -378,10 +397,18 @@ export default function MyOverview({ userId }: { userId?: string }) {
       if (clientId) manualPayload.client_id = clientId
     }
 
-    const { error } = await supabase.from('time_entries').insert(manualPayload)
+    const { data, error } = await supabase
+      .from('time_entries')
+      .insert(manualPayload)
+      .select('id')
 
     if (error) {
       setManualError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
+      return
+    }
+
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      setManualError('Opslaan faalde door rechten (RLS).')
       return
     }
 
@@ -744,7 +771,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
                 {/* KLUS INFO */}
                 <div className="text-xs text-gray-400 flex flex-wrap gap-2">
-                  {e.client && <span>👤 {e.client}</span>}
+                  {displayClientName(e) && <span>👤 {displayClientName(e)}</span>}
                   {e.location && <span>📍 {e.location}</span>}
                   {e.kilometers && (
                     <span>🚗 {e.kilometers} km</span>
