@@ -163,6 +163,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
     clientOptions.map((c) => c.trim().toLowerCase()).filter(Boolean)
   )
 
+  const isKnownClient = (name: string | null | undefined) => {
+    const raw = String(name ?? '').trim()
+    if (!raw) return true
+    return normalizedClientSet.has(raw.toLowerCase())
+  }
+
   const validateClientForEmployee = () => {
     const raw = client.trim()
     if (!raw) return { ok: true as const }
@@ -209,6 +215,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
     setEditKilometers(e.kilometers ?? '')
     setEditParkingPaid(Boolean(e.parking_paid))
     setEditParkingCost(e.parking_cost ?? '')
+
+    // If this entry has a legacy client name that's not in the clients table yet,
+    // don't force the employee into an invalid <select> value.
+    if (!isAdmin && e.client && !isKnownClient(e.client)) {
+      setClient('')
+    }
   }
 
   const saveEdit = async () => {
@@ -221,17 +233,34 @@ export default function MyOverview({ userId }: { userId?: string }) {
       return
     }
 
-    const { error } = await supabase.from('time_entries').update({
+    const payload: any = {
       start_time: toLocalISOString(editing.date, start),
       end_time: toLocalISOString(editing.date, end),
-      client: client || null,
       location: location || null,
       kilometers: editKilometers || null,
       parking_paid: editParkingPaid,
       parking_cost: editParkingPaid ? editParkingCost : null,
       edited: true,
       approved: false,
-    }).eq('id', editing.id)
+    }
+
+    // Admins can freely set/clear client.
+    if (isAdmin) {
+      payload.client = client.trim() || null
+    } else {
+      // Employees: only update client if they selected a known client.
+      const selected = client.trim()
+      if (selected) {
+        payload.client = selected
+      } else if (!editing.client) {
+        // If there was no client before, allow clearing (keep null).
+        payload.client = null
+      }
+      // If editing.client exists but isn't in clients, and employee didn't select,
+      // omit client field to avoid triggering any auto-create logic.
+    }
+
+    const { error } = await supabase.from('time_entries').update(payload).eq('id', editing.id)
 
     if (error) {
       setEditError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
@@ -469,6 +498,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
                               className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                             />
                           ) : (
+                            <>
+                              {editing?.client && !isKnownClient(editing.client) && (
+                                <div className="text-xs text-gray-300">
+                                  Huidige opdrachtgever: <span className="font-semibold">{editing.client}</span> (nog niet in lijst). Je kunt optioneel een bestaande kiezen.
+                                </div>
+                              )}
                             <select
                               value={client}
                               onChange={(e) => setClient(e.target.value)}
@@ -481,6 +516,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                                 </option>
                               ))}
                             </select>
+                            </>
                           )}
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
