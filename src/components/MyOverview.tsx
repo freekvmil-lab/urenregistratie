@@ -70,6 +70,10 @@ const hours = (s: string, e: string | null) =>
 export default function MyOverview({ userId }: { userId?: string }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
+  const [clientOptions, setClientOptions] = useState<string[]>([])
+  const [manualError, setManualError] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [currentWeek, setCurrentWeek] = useState(() => {
     const d = new Date()
@@ -114,11 +118,77 @@ export default function MyOverview({ userId }: { userId?: string }) {
     setLoading(false)
   }
 
+  const fetchClients = async () => {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('name')
+      .order('name', { ascending: true })
+
+    if (error) {
+      // If RLS blocks SELECT, don't break manual entry; just hide suggestions.
+      setClientOptions([])
+      return
+    }
+
+    const names = (data ?? []).map((r: any) => String(r.name)).filter(Boolean)
+    setClientOptions(Array.from(new Set(names)))
+  }
+
+  const fetchRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setIsAdmin(false)
+      return
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    setIsAdmin(profile?.role === 'admin')
+  }
+
   useEffect(() => {
     fetchEntries()
   }, [userId])
 
+  useEffect(() => {
+    fetchClients()
+    fetchRole()
+  }, [])
+
+  const normalizedClientSet = new Set(
+    clientOptions.map((c) => c.trim().toLowerCase()).filter(Boolean)
+  )
+
+  const validateClientForEmployee = () => {
+    const raw = client.trim()
+    if (!raw) return { ok: true as const }
+    if (isAdmin) return { ok: true as const }
+
+    const exists = normalizedClientSet.has(raw.toLowerCase())
+    if (!exists) {
+      return {
+        ok: false as const,
+        message:
+          'Onbekende opdrachtgever. Kies een bestaande opdrachtgever (admins beheren de lijst via Admin → Opdrachtgevers).',
+      }
+    }
+    return { ok: true as const }
+  }
+
+  const toFriendlyClientRlsError = (err: any) => {
+    if (!err) return null
+    if (err.code !== '42501') return null
+    const msg = String(err.message ?? '')
+    if (!msg.toLowerCase().includes('clients')) return null
+    return 'Je hebt geen rechten om automatisch een nieuwe opdrachtgever aan te maken. Kies een bestaande opdrachtgever, of vraag een admin om deze toe te voegen via Admin → Opdrachtgevers.'
+  }
+
   const openEdit = (e: Entry) => {
+    setEditError(null)
     setEditing(e)
     setStart(
       new Date(e.start_time).toLocaleTimeString('nl-NL', {
@@ -143,7 +213,15 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   const saveEdit = async () => {
     if (!editing) return
-    await supabase.from('time_entries').update({
+    setEditError(null)
+
+    const v = validateClientForEmployee()
+    if (!v.ok) {
+      setEditError(v.message)
+      return
+    }
+
+    const { error } = await supabase.from('time_entries').update({
       start_time: toLocalISOString(editing.date, start),
       end_time: toLocalISOString(editing.date, end),
       client: client || null,
@@ -155,13 +233,26 @@ export default function MyOverview({ userId }: { userId?: string }) {
       approved: false,
     }).eq('id', editing.id)
 
+    if (error) {
+      setEditError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
+      return
+    }
+
     setEditing(null)
     fetchEntries()
   }
 
   const saveManual = async () => {
     if (!userId) return
-    await supabase.from('time_entries').insert({
+    setManualError(null)
+
+    const v = validateClientForEmployee()
+    if (!v.ok) {
+      setManualError(v.message)
+      return
+    }
+
+    const { error } = await supabase.from('time_entries').insert({
       user_id: userId,
       date: manualDate,
       start_time: toLocalISOString(manualDate, manualStart),
@@ -176,6 +267,11 @@ export default function MyOverview({ userId }: { userId?: string }) {
       parking_cost: manualParkingPaid ? manualParkingCost : null,
     })
 
+    if (error) {
+      setManualError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
+      return
+    }
+
     setManual(false)
     fetchEntries()
   }
@@ -184,6 +280,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
     const handler = (ev: any) => {
       const date = ev?.detail?.date ?? new Date().toISOString().slice(0, 10)
       setManualDate(date)
+      setManualError(null)
       setManual(true)
     }
 
@@ -208,6 +305,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       }
 
       setManual(true)
+      setManualError(null)
       const s = new Date(startIso)
       const en = new Date(endIso)
 
@@ -329,6 +427,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
             {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
 
+                <datalist id="client-list">
+                  {clientOptions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+
             {list.map((e) => (
               <div
                 key={e.id}
@@ -356,7 +460,28 @@ export default function MyOverview({ userId }: { userId?: string }) {
                         <div className="space-y-2">
                           <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          {isAdmin ? (
+                            <input
+                              list="client-list"
+                              placeholder="Klant"
+                              value={client}
+                              onChange={(e) => setClient(e.target.value)}
+                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                            />
+                          ) : (
+                            <select
+                              value={client}
+                              onChange={(e) => setClient(e.target.value)}
+                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                            >
+                              <option value="">Selecteer opdrachtgever…</option>
+                              {clientOptions.map((name) => (
+                                <option key={name} value={name}>
+                                  {name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
                             <input type="number" placeholder="Kilometers" value={editKilometers === '' ? '' : editKilometers} onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
@@ -367,6 +492,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           </div>
                           {editParkingPaid && (
                             <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          )}
+
+                          {editError && (
+                            <div className="text-sm text-red-300">{editError}</div>
                           )}
                         </div>
                         <div className="flex gap-2 justify-end">
@@ -385,7 +514,28 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <input placeholder="Klant" value={client} onChange={(e) => setClient(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          {isAdmin ? (
+                            <input
+                              list="client-list"
+                              placeholder="Klant"
+                              value={client}
+                              onChange={(e) => setClient(e.target.value)}
+                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                            />
+                          ) : (
+                            <select
+                              value={client}
+                              onChange={(e) => setClient(e.target.value)}
+                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                            >
+                              <option value="">Selecteer opdrachtgever…</option>
+                              {clientOptions.map((name) => (
+                                <option key={name} value={name}>
+                                  {name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
                             <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
@@ -396,6 +546,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           </div>
                           {manualParkingPaid && (
                             <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          )}
+
+                          {manualError && (
+                            <div className="text-sm text-red-300">{manualError}</div>
                           )}
                         </div>
                         <div className="flex gap-2 justify-end">
