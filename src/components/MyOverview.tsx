@@ -17,10 +17,16 @@ interface Entry {
   approved?: boolean
   manual?: boolean
   client?: string | null
+  client_id?: string | null
   location?: string | null
   kilometers?: number | null
   parking_paid?: boolean | null
   parking_cost?: number | null
+}
+
+interface ClientRow {
+  id: string
+  name: string
 }
 
 /* =======================
@@ -82,7 +88,7 @@ const needsDetails = (e: Entry) => {
 export default function MyOverview({ userId }: { userId?: string }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
-  const [clientOptions, setClientOptions] = useState<string[]>([])
+  const [clients, setClients] = useState<ClientRow[]>([])
   const [manualError, setManualError] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -103,7 +109,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [manualDate, setManualDate] = useState('')
   const [manualStart, setManualStart] = useState('')
   const [manualEnd, setManualEnd] = useState('')
-  const [client, setClient] = useState('')
+  const [clientId, setClientId] = useState<string>('')
+  const [clientText, setClientText] = useState<string>('')
   const [location, setLocation] = useState('')
   const [editKilometers, setEditKilometers] = useState<number | ''>('')
   const [editParkingPaid, setEditParkingPaid] = useState(false)
@@ -133,17 +140,28 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const fetchClients = async () => {
     const { data, error } = await supabase
       .from('clients')
-      .select('name')
+      .select('id, name')
       .order('name', { ascending: true })
 
     if (error) {
       // If RLS blocks SELECT, don't break manual entry; just hide suggestions.
-      setClientOptions([])
+      setClients([])
       return
     }
 
-    const names = (data ?? []).map((r: any) => String(r.name)).filter(Boolean)
-    setClientOptions(Array.from(new Set(names)))
+    const rows = (data ?? []) as any[]
+    const mapped = rows
+      .map((r) => ({ id: String(r.id), name: String(r.name) }))
+      .filter((r) => r.id && r.name)
+    // de-dupe by id
+    const seen = new Set<string>()
+    const uniq: ClientRow[] = []
+    for (const c of mapped) {
+      if (seen.has(c.id)) continue
+      seen.add(c.id)
+      uniq.push(c)
+    }
+    setClients(uniq)
   }
 
   const fetchRole = async () => {
@@ -171,23 +189,20 @@ export default function MyOverview({ userId }: { userId?: string }) {
     fetchRole()
   }, [])
 
-  const normalizedClientSet = new Set(
-    clientOptions.map((c) => c.trim().toLowerCase()).filter(Boolean)
-  )
+  const clientsById = new Map(clients.map((c) => [c.id, c]))
+  const clientsByNameLower = new Map(clients.map((c) => [c.name.trim().toLowerCase(), c]))
 
-  const isKnownClient = (name: string | null | undefined) => {
+  const isKnownClientName = (name: string | null | undefined) => {
     const raw = String(name ?? '').trim()
     if (!raw) return true
-    return normalizedClientSet.has(raw.toLowerCase())
+    return clientsByNameLower.has(raw.toLowerCase())
   }
 
   const validateClientForEmployee = () => {
-    const raw = client.trim()
-    if (!raw) return { ok: true as const }
     if (isAdmin) return { ok: true as const }
-
-    const exists = normalizedClientSet.has(raw.toLowerCase())
-    if (!exists) {
+    // For employees, client must be selected from the dropdown (clientId) or left empty.
+    if (!clientId) return { ok: true as const }
+    if (!clientsById.has(clientId)) {
       return {
         ok: false as const,
         message:
@@ -222,17 +237,60 @@ export default function MyOverview({ userId }: { userId?: string }) {
           })
         : ''
     )
-    setClient(e.client ?? '')
+    const existingClientId = e.client_id ?? null
+    if (existingClientId && clientsById.has(existingClientId)) {
+      setClientId(existingClientId)
+    } else if (e.client && isKnownClientName(e.client)) {
+      setClientId(clientsByNameLower.get(e.client.trim().toLowerCase())!.id)
+    } else {
+      setClientId('')
+    }
+
+    // Text input is admin-only convenience; default to current visible client name.
+    setClientText(e.client ?? '')
     setLocation(e.location ?? '')
     setEditKilometers(e.kilometers ?? '')
     setEditParkingPaid(Boolean(e.parking_paid))
     setEditParkingCost(e.parking_cost ?? '')
+  }
 
-    // If this entry has a legacy client name that's not in the clients table yet,
-    // don't force the employee into an invalid <select> value.
-    if (!isAdmin && e.client && !isKnownClient(e.client)) {
-      setClient('')
+  const ensureClientIdForAdmin = async (): Promise<{ id: string | null; error?: string }> => {
+    // Priority: selected existing client
+    if (clientId) {
+      return { id: clientId }
     }
+
+    const name = clientText.trim()
+    if (!name) return { id: null }
+
+    // If it already exists (case-insensitive), reuse
+    const existing = clientsByNameLower.get(name.toLowerCase())
+    if (existing) return { id: existing.id }
+
+    // Admin convenience: create new client row
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({ name })
+      .select('id, name')
+      .single()
+
+    if (error) {
+      return { id: null, error: error.message || 'Opdrachtgever aanmaken mislukt' }
+    }
+
+    const createdId = String((data as any)?.id ?? '')
+    const createdName = String((data as any)?.name ?? name)
+    if (createdId) {
+      // update local list so dropdown stays in sync
+      setClients((prev) => {
+        if (prev.some((c) => c.id === createdId)) return prev
+        return [...prev, { id: createdId, name: createdName }].sort((a, b) => a.name.localeCompare(b.name))
+      })
+      setClientId(createdId)
+      return { id: createdId }
+    }
+
+    return { id: null, error: 'Opdrachtgever aanmaken mislukt' }
   }
 
   const saveEdit = async () => {
@@ -256,20 +314,21 @@ export default function MyOverview({ userId }: { userId?: string }) {
       approved: false,
     }
 
-    // Admins can freely set/clear client.
     if (isAdmin) {
-      payload.client = client.trim() || null
-    } else {
-      // Employees: only update client if they selected a known client.
-      const selected = client.trim()
-      if (selected) {
-        payload.client = selected
-      } else if (!editing.client) {
-        // If there was no client before, allow clearing (keep null).
-        payload.client = null
+      const { id, error } = await ensureClientIdForAdmin()
+      if (error) {
+        setEditError(error)
+        return
       }
-      // If editing.client exists but isn't in clients, and employee didn't select,
-      // omit client field to avoid triggering any auto-create logic.
+      // Use client_id; DB trigger sync_time_entries_client_from_id will keep text in sync.
+      payload.client_id = id
+      // If admin cleared selection and text, explicitly clear legacy client too.
+      if (!id && !clientText.trim()) payload.client = null
+    } else {
+      // Employees: only touch client_id if they selected one. Otherwise preserve legacy.
+      if (clientId) {
+        payload.client_id = clientId
+      }
     }
 
     const { error } = await supabase.from('time_entries').update(payload).eq('id', editing.id)
@@ -293,7 +352,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       return
     }
 
-    const { error } = await supabase.from('time_entries').insert({
+    const manualPayload: any = {
       user_id: userId,
       date: manualDate,
       start_time: toLocalISOString(manualDate, manualStart),
@@ -301,12 +360,25 @@ export default function MyOverview({ userId }: { userId?: string }) {
       manual: true,
       edited: true,
       approved: false,
-      client: client || null,
       location: location || null,
       kilometers: manualKilometers || null,
       parking_paid: manualParkingPaid,
       parking_cost: manualParkingPaid ? manualParkingCost : null,
-    })
+    }
+
+    if (isAdmin) {
+      const { id, error: cErr } = await ensureClientIdForAdmin()
+      if (cErr) {
+        setManualError(cErr)
+        return
+      }
+      manualPayload.client_id = id
+      if (!id && !clientText.trim()) manualPayload.client = null
+    } else {
+      if (clientId) manualPayload.client_id = clientId
+    }
+
+    const { error } = await supabase.from('time_entries').insert(manualPayload)
 
     if (error) {
       setManualError(toFriendlyClientRlsError(error) ?? (error.message || 'Opslaan mislukt'))
@@ -371,7 +443,20 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       // If title looks like "OPDRACHTGEVER - rest", set opdrachtgever automatically
       const [maybeClient] = title.split(' - ', 1)
-      setClient(maybeClient)
+      const name = String(maybeClient ?? '').trim()
+      if (!name) {
+        setClientId('')
+        setClientText('')
+      } else {
+        const existing = clientsByNameLower.get(name.toLowerCase())
+        if (existing) {
+          setClientId(existing.id)
+          setClientText(existing.name)
+        } else {
+          setClientId('')
+          setClientText(name)
+        }
+      }
       setLocation(eventLocation ?? '')
       setManualKilometers('')
       setManualParkingPaid(false)
@@ -469,8 +554,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
             {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
 
                 <datalist id="client-list">
-                  {clientOptions.map((name) => (
-                    <option key={name} value={name} />
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.name} />
                   ))}
                 </datalist>
 
@@ -504,14 +589,19 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           {isAdmin ? (
                             <>
                               <select
-                                value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                value={clientId}
+                                onChange={(e) => {
+                                  const nextId = e.target.value
+                                  setClientId(nextId)
+                                  const row = clientsById.get(nextId)
+                                  if (row) setClientText(row.name)
+                                }}
                                 className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                               >
                                 <option value="">Selecteer opdrachtgever…</option>
-                                {clientOptions.map((name) => (
-                                  <option key={name} value={name}>
-                                    {name}
+                                {clients.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
                                   </option>
                                 ))}
                               </select>
@@ -520,27 +610,30 @@ export default function MyOverview({ userId }: { userId?: string }) {
                               <input
                                 list="client-list"
                                 placeholder="Klant"
-                                value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                value={clientText}
+                                onChange={(e) => {
+                                  setClientText(e.target.value)
+                                  setClientId('')
+                                }}
                                 className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                               />
                             </>
                           ) : (
                             <>
-                              {editing?.client && !isKnownClient(editing.client) && (
+                              {editing?.client && !isKnownClientName(editing.client) && (
                                 <div className="text-xs text-gray-300">
                                   Huidige opdrachtgever: <span className="font-semibold">{editing.client}</span> (nog niet in lijst). Je kunt optioneel een bestaande kiezen.
                                 </div>
                               )}
                             <select
-                              value={client}
-                              onChange={(e) => setClient(e.target.value)}
+                                value={clientId}
+                                onChange={(e) => setClientId(e.target.value)}
                               className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                             >
                               <option value="">Selecteer opdrachtgever…</option>
-                              {clientOptions.map((name) => (
-                                <option key={name} value={name}>
-                                  {name}
+                                {clients.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
                                 </option>
                               ))}
                             </select>
@@ -581,14 +674,19 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           {isAdmin ? (
                             <>
                               <select
-                                value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                value={clientId}
+                                onChange={(e) => {
+                                  const nextId = e.target.value
+                                  setClientId(nextId)
+                                  const row = clientsById.get(nextId)
+                                  if (row) setClientText(row.name)
+                                }}
                                 className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                               >
                                 <option value="">Selecteer opdrachtgever…</option>
-                                {clientOptions.map((name) => (
-                                  <option key={name} value={name}>
-                                    {name}
+                                {clients.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name}
                                   </option>
                                 ))}
                               </select>
@@ -597,21 +695,24 @@ export default function MyOverview({ userId }: { userId?: string }) {
                               <input
                                 list="client-list"
                                 placeholder="Klant"
-                                value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                value={clientText}
+                                onChange={(e) => {
+                                  setClientText(e.target.value)
+                                  setClientId('')
+                                }}
                                 className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                               />
                             </>
                           ) : (
                             <select
-                              value={client}
-                              onChange={(e) => setClient(e.target.value)}
+                              value={clientId}
+                              onChange={(e) => setClientId(e.target.value)}
                               className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
                             >
                               <option value="">Selecteer opdrachtgever…</option>
-                              {clientOptions.map((name) => (
-                                <option key={name} value={name}>
-                                  {name}
+                              {clients.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
                                 </option>
                               ))}
                             </select>
