@@ -1,16 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
+  const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadRole = async () => {
+    const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      setUserEmail(user?.email ?? null)
+
+      if (!user) {
+        setIsAdmin(false)
+        return
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -21,40 +29,78 @@ export default function Navbar() {
       setIsAdmin(profile?.role === 'admin')
     }
 
-    loadRole()
+    load()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      load()
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
+  const links = useMemo(() => {
+    const base = [{ href: '/', label: 'Home', adminOnly: false }]
+    const adminLinks = [
+      { href: '/admin', label: 'Admin', adminOnly: true },
+      { href: '/admin/roles', label: 'Rolbeheer', adminOnly: true },
+      { href: '/admin/export', label: 'Export', adminOnly: true },
+      { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
+    ]
+    return [...base, ...adminLinks]
+  }, [])
+
+  const linkClass = (href: string) => {
+    const active = pathname === href
+    return (
+      'text-sm px-2 py-1 rounded ' +
+      (active
+        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800')
+    )
+  }
+
   return (
-    <nav className="flex items-center gap-4 px-6 py-4
-      bg-white dark:bg-gray-900
+    <nav className="sticky top-0 z-50 flex items-center gap-2 px-6 py-3
+      bg-white/90 dark:bg-gray-900/90 backdrop-blur
       border-b border-gray-300 dark:border-gray-700">
 
-      <Link
-        href="/"
-        className="font-semibold text-gray-900 dark:text-gray-100"
-      >
-        Mijn uren
+      <Link href="/" className="font-semibold text-gray-900 dark:text-gray-100 mr-2">
+        Vortexx
       </Link>
 
-      {isAdmin && (
-        <Link
-          href="/admin"
-          className="font-semibold text-gray-900 dark:text-gray-100"
-        >
-          Admin
-        </Link>
-      )}
+      <div className="inline-flex gap-1 items-center">
+        {links
+          .filter((l) => !l.adminOnly || isAdmin)
+          .map((l) => (
+            <Link key={l.href} href={l.href} className={linkClass(l.href)}>
+              {l.label}
+            </Link>
+          ))}
+      </div>
 
-      <button
-        onClick={async () => {
-          await supabase.auth.signOut()
-          window.location.href = '/login'
-        }}
-        className="ml-auto text-sm underline
-          text-gray-900 dark:text-gray-100"
-      >
-        Uitloggen
-      </button>
+      <div className="ml-auto flex items-center gap-3">
+        {userEmail ? (
+          <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[220px]">
+            {userEmail}
+          </span>
+        ) : (
+          <Link href="/login" className={linkClass('/login')}>
+            Inloggen
+          </Link>
+        )}
+
+        {userEmail && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut()
+              window.location.href = '/login'
+            }}
+            className="text-sm underline text-gray-900 dark:text-gray-100"
+          >
+            Uitloggen
+          </button>
+        )}
+      </div>
     </nav>
   )
 }
