@@ -6,7 +6,6 @@ import TimeTracker from '@/components/TimeTracker'
 import MyOverview from '@/components/MyOverview'
 import MonthOverview from '@/components/MonthOverview'
 import AgendaSuggestions from '@/components/AgendaSuggestions'
-import Link from 'next/link'
 import GoogleAgendaButton from '@/components/GoogleAgendaButton'
 
 
@@ -14,7 +13,6 @@ import GoogleAgendaButton from '@/components/GoogleAgendaButton'
 export default function HomePage() {
   const [user, setUser] = useState<any>(null)
   const [ready, setReady] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [showMonthOverview, setShowMonthOverview] = useState(false)
   const [showAgendaSuggestions, setShowAgendaSuggestions] = useState(false)
 
@@ -23,10 +21,6 @@ export default function HomePage() {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null)
       setReady(true)
-
-      if (data.session?.user) {
-        loadRole(data.session.user.id)
-      }
     })
 
     // 2️⃣ Luister naar auth changes (CRUCIAAL voor PWA/iOS)
@@ -35,28 +29,12 @@ export default function HomePage() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setReady(true)
-
-      if (session?.user) {
-        loadRole(session.user.id)
-      } else {
-        setIsAdmin(false)
-      }
     })
 
     return () => {
       subscription.unsubscribe()
     }
   }, [])
-
-  const loadRole = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single()
-
-    setIsAdmin(data?.role === 'admin')
-  }
 
   const todayLocalYmd = () => {
     const d = new Date()
@@ -98,26 +76,6 @@ export default function HomePage() {
         <span className="font-semibold">
           Welkom {user.email}
         </span>
-
-        {isAdmin && (
-          <Link
-            href="/admin"
-            className="px-3 py-1 rounded
-              bg-blue-600 text-white text-sm"
-          >
-            Admin
-          </Link>
-        )}
-
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut()
-            window.location.href = '/login'
-          }}
-          className="ml-auto text-sm underline"
-        >
-          Uitloggen
-        </button>
       </div>
 
       <GoogleAgendaButton userId={user.id} />
