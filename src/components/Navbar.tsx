@@ -42,7 +42,7 @@ export default function Navbar() {
     const base = [{ href: '/', label: 'Home', adminOnly: false }]
     const adminLinks = [
       { href: '/admin', label: 'Admin', adminOnly: true },
-      { href: '/admin/roles', label: 'Rolbeheer', adminOnly: true },
+      { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
       { href: '/admin/export', label: 'Export', adminOnly: true },
       { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
     ]
