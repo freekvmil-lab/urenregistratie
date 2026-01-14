@@ -63,6 +63,18 @@ const formatTime = (d: string | null) =>
 const hours = (s: string, e: string | null) =>
   e ? (new Date(e).getTime() - new Date(s).getTime()) / 3600000 : 0
 
+const needsDetails = (e: Entry) => {
+  if (e.manual) return false
+  // Only nudge after the shift is stopped
+  if (!e.end_time) return false
+
+  const missingClient = !e.client || !String(e.client).trim()
+  const missingLocation = !e.location || !String(e.location).trim()
+  const parkingMissingCost = Boolean(e.parking_paid) && (e.parking_cost === null || e.parking_cost === undefined)
+
+  return missingClient || missingLocation || parkingMissingCost
+}
+
 /* =======================
    COMPONENT
 ======================= */
@@ -628,7 +640,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                   ) : (
                     <span className="text-purple-400 ml-2">Start/Stop knop</span>
                   )}
-                  {e.edited && !e.manual && (
+                  {!e.manual && needsDetails(e) && (
                     <span className="text-gray-400 ml-2">✏️ Data invullen</span>
                   )}
                 </div>
