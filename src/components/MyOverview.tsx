@@ -502,13 +502,29 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           {isAdmin ? (
-                            <input
-                              list="client-list"
-                              placeholder="Klant"
-                              value={client}
-                              onChange={(e) => setClient(e.target.value)}
-                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                            />
+                            <>
+                              <select
+                                value={client}
+                                onChange={(e) => setClient(e.target.value)}
+                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                              >
+                                <option value="">Selecteer opdrachtgever…</option>
+                                {clientOptions.map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
+                              <input
+                                list="client-list"
+                                placeholder="Klant"
+                                value={client}
+                                onChange={(e) => setClient(e.target.value)}
+                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                              />
+                            </>
                           ) : (
                             <>
                               {editing?.client && !isKnownClient(editing.client) && (
@@ -563,13 +579,29 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           {isAdmin ? (
-                            <input
-                              list="client-list"
-                              placeholder="Klant"
-                              value={client}
-                              onChange={(e) => setClient(e.target.value)}
-                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                            />
+                            <>
+                              <select
+                                value={client}
+                                onChange={(e) => setClient(e.target.value)}
+                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                              >
+                                <option value="">Selecteer opdrachtgever…</option>
+                                {clientOptions.map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
+                              <input
+                                list="client-list"
+                                placeholder="Klant"
+                                value={client}
+                                onChange={(e) => setClient(e.target.value)}
+                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                              />
+                            </>
                           ) : (
                             <select
                               value={client}
