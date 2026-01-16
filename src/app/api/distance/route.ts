@@ -136,7 +136,11 @@ const drivingDistanceMeters = async (
   }
 
   const json: any = await res.json()
-  const meters = json?.features?.[0]?.properties?.summary?.distance
+  const meters =
+    // ORS v2 directions schema
+    json?.routes?.[0]?.summary?.distance ??
+    // Some ORS responses / other endpoints use GeoJSON features
+    json?.features?.[0]?.properties?.summary?.distance
   if (typeof meters !== 'number') {
     return { ok: false as const, status: 500, body: 'invalid_response' }
   }
