@@ -242,6 +242,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
             ? ` (${String(json?.ors_code ?? '—')}: ${String(json?.ors_message ?? '').slice(0, 160)})`
             : json?.ors_details_snippet
               ? ` (${String(json.ors_details_snippet).slice(0, 160)})`
+              : json?.from_coords && json?.to_coords
+                ? ` (coords: ${json.from_coords.lon},${json.from_coords.lat} → ${json.to_coords.lon},${json.to_coords.lat})`
               : ''
         let msg: string
 

@@ -85,7 +85,8 @@ const geocodeMany = async (apiKey: string, text: string) => {
 const drivingDistanceMeters = async (
   apiKey: string,
   start: { lon: number; lat: number },
-  end: { lon: number; lat: number }
+  end: { lon: number; lat: number },
+  radiuses?: [number, number]
 ) => {
   const url = 'https://api.openrouteservice.org/v2/directions/driving-car'
 
@@ -101,8 +102,7 @@ const drivingDistanceMeters = async (
         [start.lon, start.lat],
         [end.lon, end.lat],
       ],
-      // Helps when geocoding returns a point slightly off the road network.
-      radiuses: [300, 300],
+      ...(radiuses ? { radiuses } : {}),
       instructions: false,
     }),
     cache: 'no-store',
@@ -142,6 +142,38 @@ const drivingDistanceMeters = async (
   }
 
   return { ok: true as const, meters }
+}
+
+const tryDrivingDistanceMeters = async (
+  apiKey: string,
+  start: { lon: number; lat: number },
+  end: { lon: number; lat: number }
+) => {
+  // Variants:
+  // - small snap radius (often enough)
+  // - larger snap radius (for industrial areas / odd geocodes)
+  // - no radiuses at all (in case radiuses triggers an ORS edge-case)
+  const variants: Array<[number, number] | undefined> = [[300, 300], [1000, 1000], undefined]
+
+  let last: any = null
+  for (const v of variants) {
+    // retry transient ORS 5xx a few times
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const dist = await drivingDistanceMeters(apiKey, start, end, v)
+      if (dist.ok) return dist
+      last = dist
+
+      if (dist.status >= 500) {
+        await new Promise((r) => setTimeout(r, 200 * (attempt + 1)))
+        continue
+      }
+
+      // 4xx: try next variant
+      break
+    }
+  }
+
+  return last
 }
 
 const haversineKm = (a: { lon: number; lat: number }, b: { lon: number; lat: number }) => {
@@ -251,7 +283,7 @@ export async function POST(req: Request) {
       for (const tc of toCandidates) {
         // Retry a couple times on transient ORS 5xx
         for (let attempt = 0; attempt < 2; attempt++) {
-          const dist = await drivingDistanceMeters(apiKey, fc, tc)
+          const dist = await tryDrivingDistanceMeters(apiKey, fc, tc)
           if (dist.ok) {
             const km = Math.round((dist.meters / 1000) * 10) / 10
             return NextResponse.json({
