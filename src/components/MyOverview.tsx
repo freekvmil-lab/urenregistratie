@@ -234,9 +234,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
       if (!res.ok) {
         const upstream = json?.upstream_status ? ` (ORS ${json.upstream_status})` : ''
         const orsExtra =
-          isAdmin && (json?.ors_message || json?.ors_code)
+          json?.ors_message || json?.ors_code
             ? ` (${String(json?.ors_code ?? '—')}: ${String(json?.ors_message ?? '').slice(0, 160)})`
-            : isAdmin && json?.ors_details_snippet
+            : json?.ors_details_snippet
               ? ` (${String(json.ors_details_snippet).slice(0, 160)})`
               : ''
         let msg: string

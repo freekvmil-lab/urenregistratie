@@ -216,6 +216,8 @@ export async function POST(req: Request) {
         ors_code: (dist as any).code ?? null,
         ors_message: (dist as any).message ?? null,
         snippet: (dist as any).snippet ?? null,
+        from: { lon: fromGeo.lon, lat: fromGeo.lat },
+        to: { lon: toGeo.lon, lat: toGeo.lat },
       })
 
       return NextResponse.json(
@@ -225,6 +227,8 @@ export async function POST(req: Request) {
           ors_code: (dist as any).code ?? null,
           ors_message: (dist as any).message ?? null,
           ors_details_snippet: (dist as any).snippet ?? null,
+          from_coords: { lon: fromGeo.lon, lat: fromGeo.lat },
+          to_coords: { lon: toGeo.lon, lat: toGeo.lat },
           details: dist.body,
         },
         { status: 502 }
