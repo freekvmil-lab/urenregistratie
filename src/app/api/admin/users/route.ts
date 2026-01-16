@@ -90,8 +90,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'missing_email' }, { status: 400 })
     }
 
-    // Invite user by email (preferred: user sets password)
-    const { data: invited, error: inviteError } = await auth.supabase.auth.admin.inviteUserByEmail(email)
+    const origin = new URL(req.url).origin
+
+    // Invite user by email and send them to password setup
+    const { data: invited, error: inviteError } = await auth.supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${origin}/reset-password`,
+    })
 
     if (inviteError || !invited?.user?.id) {
       return NextResponse.json(
