@@ -32,6 +32,7 @@ export default function UserManagement() {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, name, email, role, hourly_rate, home_address')
+      .is('deleted_at', null)
       .order('name')
 
     if (!error && data) {

@@ -145,18 +145,34 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'missing_id' }, { status: 400 })
     }
 
-    const { error: deleteError } = await auth.supabase.auth.admin.deleteUser(id)
-    if (deleteError) {
+    // Soft-delete: keep historical data (e.g. time_entries) intact.
+    // 1) Mark profile as deleted (so we can hide the user in UI)
+    const { error: profileError } = await auth.supabase
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (profileError) {
       return NextResponse.json(
-        { error: 'delete_failed', details: deleteError.message },
+        { error: 'profile_soft_delete_failed', details: profileError.message },
+        { status: 500 }
+      )
+    }
+
+    // 2) Prevent logins going forward
+    const { error: banError } = await auth.supabase.auth.admin.updateUserById(id, {
+      // ~100 years
+      ban_duration: '876000h',
+    })
+
+    if (banError) {
+      return NextResponse.json(
+        { error: 'ban_failed', details: banError.message },
         { status: 400 }
       )
     }
 
-    // Best-effort cleanup; ignore errors (might be handled by cascade triggers)
-    await auth.supabase.from('profiles').delete().eq('id', id)
-
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, soft_deleted: true })
   } catch (err: any) {
     return NextResponse.json(
       { error: 'unexpected_error', details: String(err?.message ?? err) },
