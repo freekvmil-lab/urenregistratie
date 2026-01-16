@@ -121,10 +121,14 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser(supabaseAccessToken)
 
-    if (!user) {
-      return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'not_authenticated', details: userError?.message ?? null },
+        { status: 401 }
+      )
     }
 
     const body = (await req.json()) as DistanceRequest
@@ -140,25 +144,53 @@ export async function POST(req: Request) {
 
     const fromGeo = await geocode(apiKey, from)
     if (!fromGeo.ok) {
+      if (fromGeo.status === 404) {
+        return NextResponse.json(
+          { error: 'from_not_found', details: fromGeo.body },
+          { status: 400 }
+        )
+      }
+
       return NextResponse.json(
-        { error: 'from_not_found', details: fromGeo.body },
-        { status: 400 }
+        {
+          error: 'ors_geocode_error',
+          which: 'from',
+          upstream_status: fromGeo.status,
+          details: fromGeo.body,
+        },
+        { status: 502 }
       )
     }
 
     const toGeo = await geocode(apiKey, to)
     if (!toGeo.ok) {
+      if (toGeo.status === 404) {
+        return NextResponse.json(
+          { error: 'to_not_found', details: toGeo.body },
+          { status: 400 }
+        )
+      }
+
       return NextResponse.json(
-        { error: 'to_not_found', details: toGeo.body },
-        { status: 400 }
+        {
+          error: 'ors_geocode_error',
+          which: 'to',
+          upstream_status: toGeo.status,
+          details: toGeo.body,
+        },
+        { status: 502 }
       )
     }
 
     const dist = await drivingDistanceMeters(apiKey, fromGeo, toGeo)
     if (!dist.ok) {
       return NextResponse.json(
-        { error: 'distance_error', details: dist.body },
-        { status: 500 }
+        {
+          error: 'ors_directions_error',
+          upstream_status: dist.status,
+          details: dist.body,
+        },
+        { status: 502 }
       )
     }
 

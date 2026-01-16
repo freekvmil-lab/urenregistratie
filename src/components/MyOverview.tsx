@@ -232,14 +232,32 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const msg =
-          json?.error === 'to_not_found'
-            ? 'Locatie niet gevonden. Probeer iets specifieker (straat + plaats).'
-            : json?.error === 'from_not_found'
-              ? 'Thuisadres niet gevonden. Controleer het thuisadres bij Werknemers.'
-              : json?.error === 'missing_ors_api_key'
-                ? 'Kilometers berekenen is nog niet geconfigureerd (ORS_API_KEY ontbreekt op de server).'
-                : 'Kilometers berekenen mislukt.'
+        const upstream = json?.upstream_status ? ` (ORS ${json.upstream_status})` : ''
+        let msg: string
+
+        switch (json?.error) {
+          case 'not_authenticated':
+            msg = 'Niet ingelogd of sessie verlopen. Herlaad de pagina en log opnieuw in.'
+            break
+          case 'to_not_found':
+            msg = 'Locatie niet gevonden. Probeer iets specifieker (straat + plaats).'
+            break
+          case 'from_not_found':
+            msg = 'Thuisadres niet gevonden. Controleer het thuisadres bij Werknemers.'
+            break
+          case 'missing_ors_api_key':
+            msg = 'Kilometers berekenen is nog niet geconfigureerd (ORS_API_KEY ontbreekt op de server).'
+            break
+          case 'ors_geocode_error':
+            msg = `Kaart-service fout bij adres opzoeken${upstream}. Controleer ORS_API_KEY/quota en probeer opnieuw.`
+            break
+          case 'ors_directions_error':
+            msg = `Kaart-service fout bij route berekenen${upstream}. Controleer ORS_API_KEY/quota en probeer opnieuw.`
+            break
+          default:
+            msg = `Kilometers berekenen mislukt (${String(json?.error ?? 'unknown')}).`
+            break
+        }
 
         if (mode === 'edit') setEditError(msg)
         else setManualError(msg)
