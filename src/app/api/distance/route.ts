@@ -69,18 +69,21 @@ const drivingDistanceMeters = async (
   start: { lon: number; lat: number },
   end: { lon: number; lat: number }
 ) => {
-  const url =
-    'https://api.openrouteservice.org/v2/directions/driving-car?' +
-    new URLSearchParams({
-      start: `${start.lon},${start.lat}`,
-      end: `${end.lon},${end.lat}`,
-    })
+  const url = 'https://api.openrouteservice.org/v2/directions/driving-car'
 
   const res = await fetch(url, {
+    method: 'POST',
     headers: {
       Authorization: apiKey,
       Accept: 'application/json',
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      coordinates: [
+        [start.lon, start.lat],
+        [end.lon, end.lat],
+      ],
+    }),
     next: { revalidate: 60 * 60 },
   })
 
