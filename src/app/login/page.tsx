@@ -173,8 +173,8 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={sendResetPassword}
-            disabled={busy || !email.trim()}
-            className="w-full text-sm underline disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={busy}
+            className="w-full text-sm underline disabled:opacity-50"
           >
             Wachtwoord vergeten / instellen
           </button>
