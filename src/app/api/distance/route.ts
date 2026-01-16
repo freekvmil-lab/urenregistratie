@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 type DistanceRequest = {
   from: string
   to: string
+  roundTrip?: boolean
 }
 
 type GeoCandidate = {
@@ -20,6 +21,38 @@ type GeoCandidate = {
 const normalizeNlPostalCodes = (input: string) => {
   // Convert e.g. "3645BA" -> "3645 BA" (helps geocoders)
   return input.replace(/\b(\d{4})\s*([A-Za-z]{2})\b/g, (_m, a, b) => `${a} ${String(b).toUpperCase()}`)
+}
+
+const formatCandidateLabel = (c: GeoCandidate | null | undefined) => {
+  if (!c) return null
+  const base = String(c.label ?? '').trim()
+  if (!base) return null
+
+  let out = base
+
+  // If ORS already includes the housenumber, do nothing.
+  const hn = String(c.housenumber ?? '').trim()
+  if (hn && !new RegExp(`\\b${hn.replace(/[-/\\\\^$*+?.()|[\\]{}]/g, '\\\\$&')}\\b`).test(out)) {
+    const idx = out.indexOf(',')
+    if (idx >= 0) {
+      out = `${out.slice(0, idx).trim()} ${hn}${out.slice(idx)}`
+    } else {
+      out = `${out} ${hn}`
+    }
+  }
+
+  const pc = String(c.postalcode ?? '').trim()
+  if (pc && !new RegExp(`\\b${pc.replace(/[-/\\\\^$*+?.()|[\\]{}]/g, '\\\\$&')}\\b`, 'i').test(out)) {
+    // Prefer inserting postal code early (after first comma) if possible.
+    const idx = out.indexOf(',')
+    if (idx >= 0) {
+      out = `${out.slice(0, idx + 1)} ${pc}${out.slice(idx + 1)}`
+    } else {
+      out = `${out}, ${pc}`
+    }
+  }
+
+  return out
 }
 
 const pickSupabaseAccessToken = async (req: Request) => {
@@ -276,6 +309,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as DistanceRequest
     const from = String(body?.from ?? '').trim()
     const to = String(body?.to ?? '').trim()
+    const roundTrip = Boolean(body?.roundTrip)
 
     if (!from || !to) {
       return NextResponse.json(
@@ -334,12 +368,15 @@ export async function POST(req: Request) {
         for (let attempt = 0; attempt < 2; attempt++) {
           const dist = await tryDrivingDistanceMeters(apiKey, fc, tc)
           if (dist.ok) {
-            const km = Math.round((dist.meters / 1000) * 10) / 10
+            const oneWayKm = Math.round((dist.meters / 1000) * 10) / 10
+            const km = roundTrip ? Math.round(oneWayKm * 2 * 10) / 10 : oneWayKm
             return NextResponse.json({
               km,
               approximate: false,
-              from_label: fc.label ?? null,
-              to_label: tc.label ?? null,
+              one_way_km: oneWayKm,
+              round_trip: roundTrip,
+              from_label: formatCandidateLabel(fc) ?? fc.label ?? null,
+              to_label: formatCandidateLabel(tc) ?? tc.label ?? null,
             })
           }
 

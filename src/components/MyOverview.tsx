@@ -117,9 +117,11 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [clientText, setClientText] = useState<string>('')
   const [location, setLocation] = useState('')
   const [editKilometers, setEditKilometers] = useState<number | ''>('')
+  const [editRoundTrip, setEditRoundTrip] = useState(true)
   const [editParkingPaid, setEditParkingPaid] = useState(false)
   const [editParkingCost, setEditParkingCost] = useState<number | ''>('')
   const [manualKilometers, setManualKilometers] = useState<number | ''>('')
+  const [manualRoundTrip, setManualRoundTrip] = useState(true)
   const [manualParkingPaid, setManualParkingPaid] = useState(false)
   const [manualParkingCost, setManualParkingCost] = useState<number | ''>('')
 
@@ -202,6 +204,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const calculateKm = async (mode: 'edit' | 'manual') => {
     const from = String(homeAddress ?? '').trim()
     const to = String(location ?? '').trim()
+    const roundTrip = mode === 'edit' ? editRoundTrip : manualRoundTrip
 
     if (!from) {
       const msg = 'Thuisadres ontbreekt. Laat een admin het thuisadres invullen bij Werknemers.'
@@ -231,7 +234,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ from, to }),
+        body: JSON.stringify({ from, to, roundTrip }),
       })
 
       const json = await res.json().catch(() => ({}))
@@ -528,6 +531,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       const date = ev?.detail?.date ?? new Date().toISOString().slice(0, 10)
       setManualDate(date)
       setManualError(null)
+      setManualRoundTrip(true)
       setManual(true)
     }
 
@@ -547,12 +551,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
         // fallback: just open manual for today
         const d = new Date()
         setManualDate(toLocalYmd(d))
+        setManualRoundTrip(true)
         setManual(true)
         return
       }
 
       setManual(true)
       setManualError(null)
+      setManualRoundTrip(true)
       const s = new Date(startIso)
       const en = new Date(endIso)
 
@@ -789,6 +795,15 @@ export default function MyOverview({ userId }: { userId?: string }) {
                               Parkeren
                             </label>
                           </div>
+
+                          <label className="flex items-center gap-2 text-sm text-gray-200">
+                            <input
+                              type="checkbox"
+                              checked={editRoundTrip}
+                              onChange={(e) => setEditRoundTrip(e.target.checked)}
+                            />
+                            Heen &amp; terug (×2)
+                          </label>
                           {editParkingPaid && (
                             <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           )}
@@ -879,6 +894,15 @@ export default function MyOverview({ userId }: { userId?: string }) {
                               Parkeren
                             </label>
                           </div>
+
+                          <label className="flex items-center gap-2 text-sm text-gray-200">
+                            <input
+                              type="checkbox"
+                              checked={manualRoundTrip}
+                              onChange={(e) => setManualRoundTrip(e.target.checked)}
+                            />
+                            Heen &amp; terug (×2)
+                          </label>
                           {manualParkingPaid && (
                             <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           )}
