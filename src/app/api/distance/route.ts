@@ -11,6 +11,15 @@ type GeoCandidate = {
   lon: number
   lat: number
   label?: string | null
+  confidence?: number | null
+  layer?: string | null
+  housenumber?: string | null
+  postalcode?: string | null
+}
+
+const normalizeNlPostalCodes = (input: string) => {
+  // Convert e.g. "3645BA" -> "3645 BA" (helps geocoders)
+  return input.replace(/\b(\d{4})\s*([A-Za-z]{2})\b/g, (_m, a, b) => `${a} ${String(b).toUpperCase()}`)
 }
 
 const pickSupabaseAccessToken = async (req: Request) => {
@@ -35,10 +44,11 @@ const pickSupabaseAccessToken = async (req: Request) => {
 }
 
 const geocodeMany = async (apiKey: string, text: string) => {
+  const normalized = normalizeNlPostalCodes(text)
   const url =
     'https://api.openrouteservice.org/geocode/search?' +
     new URLSearchParams({
-      text,
+      text: normalized,
       size: '5',
       // These help a lot for NL addresses; if you work abroad, you can remove them.
       'boundary.country': 'NL',
@@ -60,7 +70,7 @@ const geocodeMany = async (apiKey: string, text: string) => {
 
   const json: any = await res.json()
   const feats: any[] = Array.isArray(json?.features) ? json.features : []
-  const candidates: GeoCandidate[] = feats
+  const rawCandidates: GeoCandidate[] = feats
     .map((f) => {
       const coords = f?.geometry?.coordinates
       if (!Array.isArray(coords) || coords.length < 2) return null
@@ -71,9 +81,44 @@ const geocodeMany = async (apiKey: string, text: string) => {
         f?.properties?.name ??
         f?.properties?.label_text ??
         null
-      return { lon, lat, label }
+      const confidence =
+        typeof f?.properties?.confidence === 'number'
+          ? f.properties.confidence
+          : null
+      const layer = typeof f?.properties?.layer === 'string' ? f.properties.layer : null
+      const housenumber =
+        typeof f?.properties?.housenumber === 'string'
+          ? f.properties.housenumber
+          : null
+      const postalcode =
+        typeof f?.properties?.postalcode === 'string'
+          ? f.properties.postalcode
+          : null
+
+      return { lon, lat, label, confidence, layer, housenumber, postalcode }
     })
     .filter(Boolean) as GeoCandidate[]
+
+  const scoreCandidate = (c: GeoCandidate) => {
+    const label = String(c.label ?? '').toLowerCase()
+    const wantsHouseNumber = /\b\d+\b/.test(normalized)
+    const wantsPostal = /\b\d{4}\s*[a-z]{2}\b/i.test(normalized)
+
+    const hasHouseNumber = Boolean(c.housenumber) || (wantsHouseNumber && /\b\d+\b/.test(label))
+    const hasPostal = Boolean(c.postalcode) || (wantsPostal && /\b\d{4}\s*[a-z]{2}\b/i.test(label))
+
+    // Rank order: address layer > street > venue/other
+    const layerBoost = c.layer === 'address' ? 50 : c.layer === 'street' ? 20 : 0
+    const houseBoost = hasHouseNumber ? 40 : 0
+    const postalBoost = hasPostal ? 25 : 0
+    const conf = typeof c.confidence === 'number' ? c.confidence : 0
+
+    return layerBoost + houseBoost + postalBoost + conf
+  }
+
+  const candidates = rawCandidates
+    .slice()
+    .sort((a, b) => scoreCandidate(b) - scoreCandidate(a))
 
   if (candidates.length === 0) {
     return { ok: false as const, status: 404, body: 'not_found' }
