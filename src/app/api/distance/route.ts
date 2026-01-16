@@ -124,6 +124,21 @@ const drivingDistanceMeters = async (
   return { ok: true as const, meters }
 }
 
+const haversineKm = (a: { lon: number; lat: number }, b: { lon: number; lat: number }) => {
+  const R = 6371
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLon = toRad(b.lon - a.lon)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  const c = 2 * Math.asin(Math.min(1, Math.sqrt(h)))
+  return R * c
+}
+
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.ORS_API_KEY
@@ -219,6 +234,24 @@ export async function POST(req: Request) {
         from: { lon: fromGeo.lon, lat: fromGeo.lat },
         to: { lon: toGeo.lon, lat: toGeo.lat },
       })
+
+      // If ORS is temporarily failing (5xx), fall back to an approximate distance
+      // so employees can still submit kilometers (they can adjust manually).
+      if (dist.status >= 500) {
+        const straightKm = haversineKm(
+          { lon: fromGeo.lon, lat: fromGeo.lat },
+          { lon: toGeo.lon, lat: toGeo.lat }
+        )
+        // Typical road distance is ~10-35% longer than straight line; use a conservative factor.
+        const approxKm = Math.round(straightKm * 1.25 * 10) / 10
+        return NextResponse.json({
+          km: approxKm,
+          approximate: true,
+          from_coords: { lon: fromGeo.lon, lat: fromGeo.lat },
+          to_coords: { lon: toGeo.lon, lat: toGeo.lat },
+          note: 'fallback_haversine',
+        })
+      }
 
       return NextResponse.json(
         {

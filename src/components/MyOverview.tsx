@@ -94,6 +94,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [homeAddress, setHomeAddress] = useState<string>('')
   const [kmLoading, setKmLoading] = useState<'edit' | 'manual' | null>(null)
+  const [kmInfoEdit, setKmInfoEdit] = useState<string | null>(null)
+  const [kmInfoManual, setKmInfoManual] = useState<string | null>(null)
 
   const [currentWeek, setCurrentWeek] = useState(() => {
     const d = new Date()
@@ -219,6 +221,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
       setKmLoading(mode)
       if (mode === 'edit') setEditError(null)
       else setManualError(null)
+      if (mode === 'edit') setKmInfoEdit(null)
+      else setKmInfoManual(null)
 
       const token = await getAccessToken()
       const res = await fetch('/api/distance', {
@@ -279,6 +283,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       if (mode === 'edit') setEditKilometers(km)
       else setManualKilometers(km)
+
+      if (json?.approximate === true) {
+        const info = 'Let op: ORS gaf een fout, kilometers zijn geschat (≈). Controleer eventueel handmatig.'
+        if (mode === 'edit') setKmInfoEdit(info)
+        else setKmInfoManual(info)
+      }
     } finally {
       setKmLoading(null)
     }
@@ -781,6 +791,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
                             <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           )}
 
+                          {kmInfoEdit && (
+                            <div className="text-xs text-yellow-200">{kmInfoEdit}</div>
+                          )}
+
                           {editError && (
                             <div className="text-sm text-red-300">{editError}</div>
                           )}
@@ -865,6 +879,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           </div>
                           {manualParkingPaid && (
                             <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+                          )}
+
+                          {kmInfoManual && (
+                            <div className="text-xs text-yellow-200">{kmInfoManual}</div>
                           )}
 
                           {manualError && (
