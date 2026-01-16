@@ -90,6 +90,7 @@ const drivingDistanceMeters = async (
 
   if (!res.ok) {
     const text = await res.text()
+    const snippet = String(text ?? '').slice(0, 600)
     let parsed: any = null
     try {
       parsed = JSON.parse(text)
@@ -108,6 +109,7 @@ const drivingDistanceMeters = async (
       ok: false as const,
       status: res.status,
       body: text,
+      snippet,
       message,
       code,
     }
@@ -208,12 +210,21 @@ export async function POST(req: Request) {
 
     const dist = await drivingDistanceMeters(apiKey, fromGeo, toGeo)
     if (!dist.ok) {
+      // Helpful for local dev debugging; safe to log a short snippet only.
+      console.error('ORS directions error', {
+        upstream_status: dist.status,
+        ors_code: (dist as any).code ?? null,
+        ors_message: (dist as any).message ?? null,
+        snippet: (dist as any).snippet ?? null,
+      })
+
       return NextResponse.json(
         {
           error: 'ors_directions_error',
           upstream_status: dist.status,
           ors_code: (dist as any).code ?? null,
           ors_message: (dist as any).message ?? null,
+          ors_details_snippet: (dist as any).snippet ?? null,
           details: dist.body,
         },
         { status: 502 }
