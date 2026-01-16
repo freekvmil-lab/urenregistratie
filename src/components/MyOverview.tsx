@@ -233,6 +233,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         const upstream = json?.upstream_status ? ` (ORS ${json.upstream_status})` : ''
+        const orsExtra =
+          isAdmin && (json?.ors_message || json?.ors_code)
+            ? ` (${String(json?.ors_code ?? '—')}: ${String(json?.ors_message ?? '').slice(0, 160)})`
+            : ''
         let msg: string
 
         switch (json?.error) {
@@ -252,7 +256,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             msg = `Kaart-service fout bij adres opzoeken${upstream}. Controleer ORS_API_KEY/quota en probeer opnieuw.`
             break
           case 'ors_directions_error':
-            msg = `Kaart-service fout bij route berekenen${upstream}. Controleer ORS_API_KEY/quota en probeer opnieuw.`
+            msg = `Kaart-service fout bij route berekenen${upstream}${orsExtra}.`
             break
           default:
             msg = `Kilometers berekenen mislukt (${String(json?.error ?? 'unknown')}).`

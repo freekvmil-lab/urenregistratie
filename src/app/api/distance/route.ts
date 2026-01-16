@@ -83,13 +83,34 @@ const drivingDistanceMeters = async (
         [start.lon, start.lat],
         [end.lon, end.lat],
       ],
+      instructions: false,
     }),
     next: { revalidate: 60 * 60 },
   })
 
   if (!res.ok) {
-    const body = await res.text()
-    return { ok: false as const, status: res.status, body }
+    const text = await res.text()
+    let parsed: any = null
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      parsed = null
+    }
+
+    const message =
+      parsed?.error?.message ??
+      parsed?.error?.errors?.[0]?.message ??
+      parsed?.message ??
+      null
+    const code = parsed?.error?.code ?? parsed?.error?.errors?.[0]?.code ?? null
+
+    return {
+      ok: false as const,
+      status: res.status,
+      body: text,
+      message,
+      code,
+    }
   }
 
   const json: any = await res.json()
@@ -191,6 +212,8 @@ export async function POST(req: Request) {
         {
           error: 'ors_directions_error',
           upstream_status: dist.status,
+          ors_code: (dist as any).code ?? null,
+          ors_message: (dist as any).message ?? null,
           details: dist.body,
         },
         { status: 502 }
