@@ -71,45 +71,46 @@ export default function HomePage() {
   // ✅ Ingelogd
   return (
     <div className="p-6 space-y-6">
-      {/* 🔝 Actie knoppen */}
-      <div className="flex items-center gap-4">
-        <span className="font-semibold">
-          Welkom {user.email}
-        </span>
-      </div>
+      <header className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Ingelogd als {user.email}</div>
+        </div>
 
-      <GoogleAgendaButton userId={user.id} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* START/STOP links van handmatig toevoegen */}
+          <TimeTracker userId={user.id} compact />
 
-      {/* ⏱ Time tracking */}
-      <TimeTracker userId={user.id} />
+          <button
+            onClick={() => {
+              const ev = new CustomEvent('openManual', {
+                detail: { date: todayLocalYmd() },
+              })
+              window.dispatchEvent(ev)
+            }}
+            className="border px-3 py-1 rounded"
+          >
+            ➕ Handmatig toevoegen
+          </button>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => {
-            const ev = new CustomEvent('openManual', {
-              detail: { date: todayLocalYmd() },
-            })
-            window.dispatchEvent(ev)
-          }}
-          className="border px-3 py-1 rounded"
-        >
-          ➕ Handmatig toevoegen
-        </button>
+          <button
+            onClick={() => setShowMonthOverview((v) => !v)}
+            className="border px-3 py-1 rounded"
+          >
+            {showMonthOverview ? '📅 Maandoverzicht verbergen' : '📅 Maandoverzicht tonen'}
+          </button>
 
-        <button
-          onClick={() => setShowMonthOverview((v) => !v)}
-          className="border px-3 py-1 rounded"
-        >
-          {showMonthOverview ? '📅 Maandoverzicht verbergen' : '📅 Maandoverzicht tonen'}
-        </button>
+          <button
+            onClick={() => setShowAgendaSuggestions((v) => !v)}
+            className="border px-3 py-1 rounded"
+          >
+            {showAgendaSuggestions ? '🗓️ Agenda suggesties verbergen' : '🗓️ Agenda suggesties tonen'}
+          </button>
 
-        <button
-          onClick={() => setShowAgendaSuggestions((v) => !v)}
-          className="border px-3 py-1 rounded"
-        >
-          {showAgendaSuggestions ? '🗓️ Agenda suggesties verbergen' : '🗓️ Agenda suggesties tonen'}
-        </button>
-      </div>
+          {/* Subtielere agenda status */}
+          <GoogleAgendaButton userId={user.id} variant="subtle" />
+        </div>
+      </header>
 
       {/* 🗓️ Maand overzicht */}
       {showMonthOverview && <MonthOverview userId={user.id} />}

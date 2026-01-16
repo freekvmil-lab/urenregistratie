@@ -12,9 +12,14 @@ interface TimeEntry {
   date: string
 }
 
-export default function TimeTracker({ userId }: { userId: string }) {
+export default function TimeTracker({
+  userId,
+  compact = false,
+}: {
+  userId: string
+  compact?: boolean
+}) {
   const [entry, setEntry] = useState<TimeEntry | null>(null)
-  const [workedHours, setWorkedHours] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   /* =======================
@@ -37,23 +42,12 @@ export default function TimeTracker({ userId }: { userId: string }) {
     if (error) {
       console.error('fetchActive error:', error)
       setEntry(null)
-      setWorkedHours(null)
       setLoading(false)
       return
     }
 
     const active = data && data.length > 0 ? data[0] : null
     setEntry(active)
-
-    if (active?.end_time) {
-      const start = new Date(active.start_time).getTime()
-      const end = new Date(active.end_time).getTime()
-      setWorkedHours(
-        Math.round(((end - start) / 3600000) * 100) / 100
-      )
-    } else {
-      setWorkedHours(null)
-    }
 
     setLoading(false)
   }
@@ -74,6 +68,19 @@ export default function TimeTracker({ userId }: { userId: string }) {
   /* =======================
      RENDER
   ======================= */
+
+  if (compact) {
+    return (
+      <div className={loading ? 'opacity-60 pointer-events-none' : ''}>
+        <WorkButton
+          userId={userId}
+          activeEntry={activeEntry}
+          onUpdate={fetchActive}
+          inline
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="relative mt-4">
