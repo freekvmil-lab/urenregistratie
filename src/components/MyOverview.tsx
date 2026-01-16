@@ -92,6 +92,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [manualError, setManualError] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [homeAddress, setHomeAddress] = useState<string>('')
+  const [kmLoading, setKmLoading] = useState<'edit' | 'manual' | null>(null)
 
   const [currentWeek, setCurrentWeek] = useState(() => {
     const d = new Date()
@@ -173,11 +175,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, home_address')
       .eq('id', user.id)
       .single()
 
     setIsAdmin(profile?.role === 'admin')
+    setHomeAddress(String(profile?.home_address ?? '').trim())
   }
 
   useEffect(() => {
@@ -188,6 +191,74 @@ export default function MyOverview({ userId }: { userId?: string }) {
     fetchClients()
     fetchRole()
   }, [])
+
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession()
+    return data?.session?.access_token ?? null
+  }
+
+  const calculateKm = async (mode: 'edit' | 'manual') => {
+    const from = String(homeAddress ?? '').trim()
+    const to = String(location ?? '').trim()
+
+    if (!from) {
+      const msg = 'Thuisadres ontbreekt. Laat een admin het thuisadres invullen bij Werknemers.'
+      if (mode === 'edit') setEditError(msg)
+      else setManualError(msg)
+      return
+    }
+
+    if (!to) {
+      const msg = 'Vul eerst een locatie in om kilometers te berekenen.'
+      if (mode === 'edit') setEditError(msg)
+      else setManualError(msg)
+      return
+    }
+
+    try {
+      setKmLoading(mode)
+      if (mode === 'edit') setEditError(null)
+      else setManualError(null)
+
+      const token = await getAccessToken()
+      const res = await fetch('/api/distance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ from, to }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          json?.error === 'to_not_found'
+            ? 'Locatie niet gevonden. Probeer iets specifieker (straat + plaats).'
+            : json?.error === 'from_not_found'
+              ? 'Thuisadres niet gevonden. Controleer het thuisadres bij Werknemers.'
+              : json?.error === 'missing_ors_api_key'
+                ? 'Kilometers berekenen is nog niet geconfigureerd (ORS_API_KEY ontbreekt op de server).'
+                : 'Kilometers berekenen mislukt.'
+
+        if (mode === 'edit') setEditError(msg)
+        else setManualError(msg)
+        return
+      }
+
+      const km = Number(json?.km)
+      if (!Number.isFinite(km)) {
+        if (mode === 'edit') setEditError('Kilometers berekenen gaf een ongeldig resultaat.')
+        else setManualError('Kilometers berekenen gaf een ongeldig resultaat.')
+        return
+      }
+
+      if (mode === 'edit') setEditKilometers(km)
+      else setManualKilometers(km)
+    } finally {
+      setKmLoading(null)
+    }
+  }
 
   const clientsById = new Map(clients.map((c) => [c.id, c]))
   const clientsByNameLower = new Map(clients.map((c) => [c.name.trim().toLowerCase(), c]))
@@ -669,6 +740,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
                             <input type="number" placeholder="Kilometers" value={editKilometers === '' ? '' : editKilometers} onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                            <button
+                              type="button"
+                              onClick={() => calculateKm('edit')}
+                              disabled={kmLoading === 'edit'}
+                              className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                            >
+                              {kmLoading === 'edit' ? 'Berekenen…' : 'Kilometers berekenen'}
+                            </button>
                             <label className="flex items-center gap-2">
                               <input type="checkbox" checked={editParkingPaid} onChange={(e) => setEditParkingPaid(e.target.checked)} />
                               Parkeren
@@ -747,6 +826,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
                           <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
                           <div className="flex gap-2">
                             <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                            <button
+                              type="button"
+                              onClick={() => calculateKm('manual')}
+                              disabled={kmLoading === 'manual'}
+                              className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                            >
+                              {kmLoading === 'manual' ? 'Berekenen…' : 'Kilometers berekenen'}
+                            </button>
                             <label className="flex items-center gap-2 text-white">
                               <input type="checkbox" checked={manualParkingPaid} onChange={(e) => setManualParkingPaid(e.target.checked)} />
                               Parkeren

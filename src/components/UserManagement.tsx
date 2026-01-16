@@ -9,6 +9,7 @@ interface Profile {
   email: string | null
   role: 'admin' | 'employee'
   hourly_rate?: number | null
+  home_address?: string | null
 }
 
 export default function UserManagement() {
@@ -21,7 +22,7 @@ export default function UserManagement() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email, role, hourly_rate')
+      .select('id, name, email, role, hourly_rate, home_address')
       .order('name')
 
     if (!error && data) {
@@ -69,11 +70,28 @@ export default function UserManagement() {
     setSaving(null)
   }
 
+  const updateHomeAddress = async (userId: string, home_address: string | null) => {
+    setSaving(userId)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ home_address })
+      .eq('id', userId)
+
+    if (error) {
+      alert('Adres wijzigen mislukt')
+      console.error(error)
+    }
+
+    await fetchUsers()
+    setSaving(null)
+  }
+
   if (loading) return <p>Gebruikers laden…</p>
 
   return (
     <div className="p-4 border rounded mt-6">
-      <h2 className="text-xl font-bold mb-4">Rolbeheer</h2>
+      <h2 className="text-xl font-bold mb-4">Werknemers</h2>
 
       <table className="w-full border-collapse border border-gray-300">
         <thead>
@@ -81,6 +99,7 @@ export default function UserManagement() {
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Naam</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">E-mail</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Uurtarief</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Thuisadres</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Rol</th>
           </tr>
         </thead>
@@ -136,6 +155,27 @@ export default function UserManagement() {
                   placeholder="€ / uur"
                 />
               </td>
+
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <input
+                  value={u.home_address ?? ''}
+                  disabled={saving === u.id}
+                  onChange={(e) =>
+                    setUsers((prev) =>
+                      prev.map((p) =>
+                        p.id === u.id ? { ...p, home_address: e.target.value } : p
+                      )
+                    )
+                  }
+                  onBlur={async () => {
+                    const current = users.find((x) => x.id === u.id)?.home_address ?? null
+                    await updateHomeAddress(u.id, current && String(current).trim() ? String(current).trim() : null)
+                  }}
+                  className="w-full bg-transparent border-b border-gray-400 text-gray-900 dark:text-gray-100"
+                  placeholder="Bijv. Dorpsstraat 1, 1234 AB Plaats"
+                />
+              </td>
+
               <td className="border p-2 text-gray-900 dark:text-gray-100">
                 <select
                   value={u.role}
