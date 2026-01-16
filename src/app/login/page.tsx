@@ -19,8 +19,15 @@ export default function LoginPage() {
     setMessage(null)
     setBusy(true)
 
+    const emailValue = email.trim().toLowerCase()
+    if (!emailValue) {
+      setError('Vul je e-mailadres in.')
+      setBusy(false)
+      return
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: emailValue,
       password,
     })
 
@@ -39,21 +46,32 @@ export default function LoginPage() {
     setMessage(null)
     setBusy(true)
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : undefined
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: origin ? `${origin}/` : undefined,
-      },
-    })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setMessage('Login-link verstuurd. Check je e-mail.')
+    const emailValue = email.trim().toLowerCase()
+    if (!emailValue) {
+      setError('Vul je e-mailadres in.')
+      setBusy(false)
+      return
     }
 
-    setBusy(false)
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : undefined
+      const { error } = await supabase.auth.signInWithOtp({
+        email: emailValue,
+        options: {
+          emailRedirectTo: origin ? `${origin}/` : undefined,
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+      } else {
+        setMessage('Login-link verstuurd. Check je e-mail.')
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'Kon geen login-link versturen.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const sendResetPassword = async () => {
@@ -61,18 +79,30 @@ export default function LoginPage() {
     setMessage(null)
     setBusy(true)
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : undefined
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: origin ? `${origin}/reset-password` : undefined,
-    })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setMessage('Reset-link verstuurd. Check je e-mail om een wachtwoord in te stellen.')
+    const emailValue = email.trim().toLowerCase()
+    if (!emailValue) {
+      setError('Vul je e-mailadres in.')
+      setBusy(false)
+      return
     }
 
-    setBusy(false)
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : undefined
+      const { error } = await supabase.auth.resetPasswordForEmail(emailValue, {
+        redirectTo: origin ? `${origin}/reset-password` : undefined,
+      })
+
+      if (error) {
+        setError(error.message)
+      } else {
+        // Supabase returns success even if the email doesn't exist (anti-enumeration)
+        setMessage('Als dit e-mailadres bestaat, is er een reset-link verstuurd.')
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'Kon geen reset-link versturen.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -144,7 +174,7 @@ export default function LoginPage() {
             type="button"
             onClick={sendResetPassword}
             disabled={busy || !email.trim()}
-            className="w-full text-sm underline disabled:opacity-50"
+            className="w-full text-sm underline disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Wachtwoord vergeten / instellen
           </button>
