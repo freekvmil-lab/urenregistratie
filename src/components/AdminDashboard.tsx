@@ -643,6 +643,7 @@ export default function AdminDashboard() {
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
+                          <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Actie</th>
                         </tr>
@@ -657,6 +658,7 @@ export default function AdminDashboard() {
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
+                            <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">
                               <div className="flex gap-2">
@@ -699,6 +701,7 @@ export default function AdminDashboard() {
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
+                  <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Actie</th>
                 </tr>
@@ -716,6 +719,7 @@ export default function AdminDashboard() {
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
+                      <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">
                         <div className="flex gap-2">
