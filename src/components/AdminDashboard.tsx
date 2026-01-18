@@ -107,7 +107,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   const [viewMode, setViewMode] = useState<ViewMode>('week')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
 
   // Default: last 8 weeks
