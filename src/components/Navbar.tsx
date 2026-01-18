@@ -52,17 +52,17 @@ export default function Navbar() {
   const linkClass = (href: string) => {
     const active = pathname === href
     return (
-      'text-sm px-2 py-1 rounded ' +
+      'text-sm px-2 py-1 rounded border transition-colors ' +
       (active
-        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800')
+        ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-300/60 text-orange-800 dark:text-orange-200'
+        : 'border-transparent text-gray-900 dark:text-white hover:bg-orange-500/10 hover:border-orange-300/40')
     )
   }
 
   return (
     <nav className="sticky top-0 z-50 flex items-center gap-2 px-6 py-3
       bg-white/90 dark:bg-gray-900/90 backdrop-blur
-      border-b border-gray-300 dark:border-gray-700">
+      border-b border-orange-200/70 dark:border-orange-500/30">
 
       <Link href="/" className="font-semibold text-gray-900 dark:text-gray-100 mr-2">
         Vortexx

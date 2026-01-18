@@ -51,6 +51,14 @@ const toLocalYmd = (d: Date) => {
   return `${yyyy}-${mm}-${dd}`
 }
 
+const parseYmdToLocalDate = (ymd: string) => {
+  const [y, m, d] = String(ymd).split('-').map((x) => Number(x))
+  if (!y || !m || !d) return new Date(ymd)
+  const dt = new Date(y, m - 1, d)
+  dt.setHours(0, 0, 0, 0)
+  return dt
+}
+
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('nl-NL', {
     weekday: 'short',
@@ -574,7 +582,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   useEffect(() => {
     const handler = (ev: any) => {
-      const date = ev?.detail?.date ?? new Date().toISOString().slice(0, 10)
+      const date = ev?.detail?.date ?? toLocalYmd(new Date())
       setManualDate(date)
       setManualError(null)
       setManualRoundTrip(true)
@@ -665,7 +673,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   weekEnd.setDate(weekEnd.getDate() + 6)
 
   const weekEntries = entries.filter((e) => {
-    const d = new Date(e.date)
+    const d = parseYmdToLocalDate(e.date)
     return d >= weekStart && d <= weekEnd
   })
 
@@ -987,7 +995,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                 {/* STATUS */}
                 <div className="text-xs">
                   {e.approved === true && (
-                    <span className="text-orange-500">
+                    <span className="text-green-500">
                       ✅ Goedgekeurd
                     </span>
                   )}

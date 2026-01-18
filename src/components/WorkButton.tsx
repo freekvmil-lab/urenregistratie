@@ -3,6 +3,13 @@
 import { supabase } from '@/lib/supabase'
 import { useState } from 'react'
 
+const toLocalYmd = (d: Date) => {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 interface Props {
   userId: string
   activeEntry: {
@@ -50,7 +57,7 @@ export default function WorkButton({
       return
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toLocalYmd(new Date())
 
     const { error: insertError } = await supabase
       .from('time_entries')

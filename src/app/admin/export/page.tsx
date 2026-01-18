@@ -335,7 +335,7 @@ export default function ExportPage() {
                     <td className="border p-2">{formatTime(e.end_time)}</td>
                     <td className="border p-2">{e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''}</td>
                     <td className="border p-2">{e.client ?? ''}</td>
-                    <td className="border p-2">{e.approved ? <span className="text-orange-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
+                    <td className="border p-2">{e.approved ? <span className="text-green-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
                   </tr>
                 ))}
               </tbody>
