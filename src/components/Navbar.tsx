@@ -46,6 +46,7 @@ export default function Navbar() {
     const adminLinks = [
       { href: '/admin', label: 'Admin', adminOnly: true },
       { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
+      { href: '/admin/availability', label: 'Beschikbaarheid', adminOnly: true },
       { href: '/admin/export', label: 'Export', adminOnly: true },
       { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
     ]
