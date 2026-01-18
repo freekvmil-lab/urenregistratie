@@ -696,7 +696,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   ======================= */
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-6 space-y-6 text-gray-900 dark:text-gray-100">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <button
@@ -705,6 +705,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
               new Date(currentWeek.setDate(currentWeek.getDate() - 7))
             )
           }
+          className="px-2 py-1 rounded border border-orange-200/70 hover:border-orange-300 hover:bg-orange-50 dark:border-orange-500/30 dark:hover:bg-orange-500/10"
         >
           ← Vorige
         </button>
@@ -719,12 +720,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
               new Date(currentWeek.setDate(currentWeek.getDate() + 7))
             )
           }
+          className="px-2 py-1 rounded border border-orange-200/70 hover:border-orange-300 hover:bg-orange-50 dark:border-orange-500/30 dark:hover:bg-orange-500/10"
         >
           Volgende →
         </button>
       </div>
 
-      <p className="font-bold">
+      <p className="font-bold text-gray-900 dark:text-gray-100">
         Totaal: {weekTotal.toFixed(2)} uur
       </p>
 
@@ -738,9 +740,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
         return (
           <div
             key={date}
-            className="bg-black/30 border border-orange-500/25 rounded-lg p-4 space-y-3"
+            className="bg-white border border-orange-200/60 rounded-lg p-4 space-y-3 dark:bg-black/30 dark:border-orange-500/25"
           >
-            <div className="flex justify-between font-medium">
+            <div className="flex justify-between font-medium text-gray-900 dark:text-gray-100">
               <span>{formatDate(date)}</span>
               <span>{dayTotal.toFixed(2)} uur</span>
             </div>
@@ -756,7 +758,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             {list.map((e) => (
               <div
                 key={e.id}
-                className="border-t border-orange-500/20 pt-2 space-y-1 text-sm"
+                className="border-t border-orange-200/50 pt-2 space-y-1 text-sm text-gray-900 dark:border-orange-500/20 dark:text-gray-100"
               >
                 <div className="flex justify-between">
                   <span>
@@ -979,7 +981,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                 </div>
 
                 {/* KLUS INFO */}
-                <div className="text-xs text-gray-400 flex flex-wrap gap-2">
+                <div className="text-xs text-gray-700 dark:text-gray-400 flex flex-wrap gap-2">
                   {displayClientName(e) && <span>👤 {displayClientName(e)}</span>}
                   {e.location && <span>📍 {e.location}</span>}
                   {e.kilometers && (
@@ -1010,7 +1012,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     <span className="text-orange-400 ml-2">Start/Stop knop</span>
                   )}
                   {!e.manual && needsDetails(e) && (
-                    <span className="text-gray-400 ml-2">✏️ Data invullen</span>
+                    <span className="text-gray-600 dark:text-gray-400 ml-2">✏️ Data invullen</span>
                   )}
                 </div>
               </div>
