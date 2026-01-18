@@ -91,7 +91,7 @@ const needsDetails = (e: TimeEntry) => {
 
 function KpiCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40">
+    <div className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40">
       <div className="text-xs text-gray-600 dark:text-gray-300">{title}</div>
       <div className="text-2xl font-bold mt-1">{value}</div>
       {sub && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{sub}</div>}
@@ -593,7 +593,7 @@ export default function AdminDashboard() {
                 .slice(0, 5)
 
               return (
-                <details key={weekKey} className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40" open>
+                <details key={weekKey} className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40" open>
                   <summary className="cursor-pointer flex flex-wrap items-center justify-between gap-2">
                     <div className="font-semibold">
                       Week {weekKey.replace(/^\d{4}-W/, '')} <span className="text-gray-500 dark:text-gray-400">({weekKey.slice(0, 4)})</span>
@@ -633,9 +633,9 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="overflow-auto mt-4">
-                    <table className="w-full border-collapse border border-gray-300 dark:border-gray-700">
+                    <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30">
                       <thead>
-                        <tr className="bg-gray-100 dark:bg-gray-700">
+                        <tr className="bg-orange-50 dark:bg-orange-500/10">
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
@@ -688,9 +688,9 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="overflow-auto">
-            <table className="w-full border-collapse border border-gray-300 dark:border-gray-700">
+            <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30">
               <thead>
-                <tr className="bg-gray-100 dark:bg-gray-700">
+                  <tr className="bg-orange-50 dark:bg-orange-500/10">
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Week</th>

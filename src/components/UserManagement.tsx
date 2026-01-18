@@ -353,16 +353,16 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <table className="w-full border-collapse border border-gray-300">
+      <table className="w-full border-collapse border border-orange-200/60">
         <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Naam</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">E-mail</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Opdrachtgevers</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Uurtarief</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Thuisadres</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Rol</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Acties</th>
+          <tr className="bg-orange-50">
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Naam</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">E-mail</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Opdrachtgevers</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Uurtarief</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Thuisadres</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Rol</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Acties</th>
           </tr>
         </thead>
         <tbody>
@@ -405,7 +405,7 @@ export default function UserManagement() {
                     })()}
                   </summary>
 
-                  <div className="mt-2 max-h-48 overflow-auto rounded border border-gray-300 p-2">
+                  <div className="mt-2 max-h-48 overflow-auto rounded border border-orange-200/60 p-2">
                     {clients.length === 0 ? (
                       <div className="text-sm opacity-70">Geen opdrachtgevers gevonden.</div>
                     ) : (

@@ -738,7 +738,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
         return (
           <div
             key={date}
-            className="bg-black/30 border border-gray-700 rounded-lg p-4 space-y-3"
+            className="bg-black/30 border border-orange-500/25 rounded-lg p-4 space-y-3"
           >
             <div className="flex justify-between font-medium">
               <span>{formatDate(date)}</span>
@@ -756,7 +756,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             {list.map((e) => (
               <div
                 key={e.id}
-                className="border-t border-gray-700 pt-2 space-y-1 text-sm"
+                className="border-t border-orange-500/20 pt-2 space-y-1 text-sm"
               >
                 <div className="flex justify-between">
                   <span>
