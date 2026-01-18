@@ -88,21 +88,21 @@ export default function HomePage() {
               })
               window.dispatchEvent(ev)
             }}
-            className="border px-3 py-1 rounded"
+            className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-1 rounded"
           >
             ➕ Handmatig toevoegen
           </button>
 
           <button
             onClick={() => setShowMonthOverview((v) => !v)}
-            className="border px-3 py-1 rounded"
+            className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-1 rounded"
           >
             {showMonthOverview ? '📅 Maandoverzicht verbergen' : '📅 Maandoverzicht tonen'}
           </button>
 
           <button
             onClick={() => setShowAgendaSuggestions((v) => !v)}
-            className="border px-3 py-1 rounded"
+            className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-1 rounded"
           >
             {showAgendaSuggestions ? '🗓️ Agenda suggesties verbergen' : '🗓️ Agenda suggesties tonen'}
           </button>
