@@ -294,7 +294,7 @@ export default function ExportPage() {
               <div className="truncate">{c}</div>
               <div className="flex gap-2">
                 <button onClick={() => { setOnlyClient(c); loadEntries(); }} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded">Filter</button>
-                <button onClick={() => exportClient(c)} className="px-2 py-1 bg-green-600 text-white rounded">Export alle werknemers</button>
+                <button onClick={() => exportClient(c)} className="px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded">Export alle werknemers</button>
               </div>
             </div>
           ))}
@@ -335,7 +335,7 @@ export default function ExportPage() {
                     <td className="border p-2">{formatTime(e.end_time)}</td>
                     <td className="border p-2">{e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''}</td>
                     <td className="border p-2">{e.client ?? ''}</td>
-                    <td className="border p-2">{e.approved ? <span className="text-green-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
+                    <td className="border p-2">{e.approved ? <span className="text-orange-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -345,7 +345,7 @@ export default function ExportPage() {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={exportCSV} className="px-3 py-2 bg-green-600 text-white rounded" disabled={!approvedEntries.length}>Export CSV</button>
+        <button onClick={exportCSV} className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded disabled:opacity-50" disabled={!approvedEntries.length}>Export CSV</button>
       </div>
     </main>
   )

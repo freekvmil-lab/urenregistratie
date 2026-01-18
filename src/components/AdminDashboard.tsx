@@ -403,7 +403,7 @@ export default function AdminDashboard() {
   const renderStatus = (e: TimeEntry) => {
     if (!e.edited) return <span className="text-gray-400">—</span>
     if (e.approved)
-      return <span className="text-green-600">Goedgekeurd</span>
+      return <span className="text-orange-600">Goedgekeurd</span>
     return (
       <span className="text-orange-600">Wacht op goedkeuring</span>
     )
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
 
           <div className="flex gap-2">
-            <button onClick={approveAllPending} className="px-3 py-1 rounded bg-green-600 text-white">
+            <button onClick={approveAllPending} className="px-3 py-1 rounded bg-orange-600 hover:bg-orange-700 text-white">
               Alles goedkeuren
             </button>
             <button onClick={exportCSV} className="px-3 py-1 rounded bg-gray-800 text-white">
@@ -663,7 +663,7 @@ export default function AdminDashboard() {
                                 {e.edited && !e.approved && (
                                   <button
                                     onClick={() => approveEntry(e.id)}
-                                    className="bg-green-600 text-white px-2 py-1 rounded"
+                                    className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded"
                                   >
                                     Goedkeuren
                                   </button>
@@ -722,7 +722,7 @@ export default function AdminDashboard() {
                           {e.edited && !e.approved && (
                             <button
                               onClick={() => approveEntry(e.id)}
-                              className="bg-green-600 text-white px-2 py-1 rounded"
+                              className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded"
                             >
                               Goedkeuren
                             </button>

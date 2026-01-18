@@ -345,7 +345,7 @@ export default function UserManagement() {
           <button
             onClick={inviteUser}
             disabled={createBusy}
-            className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
           >
             {createBusy ? 'Bezig…' : 'Uitnodigen'}
           </button>

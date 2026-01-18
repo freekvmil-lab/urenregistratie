@@ -759,7 +759,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                   {canEdit(e.date) && !e.approved && (
                     <button
                       onClick={() => openEdit(e)}
-                      className="text-blue-500"
+                      className="text-orange-500"
                     >
                       ✏️
                     </button>
@@ -987,7 +987,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                 {/* STATUS */}
                 <div className="text-xs">
                   {e.approved === true && (
-                    <span className="text-green-500">
+                    <span className="text-orange-500">
                       ✅ Goedgekeurd
                     </span>
                   )}
@@ -997,9 +997,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     </span>
                   )}
                   {e.manual ? (
-                    <span className="text-blue-400 ml-2">Handmatig ingevoerd</span>
+                    <span className="text-orange-400 ml-2">Handmatig ingevoerd</span>
                   ) : (
-                    <span className="text-purple-400 ml-2">Start/Stop knop</span>
+                    <span className="text-orange-400 ml-2">Start/Stop knop</span>
                   )}
                   {!e.manual && needsDetails(e) && (
                     <span className="text-gray-400 ml-2">✏️ Data invullen</span>

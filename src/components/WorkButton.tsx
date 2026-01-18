@@ -115,6 +115,6 @@ export default function WorkButton({
     )
   }
   return (
-    <button onClick={startWork} disabled={loading} className="px-3 py-1 bg-green-600 text-white rounded">START</button>
+    <button onClick={startWork} disabled={loading} className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded">START</button>
   )
 }

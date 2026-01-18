@@ -86,7 +86,7 @@ export default function ResetPasswordPage() {
         />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {message && <p className="text-sm text-green-700">{message}</p>}
+        {message && <p className="text-sm text-orange-700">{message}</p>}
 
         <button disabled={busy} className="w-full rounded bg-black p-2 text-white disabled:opacity-50">
           {busy ? 'Bezig…' : 'Opslaan'}

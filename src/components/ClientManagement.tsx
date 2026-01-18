@@ -106,7 +106,7 @@ export default function ClientManagement() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naam" className="col-span-2 p-2 rounded bg-gray-800 border border-gray-700" />
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notitie (optioneel)" className="p-2 rounded bg-gray-800 border border-gray-700" />
         <div className="col-span-3 flex justify-end gap-2">
-          <button onClick={addClient} className="px-3 py-1 bg-green-600 text-white rounded">Toevoegen</button>
+          <button onClick={addClient} className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded">Toevoegen</button>
         </div>
       </div>
 

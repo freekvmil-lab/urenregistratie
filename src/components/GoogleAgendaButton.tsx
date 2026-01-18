@@ -31,14 +31,14 @@ export default function GoogleAgendaButton({
   if (connected) {
     if (variant === 'subtle') {
       return (
-        <div className="border border-green-200 bg-green-50 text-green-800 px-2 py-1 rounded text-xs">
+        <div className="border border-orange-200 bg-orange-50 text-orange-800 px-2 py-1 rounded text-xs">
           Google Agenda gekoppeld
         </div>
       )
     }
 
     return (
-      <div className="border px-3 py-2 rounded text-sm text-green-700 bg-green-50 inline-block">
+      <div className="border px-3 py-2 rounded text-sm text-orange-700 bg-orange-50 inline-block">
         ✅ Agenda gekoppeld
       </div>
     )

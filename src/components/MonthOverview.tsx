@@ -251,7 +251,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
                 (inMonth
                   ? 'border-gray-700 bg-black/20 hover:bg-black/30'
                   : 'border-transparent bg-transparent opacity-40') +
-                (isToday ? ' ring-1 ring-blue-500' : '')
+                (isToday ? ' ring-1 ring-orange-500' : '')
               }
               disabled={!inMonth}
               title={inMonth ? 'Klik om handmatig toe te voegen' : undefined}
