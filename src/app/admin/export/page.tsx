@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAdminGuard } from '@/lib/useAdminGuard'
 
 interface Profile { id: string; name?: string | null }
 interface Entry {
@@ -19,6 +20,11 @@ interface Entry {
 }
 
 export default function ExportPage() {
+  const { allowed } = useAdminGuard()
+
+  if (allowed === null) return <p>Controleren…</p>
+  if (!allowed) return <p>Geen toegang</p>
+
   const [users, setUsers] = useState<Profile[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [entries, setEntries] = useState<Entry[]>([])

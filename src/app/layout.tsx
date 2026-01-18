@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   description: "Vortexx urenregistratie",
   applicationName: "Vortexx",
   manifest: "/manifest.json",
-  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black",
@@ -31,6 +30,10 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+};
+
+export const viewport = {
+  themeColor: "#000000",
 };
 
 export default function RootLayout({

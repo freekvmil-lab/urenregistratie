@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAdminGuard } from '@/lib/useAdminGuard'
 
 type Profile = {
   id: string
@@ -62,7 +63,7 @@ const addDaysYmd = (ymd: string, days: number) => {
 const displayTime = (t: string | null) => (t ? String(t).slice(0, 5) : '—')
 
 export default function AdminAvailabilityPage() {
-  const [allowed, setAllowed] = useState<boolean | null>(null)
+  const { allowed } = useAdminGuard()
 
   const [users, setUsers] = useState<Profile[]>([])
   const [rows, setRows] = useState<AvailabilityRow[]>([])
@@ -80,28 +81,6 @@ export default function AdminAvailabilityPage() {
   const [monthRows, setMonthRows] = useState<AvailabilityRow[]>([])
   const [monthLoading, setMonthLoading] = useState(false)
   const [monthError, setMonthError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const checkRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        setAllowed(false)
-        return
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      setAllowed(profile?.role === 'admin')
-    }
-
-    checkRole()
-  }, [])
 
   const loadUsers = async () => {
     const { data, error } = await supabase

@@ -16,10 +16,9 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
 
-  // 👇 DIT IS DE FIX
-  experimental: {
-    turbo: false,
-  },
+  // Next.js 16 uses Turbopack by default. next-pwa adds a webpack config, and
+  // Next requires an explicit turbopack config in that case.
+  turbopack: {},
 }
 
 module.exports = withPWA(nextConfig)
