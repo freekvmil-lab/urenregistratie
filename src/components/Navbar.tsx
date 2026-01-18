@@ -54,17 +54,17 @@ export default function Navbar() {
     return (
       'text-sm px-2 py-1 rounded border transition-colors ' +
       (active
-        ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-300/60 text-orange-800 dark:text-orange-200'
-        : 'border-transparent text-gray-900 dark:text-white hover:bg-orange-500/10 hover:border-orange-300/40')
+        ? 'bg-black/10 border-black/30 text-black'
+        : 'border-transparent text-black hover:bg-black/10 hover:border-black/20')
     )
   }
 
   return (
     <nav className="sticky top-0 z-50 flex items-center gap-2 px-6 py-3
-      bg-white/90 dark:bg-gray-900/90 backdrop-blur
-      border-b border-orange-200/70 dark:border-orange-500/30">
+      bg-orange-500 backdrop-blur
+      border-b border-black/20">
 
-      <Link href="/" className="font-semibold text-gray-900 dark:text-gray-100 mr-2">
+      <Link href="/" className="font-semibold text-black mr-2">
         Vortexx
       </Link>
 
@@ -80,7 +80,7 @@ export default function Navbar() {
 
       <div className="ml-auto flex items-center gap-3">
         {userEmail ? (
-          <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[220px]">
+          <span className="text-xs text-black/80 truncate max-w-[220px]">
             {userEmail}
           </span>
         ) : (
@@ -95,7 +95,7 @@ export default function Navbar() {
               await supabase.auth.signOut()
               window.location.href = '/login'
             }}
-            className="text-sm underline text-gray-900 dark:text-gray-100"
+            className="text-sm underline text-black"
           >
             Uitloggen
           </button>
