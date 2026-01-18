@@ -22,9 +22,6 @@ interface Entry {
 export default function ExportPage() {
   const { allowed } = useAdminGuard()
 
-  if (allowed === null) return <p>Controleren…</p>
-  if (!allowed) return <p>Geen toegang</p>
-
   const [users, setUsers] = useState<Profile[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
@@ -36,6 +33,7 @@ export default function ExportPage() {
   const [groupByClient, setGroupByClient] = useState(false)
 
   useEffect(() => {
+    if (allowed !== true) return
     const load = async () => {
       const { data } = await supabase.from('profiles').select('id, name').order('name')
       setUsers(data ?? [])
@@ -45,7 +43,7 @@ export default function ExportPage() {
       setClients(uniq)
     }
     load()
-  }, [])
+  }, [allowed])
 
   const loadEntries = async () => {
     if (!selected.length) {
@@ -74,8 +72,13 @@ export default function ExportPage() {
   }
 
   useEffect(() => {
+    if (allowed !== true) return
     loadEntries()
-  }, [selected, from, to, onlyClient])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, selected, from, to, onlyClient])
+
+  if (allowed === null) return <p>Controleren…</p>
+  if (!allowed) return <p>Geen toegang</p>
 
   const toggle = (id: string) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
