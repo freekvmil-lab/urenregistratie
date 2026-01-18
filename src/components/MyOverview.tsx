@@ -144,10 +144,56 @@ export default function MyOverview({ userId }: { userId?: string }) {
   }
 
   const fetchClients = async () => {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('id, name')
-      .order('name', { ascending: true })
+    if (!userId) {
+      setClients([])
+      return
+    }
+
+    // Try to load assigned clients for this employee.
+    // If none are assigned (or table doesn't exist yet), fall back to all clients.
+    let assignedIds: string[] | null = null
+    try {
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('employee_clients')
+        .select('client_id')
+        .eq('employee_id', userId)
+
+      if (!assignmentError) {
+        const ids = (assignmentData ?? [])
+          .map((r: any) => String(r.client_id ?? '').trim())
+          .filter((id: string) => id)
+        if (ids.length > 0) assignedIds = ids
+      }
+    } catch {
+      // ignore
+    }
+
+    let data: any[] | null = null
+    let error: any = null
+
+    if (assignedIds && assignedIds.length > 0) {
+      const res = await supabase
+        .from('clients')
+        .select('id, name')
+        .in('id', assignedIds)
+        .order('name', { ascending: true })
+      data = res.data as any[] | null
+      error = res.error
+
+      // Fallback in case RLS blocks the filtered query.
+      if (error) {
+        assignedIds = null
+      }
+    }
+
+    if (!assignedIds) {
+      const res = await supabase
+        .from('clients')
+        .select('id, name')
+        .order('name', { ascending: true })
+      data = res.data as any[] | null
+      error = res.error
+    }
 
     if (error) {
       // If RLS blocks SELECT, don't break manual entry; just hide suggestions.

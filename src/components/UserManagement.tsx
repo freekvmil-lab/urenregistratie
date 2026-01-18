@@ -12,10 +12,18 @@ interface Profile {
   home_address?: string | null
 }
 
+interface Client {
+  id: string
+  name: string
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
+
+  const [clients, setClients] = useState<Client[]>([])
+  const [employeeClientIds, setEmployeeClientIds] = useState<Record<string, string[]>>({})
 
   const [createEmail, setCreateEmail] = useState('')
   const [createName, setCreateName] = useState('')
@@ -42,9 +50,80 @@ export default function UserManagement() {
     setLoading(false)
   }
 
+  const fetchClients = async () => {
+    const { data, error } = await supabase.from('clients').select('id, name').order('name')
+    if (error) {
+      console.warn('clients load failed', error)
+      setClients([])
+      return
+    }
+    const mapped = (data ?? []).map((r: any) => ({ id: String(r.id), name: String(r.name) }))
+    setClients(mapped.filter((c) => c.id && c.name))
+  }
+
+  const fetchEmployeeClients = async () => {
+    const { data, error } = await supabase
+      .from('employee_clients')
+      .select('employee_id, client_id')
+
+    if (error) {
+      // Table might not exist yet, or RLS might block.
+      console.warn('employee_clients load failed', error)
+      setEmployeeClientIds({})
+      return
+    }
+
+    const next: Record<string, string[]> = {}
+    for (const row of (data ?? []) as any[]) {
+      const employeeId = String(row.employee_id ?? '')
+      const clientId = String(row.client_id ?? '')
+      if (!employeeId || !clientId) continue
+      if (!next[employeeId]) next[employeeId] = []
+      next[employeeId].push(clientId)
+    }
+    setEmployeeClientIds(next)
+  }
+
   useEffect(() => {
     fetchUsers()
+    fetchClients()
+    fetchEmployeeClients()
   }, [])
+
+  const setClientAssigned = async (employeeId: string, clientId: string, assigned: boolean) => {
+    setSaving(employeeId)
+
+    // Optimistic local update
+    setEmployeeClientIds((prev) => {
+      const current = new Set(prev[employeeId] ?? [])
+      if (assigned) current.add(clientId)
+      else current.delete(clientId)
+      return { ...prev, [employeeId]: Array.from(current) }
+    })
+
+    try {
+      if (assigned) {
+        const { error } = await supabase
+          .from('employee_clients')
+          .upsert({ employee_id: employeeId, client_id: clientId }, { onConflict: 'employee_id,client_id' })
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('employee_clients')
+          .delete()
+          .eq('employee_id', employeeId)
+          .eq('client_id', clientId)
+        if (error) throw error
+      }
+
+      await fetchEmployeeClients()
+    } catch (err: any) {
+      alert(err?.message ?? 'Opslaan opdrachtgevers mislukt')
+      await fetchEmployeeClients()
+    } finally {
+      setSaving(null)
+    }
+  }
 
   const inviteUser = async () => {
     setCreateMessage(null)
@@ -198,6 +277,8 @@ export default function UserManagement() {
 
   if (loading) return <p>Gebruikers laden…</p>
 
+  const clientsById = new Map(clients.map((c) => [c.id, c.name]))
+
   return (
     <div className="p-4 border rounded mt-6">
       <h2 className="text-xl font-bold mb-4">Werknemers</h2>
@@ -277,6 +358,7 @@ export default function UserManagement() {
           <tr className="bg-gray-100">
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Naam</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">E-mail</th>
+            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Opdrachtgevers</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Uurtarief</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Thuisadres</th>
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">Rol</th>
@@ -309,6 +391,47 @@ export default function UserManagement() {
             </td>
 
               <td className="border p-2 text-gray-900 dark:text-gray-100">{u.email ?? '—'}</td>
+
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <details>
+                  <summary className="cursor-pointer select-none">
+                    {(() => {
+                      const assignedIds = employeeClientIds[u.id] ?? []
+                      const assignedNames = assignedIds
+                        .map((id) => clientsById.get(id))
+                        .filter(Boolean) as string[]
+                      if (assignedNames.length === 0) return 'Alles (geen selectie)'
+                      return `${assignedNames.length} geselecteerd`
+                    })()}
+                  </summary>
+
+                  <div className="mt-2 max-h-48 overflow-auto rounded border border-gray-300 p-2">
+                    {clients.length === 0 ? (
+                      <div className="text-sm opacity-70">Geen opdrachtgevers gevonden.</div>
+                    ) : (
+                      clients.map((c) => {
+                        const assignedSet = new Set(employeeClientIds[u.id] ?? [])
+                        const checked = assignedSet.has(c.id)
+                        return (
+                          <label key={c.id} className="flex items-center gap-2 py-1">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={saving === u.id}
+                              onChange={(e) => setClientAssigned(u.id, c.id, e.target.checked)}
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        )
+                      })
+                    )}
+                    <div className="mt-2 text-xs opacity-70">
+                      Tip: als je niets aanvinkt, ziet de werknemer alle opdrachtgevers.
+                    </div>
+                  </div>
+                </details>
+              </td>
+
               <td className="border p-2 text-gray-900 dark:text-gray-100">
                 <input
                   type="number"
