@@ -280,10 +280,10 @@ export default function UserManagement() {
   const clientsById = new Map(clients.map((c) => [c.id, c.name]))
 
   return (
-    <div className="p-4 border rounded mt-6">
+    <div className="p-4 border border-orange-200/60 dark:border-orange-500/30 rounded mt-6 bg-white/70 dark:bg-black/30 text-gray-900 dark:text-gray-100">
       <h2 className="text-xl font-bold mb-4">Werknemers</h2>
 
-      <div className="border border-gray-200 rounded p-3 mb-4 bg-white dark:bg-transparent">
+      <div className="border border-orange-200/60 dark:border-orange-500/30 rounded p-3 mb-4 bg-white dark:bg-transparent">
         <h3 className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Werknemer toevoegen</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -312,7 +312,7 @@ export default function UserManagement() {
             <select
               value={createRole}
               onChange={(e) => setCreateRole(e.target.value as 'admin' | 'employee')}
-              className="w-full border rounded px-2 py-1"
+              className="w-full border rounded px-2 py-1 bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
             >
               <option value="employee">Werknemer</option>
               <option value="admin">Admin</option>
@@ -353,7 +353,7 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <table className="w-full border-collapse border border-orange-200/60">
+      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-transparent">
         <thead>
           <tr className="bg-orange-50">
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Naam</th>
@@ -367,8 +367,8 @@ export default function UserManagement() {
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id}>
-              <td className="border p-2">
+            <tr key={u.id} className="odd:bg-white even:bg-orange-50/30 dark:odd:bg-transparent dark:even:bg-black/10">
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
                <input
                   value={u.name ?? ''}
                   onChange={(e) =>
@@ -384,8 +384,7 @@ export default function UserManagement() {
                       .update({ name: u.name })
                       .eq('id', u.id)
                   }}
-                  className="w-full bg-transparent border-b border-gray-400
-                    text-gray-900 dark:text-gray-100"
+                  className="w-full bg-transparent border-b border-gray-400 text-gray-900 dark:text-gray-100"
                   placeholder="Naam invoeren"
                 />
             </td>
@@ -405,7 +404,7 @@ export default function UserManagement() {
                     })()}
                   </summary>
 
-                  <div className="mt-2 max-h-48 overflow-auto rounded border border-orange-200/60 p-2">
+                  <div className="mt-2 max-h-48 overflow-auto rounded border border-orange-200/60 dark:border-orange-500/30 p-2 bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                     {clients.length === 0 ? (
                       <div className="text-sm opacity-70">Geen opdrachtgevers gevonden.</div>
                     ) : (
@@ -489,7 +488,7 @@ export default function UserManagement() {
                       e.target.value as 'admin' | 'employee'
                     )
                   }
-                  className="border rounded px-2 py-1"
+                  className="border rounded px-2 py-1 bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                 >
                   <option value="employee">Werknemer</option>
                   <option value="admin">Admin</option>
