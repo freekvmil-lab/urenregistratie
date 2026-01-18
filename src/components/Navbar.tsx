@@ -39,7 +39,10 @@ export default function Navbar() {
   }, [])
 
   const links = useMemo(() => {
-    const base = [{ href: '/', label: 'Home', adminOnly: false }]
+    const base = [
+      { href: '/', label: 'Home', adminOnly: false },
+      { href: '/availability', label: 'Beschikbaarheid', adminOnly: false },
+    ]
     const adminLinks = [
       { href: '/admin', label: 'Admin', adminOnly: true },
       { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
