@@ -353,7 +353,7 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-transparent">
+      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 dark:bg-transparent">
         <thead>
           <tr className="bg-orange-50">
             <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Naam</th>
