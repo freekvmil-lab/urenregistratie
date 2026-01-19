@@ -6,9 +6,6 @@
   /* Brand accent (orange) */
   --accent: #f97316;
   --accent-strong: #ea580c;
-}
-
-@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
