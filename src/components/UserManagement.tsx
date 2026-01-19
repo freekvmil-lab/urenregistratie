@@ -280,7 +280,7 @@ export default function UserManagement() {
   const clientsById = new Map(clients.map((c) => [c.id, c.name]))
 
   return (
-    <div className="p-4 border border-orange-200/60 dark:border-orange-500/30 rounded mt-6 bg-white/70 dark:bg-black/30 text-gray-900 dark:text-gray-100">
+    <div className="p-4 border border-orange-200/60 dark:border-orange-500/30 rounded mt-6 bg-white dark:bg-black/30 text-gray-900 dark:text-gray-100">
       <h2 className="text-xl font-bold mb-4">Werknemers</h2>
 
       <div className="border border-orange-200/60 dark:border-orange-500/30 rounded p-3 mb-4 bg-white dark:bg-transparent">
@@ -353,16 +353,16 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 dark:bg-transparent">
+      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-transparent">
         <thead>
-          <tr className="bg-orange-50">
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Naam</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">E-mail</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Opdrachtgevers</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Uurtarief</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Thuisadres</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Rol</th>
-            <th className="border p-2 text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-500/10">Acties</th>
+          <tr className="bg-orange-100 dark:bg-orange-500/10">
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Naam</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">E-mail</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Opdrachtgevers</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Uurtarief</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Thuisadres</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Rol</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Acties</th>
           </tr>
         </thead>
         <tbody>
