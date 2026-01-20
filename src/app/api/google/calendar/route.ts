@@ -175,11 +175,23 @@ export async function GET(req: Request) {
 
     // get calendars
     let calendarList = await listCalendars(googleAccessToken)
-    if (!calendarList.ok && calendarList.status === 401 && googleAccount.refresh_token) {
-      const refreshed = await refreshAccessToken(googleAccount.refresh_token)
-      if (refreshed) {
-        googleAccessToken = refreshed
-        calendarList = await listCalendars(refreshed)
+    if (!calendarList.ok && calendarList.status === 401) {
+      if (googleAccount.refresh_token) {
+        const refreshed = await refreshAccessToken(googleAccount.refresh_token)
+        if (refreshed) {
+          googleAccessToken = refreshed
+          calendarList = await listCalendars(refreshed)
+        }
+      } else {
+        return NextResponse.json(
+          {
+            error: 'google_reconnect_required',
+            message:
+              'Google sessie verlopen en er is geen refresh token opgeslagen. Koppel Google opnieuw via de knop op het dashboard.',
+            details: calendarList.body,
+          },
+          { status: 401 }
+        )
       }
     }
 

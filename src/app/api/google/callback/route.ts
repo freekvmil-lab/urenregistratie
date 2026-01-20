@@ -33,10 +33,20 @@ export async function GET(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Google may omit refresh_token on subsequent authorizations.
+  // Never overwrite an existing refresh_token with null/undefined.
+  const { data: existing } = await supabase
+    .from('google_accounts')
+    .select('refresh_token')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const refreshToStore = token.refresh_token ?? (existing as any)?.refresh_token ?? null
+
   await supabase.from('google_accounts').upsert({
     user_id: userId,
     access_token: token.access_token,
-    refresh_token: token.refresh_token,
+    refresh_token: refreshToStore,
     expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
   })
 
