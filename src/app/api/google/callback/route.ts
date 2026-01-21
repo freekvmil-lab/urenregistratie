@@ -28,6 +28,8 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/?error=token`)
   }
 
+  const expiresAt = new Date(Date.now() + token.expires_in * 1000).toISOString()
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -43,12 +45,34 @@ export async function GET(req: Request) {
 
   const refreshToStore = token.refresh_token ?? (existing as any)?.refresh_token ?? null
 
-  await supabase.from('google_accounts').upsert({
-    user_id: userId,
-    access_token: token.access_token,
-    refresh_token: refreshToStore,
-    expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
-  })
+  // Avoid relying on an upsert constraint that might not exist.
+  // Always overwrite the access_token on reconnect.
+  const { data: updated, error: updateError } = await supabase
+    .from('google_accounts')
+    .update({
+      access_token: token.access_token,
+      refresh_token: refreshToStore,
+      expires_at: expiresAt,
+    })
+    .eq('user_id', userId)
+    .select('user_id')
+
+  if (updateError) {
+    return NextResponse.redirect(`${origin}/?error=google_store`)
+  }
+
+  if (!updated || updated.length === 0) {
+    const { error: insertError } = await supabase.from('google_accounts').insert({
+      user_id: userId,
+      access_token: token.access_token,
+      refresh_token: refreshToStore,
+      expires_at: expiresAt,
+    })
+
+    if (insertError) {
+      return NextResponse.redirect(`${origin}/?error=google_store`)
+    }
+  }
 
   return NextResponse.redirect(`${origin}/`)
 }
