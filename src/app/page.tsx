@@ -104,7 +104,7 @@ export default function HomePage() {
             onClick={() => setShowAgendaSuggestions((v) => !v)}
             className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-1 rounded"
           >
-            {showAgendaSuggestions ? '🗓️ Agenda suggesties verbergen' : '🗓️ Agenda suggesties tonen'}
+            {showAgendaSuggestions ? '🗓️ Agenda verbergen' : '🗓️ Agenda ophalen'}
           </button>
 
           {/* Subtielere agenda status */}
