@@ -691,6 +691,16 @@ export default function MyOverview({ userId }: { userId?: string }) {
     0
   )
 
+  const getIsoWeekNumber = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    const day = d.getUTCDay() || 7
+    d.setUTCDate(d.getUTCDate() + 4 - day)
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  }
+
+  const isoWeekNumber = getIsoWeekNumber(weekStart)
+
   /* =======================
      RENDER
   ======================= */
@@ -710,8 +720,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
           ← Vorige
         </button>
 
-        <strong>
-          Week van {weekStart.toLocaleDateString('nl-NL')}
+        <strong className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-gray-100">
+          Week {isoWeekNumber}
         </strong>
 
         <button
