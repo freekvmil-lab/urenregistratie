@@ -87,9 +87,21 @@ export async function GET(req: Request) {
         }),
       })
 
-      if (!tokenRes.ok) return null
-      const tokenJson = await tokenRes.json()
-      if (!tokenJson.access_token) return null
+      const tokenText = await tokenRes.text()
+      let tokenJson: any
+      try {
+        tokenJson = JSON.parse(tokenText)
+      } catch {
+        tokenJson = { raw: tokenText }
+      }
+
+      if (!tokenRes.ok || !tokenJson?.access_token) {
+        return {
+          ok: false as const,
+          status: tokenRes.status,
+          body: tokenJson,
+        }
+      }
 
       const newExpiresAt = new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
 
@@ -102,7 +114,7 @@ export async function GET(req: Request) {
         })
         .eq('user_id', user.id)
 
-      return tokenJson.access_token
+      return { ok: true as const, accessToken: tokenJson.access_token }
     }
 
     // If expires_at exists and is in the past, try to refresh now
@@ -111,7 +123,7 @@ export async function GET(req: Request) {
       const expiresAt = new Date(googleAccount.expires_at)
       if (expiresAt.getTime() <= Date.now() && googleAccount.refresh_token) {
         const refreshed = await refreshAccessToken(googleAccount.refresh_token)
-        if (refreshed) googleAccessToken = refreshed
+        if (refreshed.ok) googleAccessToken = refreshed.accessToken
       }
     }
 
@@ -176,13 +188,7 @@ export async function GET(req: Request) {
     // get calendars
     let calendarList = await listCalendars(googleAccessToken)
     if (!calendarList.ok && calendarList.status === 401) {
-      if (googleAccount.refresh_token) {
-        const refreshed = await refreshAccessToken(googleAccount.refresh_token)
-        if (refreshed) {
-          googleAccessToken = refreshed
-          calendarList = await listCalendars(refreshed)
-        }
-      } else {
+      if (!googleAccount.refresh_token) {
         return NextResponse.json(
           {
             error: 'google_reconnect_required',
@@ -193,6 +199,25 @@ export async function GET(req: Request) {
           { status: 401 }
         )
       }
+
+      const refreshed = await refreshAccessToken(googleAccount.refresh_token)
+      if (!refreshed.ok) {
+        return NextResponse.json(
+          {
+            error: 'google_reconnect_required',
+            message:
+              'Google sessie ongeldig en refresh is mislukt. Koppel Google opnieuw via de knop op het dashboard.',
+            details: {
+              calendar: calendarList.body,
+              refresh: { status: refreshed.status, body: refreshed.body },
+            },
+          },
+          { status: 401 }
+        )
+      }
+
+      googleAccessToken = refreshed.accessToken
+      calendarList = await listCalendars(googleAccessToken)
     }
 
     if (!calendarList.ok) {
