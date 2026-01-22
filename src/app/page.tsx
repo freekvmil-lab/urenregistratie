@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import TimeTracker from '@/components/TimeTracker'
 import MyOverview from '@/components/MyOverview'
 import MonthOverview from '@/components/MonthOverview'
 import AgendaSuggestions from '@/components/AgendaSuggestions'
@@ -78,9 +77,6 @@ export default function HomePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* START/STOP links van handmatig toevoegen */}
-          <TimeTracker userId={user.id} compact />
-
           <button
             onClick={() => {
               const ev = new CustomEvent('openManual', {
