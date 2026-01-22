@@ -781,7 +781,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
               Wat jammer dat je nog niet hebt gewerkt…
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Deze week is nog helemaal leeg. Tijd om je innerlijke productiviteitsmonster los te laten.
+              “De week is nog helemaal leeg… zo leeg dat hij echo geeft.”
             </div>
             <div className="mt-4 flex justify-center">
               <button
