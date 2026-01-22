@@ -704,6 +704,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
     return d >= weekStart && d <= weekEnd
   })
 
+  const defaultManualDateForWeek = (() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (today >= weekStart && today <= weekEnd) return toLocalYmd(today)
+    return toLocalYmd(weekStart)
+  })()
+
   const grouped = weekEntries.reduce<Record<string, Entry[]>>(
     (acc, e) => {
       acc[e.date] = acc[e.date] || []
@@ -766,6 +773,32 @@ export default function MyOverview({ userId }: { userId?: string }) {
       <p className="font-bold text-gray-900 dark:text-gray-100">
         Totaal: {weekTotal.toFixed(2)} uur
       </p>
+
+      {weekEntries.length === 0 && (
+        <div className="py-10">
+          <div className="mx-auto max-w-xl rounded-xl border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-gray-900/40 p-6 text-center">
+            <div className="text-lg font-extrabold text-gray-900 dark:text-gray-100">
+              Wat jammer dat je nog niet hebt gewerkt…
+            </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Deze week is nog helemaal leeg. Tijd om je innerlijke productiviteitsmonster los te laten.
+            </div>
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => {
+                  const ev = new CustomEvent('openManual', {
+                    detail: { date: defaultManualDateForWeek },
+                  })
+                  window.dispatchEvent(ev)
+                }}
+                className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-4 py-2 rounded"
+              >
+                ➕ Uren toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DAYS */}
       {Object.entries(grouped).map(([date, list]) => {
