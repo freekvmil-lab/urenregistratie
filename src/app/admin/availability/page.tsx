@@ -256,7 +256,7 @@ export default function AdminAvailabilityPage() {
   if (!allowed) return <p>Geen toegang</p>
 
   return (
-    <main className="p-6 space-y-6">
+    <main className="px-4 py-4 sm:p-6 space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">Beschikbaarheid (admin)</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300">Overzicht voor alle werknemers.</p>

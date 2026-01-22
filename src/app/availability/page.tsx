@@ -249,7 +249,7 @@ export default function AvailabilityPage() {
 
   if (!ready) {
     return (
-      <main className="p-6">
+      <main className="px-4 py-4 sm:p-6">
         <p>Loading…</p>
       </main>
     )
@@ -257,7 +257,7 @@ export default function AvailabilityPage() {
 
   if (!userId) {
     return (
-      <main className="p-6 space-y-3">
+      <main className="px-4 py-4 sm:p-6 space-y-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Beschikbaarheid</h1>
         <p>Je bent niet ingelogd.</p>
         <a href="/login" className="inline-block border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-2 rounded">
@@ -268,7 +268,7 @@ export default function AvailabilityPage() {
   }
 
   return (
-    <main className="p-6 space-y-6">
+    <main className="px-4 py-4 sm:p-6 space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Beschikbaarheid</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -316,13 +316,13 @@ export default function AvailabilityPage() {
         {error && <div className="text-sm text-red-600">{error}</div>}
         {message && <div className="text-sm text-orange-700 dark:text-orange-300">{message}</div>}
 
-        <div className="grid grid-cols-7 gap-2 text-xs text-gray-600 dark:text-gray-300">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-xs text-gray-600 dark:text-gray-300">
           {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => (
             <div key={d} className="text-center font-semibold">{d}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {gridDates.map((d) => {
             const dayYmd = ymd(d)
             const inMonth = d.getMonth() === month.getMonth()
@@ -330,7 +330,7 @@ export default function AvailabilityPage() {
             const busy = Boolean(savingDay[dayYmd])
 
             const base =
-              'aspect-square rounded-lg border flex items-start justify-end p-2 text-sm select-none transition-colors '
+              'aspect-square rounded-lg border flex items-start justify-end p-1.5 sm:p-2 text-xs sm:text-sm select-none transition-colors '
 
             const cls =
               base +

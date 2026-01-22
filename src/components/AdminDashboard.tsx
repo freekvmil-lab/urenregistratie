@@ -420,12 +420,12 @@ export default function AdminDashboard() {
   ======================= */
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="px-4 py-4 sm:p-6 space-y-8">
       <div>
         <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Admin Dashboard</h1>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={approveAllPending} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white">
               Alles goedkeuren
             </button>
@@ -638,8 +638,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="overflow-auto mt-4">
-                    <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30">
+                  <div className="overflow-x-auto mt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                    <table className="w-full min-w-[980px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
                       <thead>
                         <tr className="bg-orange-50 dark:bg-orange-500/10">
                           <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
@@ -695,8 +695,8 @@ export default function AdminDashboard() {
             })}
           </div>
         ) : (
-          <div className="overflow-auto">
-            <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full min-w-[1100px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
               <thead>
                   <tr className="bg-orange-50 dark:bg-orange-500/10">
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>

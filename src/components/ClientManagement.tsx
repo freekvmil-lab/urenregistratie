@@ -102,21 +102,21 @@ export default function ClientManagement() {
         </div>
       )}
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naam" className="col-span-2 p-2 rounded bg-gray-800 border border-gray-700" />
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Naam" className="sm:col-span-2 p-2 rounded bg-gray-800 border border-gray-700" />
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notitie (optioneel)" className="p-2 rounded bg-gray-800 border border-gray-700" />
-        <div className="col-span-3 flex justify-end gap-2">
+        <div className="sm:col-span-3 flex justify-end gap-2">
           <button onClick={addClient} className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded">Toevoegen</button>
         </div>
       </div>
 
-      <div>
+      <div className="overflow-x-auto">
         {loading ? (
           <p>Laden…</p>
         ) : clients.length === 0 ? (
           <p>Geen opdrachtgevers</p>
         ) : (
-          <table className="w-full border-collapse">
+          <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr className="text-left text-sm text-gray-400">
                 <th className="p-2">Naam</th>

@@ -353,7 +353,8 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <table className="w-full border-collapse border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-transparent">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <table className="w-full min-w-[1100px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-transparent">
         <thead>
           <tr className="bg-orange-100 dark:bg-orange-500/10">
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Naam</th>
@@ -507,7 +508,8 @@ export default function UserManagement() {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   )
 }
