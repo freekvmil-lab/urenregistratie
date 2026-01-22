@@ -44,6 +44,17 @@ const toLocalISOString = (date: string, time: string) => {
   return d.toISOString()
 }
 
+const toLocalISOStartEnd = (date: string, startTime: string, endTime: string) => {
+  const [sh, sm] = startTime.split(':').map(Number)
+  const [eh, em] = endTime.split(':').map(Number)
+  const start = new Date(date)
+  start.setHours(sh, sm, 0, 0)
+  const end = new Date(date)
+  end.setHours(eh, em, 0, 0)
+  if (end.getTime() < start.getTime()) end.setDate(end.getDate() + 1)
+  return { start: start.toISOString(), end: end.toISOString() }
+}
+
 const toLocalYmd = (d: Date) => {
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -74,8 +85,16 @@ const formatTime = (d: string | null) =>
       })
     : '—'
 
-const hours = (s: string, e: string | null) =>
-  e ? (new Date(e).getTime() - new Date(s).getTime()) / 3600000 : 0
+const hours = (s: string, e: string | null) => {
+  if (!e) return 0
+  const diffMs = new Date(e).getTime() - new Date(s).getTime()
+  if (!Number.isFinite(diffMs)) return 0
+  if (diffMs < 0) {
+    const corrected = diffMs + 24 * 3600000
+    if (corrected > 0) return corrected / 3600000
+  }
+  return diffMs / 3600000
+}
 
 const needsDetails = (e: Entry) => {
   if (e.manual) return false
@@ -190,17 +209,21 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       // Fallback in case RLS blocks the filtered query.
       if (error) {
-        assignedIds = null
+        const resAll = await supabase
+          .from('clients')
+          .select('id, name')
+          .order('name', { ascending: true })
+        data = resAll.data as any[] | null
+        error = resAll.error
       }
-    }
-
-    if (!assignedIds) {
-      const res = await supabase
+    } else {
+      const resAll = await supabase
         .from('clients')
         .select('id, name')
         .order('name', { ascending: true })
-      data = res.data as any[] | null
-      error = res.error
+      data = resAll.data as any[] | null
+      error = resAll.error
+
     }
 
     if (error) {
@@ -477,9 +500,11 @@ export default function MyOverview({ userId }: { userId?: string }) {
       return
     }
 
+    const { start: startIso, end: endIso } = toLocalISOStartEnd(editing.date, start, end)
+
     const payload: any = {
-      start_time: toLocalISOString(editing.date, start),
-      end_time: toLocalISOString(editing.date, end),
+      start_time: startIso,
+      end_time: endIso,
       location: location || null,
       kilometers: editKilometers || null,
       parking_paid: editParkingPaid,
@@ -535,11 +560,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
       return
     }
 
+    const { start: manualStartIso, end: manualEndIso } = toLocalISOStartEnd(manualDate, manualStart, manualEnd)
+
     const manualPayload: any = {
       user_id: userId,
       date: manualDate,
-      start_time: toLocalISOString(manualDate, manualStart),
-      end_time: toLocalISOString(manualDate, manualEnd),
+      start_time: manualStartIso,
+      end_time: manualEndIso,
       manual: true,
       edited: true,
       approved: false,

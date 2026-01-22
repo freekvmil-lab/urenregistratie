@@ -25,7 +25,13 @@ const ymd = (d: Date) => {
 
 const hoursBetween = (start: string | null, end: string | null) => {
   if (!start || !end) return 0
-  return (new Date(end).getTime() - new Date(start).getTime()) / 3600000
+  const diffMs = new Date(end).getTime() - new Date(start).getTime()
+  if (!Number.isFinite(diffMs)) return 0
+  if (diffMs < 0) {
+    const corrected = diffMs + 24 * 3600000
+    if (corrected > 0) return corrected / 3600000
+  }
+  return diffMs / 3600000
 }
 
 export default function MonthOverview({ userId }: { userId: string }) {

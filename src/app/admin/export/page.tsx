@@ -106,6 +106,17 @@ export default function ExportPage() {
   const formatTime = (t: string | null) =>
     t ? new Date(t).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : ''
 
+  const hoursBetween = (start: string | null, end: string | null) => {
+    if (!start || !end) return 0
+    const diffMs = new Date(end).getTime() - new Date(start).getTime()
+    if (!Number.isFinite(diffMs)) return 0
+    if (diffMs < 0) {
+      const corrected = diffMs + 24 * 3600000
+      if (corrected > 0) return corrected / 3600000
+    }
+    return diffMs / 3600000
+  }
+
   const approvedEntries = entries.filter((e) => e.approved)
 
   const exportCSV = () => {
@@ -131,7 +142,7 @@ export default function ExportPage() {
     const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
 
     const rows = approvedEntries.map((e) => {
-      const hours = e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''
+      const hours = e.start_time && e.end_time ? hoursBetween(e.start_time, e.end_time).toFixed(2) : ''
       return [
         profileMap.get(e.user_id) ?? e.user_id,
         e.date,
@@ -197,7 +208,7 @@ export default function ExportPage() {
       const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
 
       const rows = rowsData.map((e) => {
-        const hours = e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''
+        const hours = e.start_time && e.end_time ? hoursBetween(e.start_time, e.end_time).toFixed(2) : ''
         return [
           profileMap.get(e.user_id) ?? e.user_id,
           e.date,
