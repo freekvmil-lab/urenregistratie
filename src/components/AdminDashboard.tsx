@@ -49,6 +49,12 @@ const parseYmdToLocalDate = (ymd: string) => {
   return new Date(y, m - 1, d)
 }
 
+const addDays = (d: Date, days: number) => {
+  const next = new Date(d)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
 // ISO week/year (week starts Monday)
 const getIsoWeek = (dateInput: Date) => {
   const d = new Date(dateInput)
@@ -115,6 +121,11 @@ export default function AdminDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
+
+  // Week view: keep the selected week stable (Monday)
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
+    toLocalYmd(startOfIsoWeek(new Date()))
+  )
 
   // Default: last 8 weeks
   const [from, setFrom] = useState(() => {
@@ -207,16 +218,30 @@ export default function AdminDashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    await supabase
+    const approvedAt = new Date().toISOString()
+
+    const { error } = await supabase
       .from('time_entries')
       .update({
         approved: true,
-        approved_at: new Date().toISOString(),
+        approved_at: approvedAt,
         approved_by: user.id,
       })
       .eq('id', entryId)
 
-    fetchEntries()
+    if (error) {
+      alert('Goedkeuren mislukt: ' + error.message)
+      return
+    }
+
+    // Optimistic UI update (prevents jumping around)
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === entryId
+          ? { ...e, approved: true, approved_at: approvedAt, approved_by: user.id }
+          : e
+      )
+    )
   }
 
   const deleteEntry = async (entryId: number) => {
@@ -240,8 +265,8 @@ export default function AdminDashboard() {
         console.error('deleteEntry error:', error)
         alert('Verwijderen mislukt: ' + error.message)
       } else {
-        // refresh
-        fetchEntries()
+        // Optimistic update
+        setEntries((prev) => prev.filter((e) => e.id !== entryId))
       }
     } catch (e) {
       console.error('deleteEntry crash', e)
@@ -255,14 +280,22 @@ export default function AdminDashboard() {
      HELPERS
   ======================= */
 
+  const weekStartDate = parseYmdToLocalDate(selectedWeekStart)
+  const weekEndDate = addDays(weekStartDate, 6)
+  const weekEndYmd = toLocalYmd(weekEndDate)
+  const weekIso = getIsoWeek(weekStartDate)
+
+  const activeFrom = viewMode === 'week' ? selectedWeekStart : from
+  const activeTo = viewMode === 'week' ? weekEndYmd : to
+
   const filteredEntries =
     entries
       .filter((e) => (selectedUser === 'all' ? true : e.user_id === selectedUser))
       .filter((e) => {
-        if (!from && !to) return true
+        if (!activeFrom && !activeTo) return true
         const d = e.date
-        if (from && d < from) return false
-        if (to && d > to) return false
+        if (activeFrom && d < activeFrom) return false
+        if (activeTo && d > activeTo) return false
         return true
       })
       .filter((e) => {
@@ -318,19 +351,6 @@ export default function AdminDashboard() {
   const pendingCount = filteredEntries.filter((e) => e.edited && !e.approved).length
   const needsDetailsCount = filteredEntries.filter((e) => needsDetails(e)).length
 
-  const groupedByWeek = (() => {
-    const map = new Map<string, TimeEntry[]>()
-    for (const e of filteredEntries) {
-      const d = parseYmdToLocalDate(e.date)
-      const { week, year } = getIsoWeek(d)
-      const key = `${year}-W${String(week).padStart(2, '0')}`
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(e)
-    }
-    // newest first
-    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1))
-  })()
-
   const approveAllPending = async () => {
     const ids = filteredEntries.filter((e) => e.edited && !e.approved).map((e) => e.id)
     if (!ids.length) return
@@ -340,18 +360,62 @@ export default function AdminDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      const approvedAt = new Date().toISOString()
       const { error } = await supabase
         .from('time_entries')
-        .update({ approved: true, approved_at: new Date().toISOString(), approved_by: user.id })
+        .update({ approved: true, approved_at: approvedAt, approved_by: user.id })
         .in('id', ids)
       if (error) {
         alert('Goedkeuren mislukt: ' + error.message)
+        return
       }
-      await fetchEntries()
+
+      setEntries((prev) =>
+        prev.map((e) =>
+          ids.includes(e.id) ? { ...e, approved: true, approved_at: approvedAt, approved_by: user.id } : e
+        )
+      )
     } finally {
       setLoading(false)
     }
   }
+
+  const weekEntries = [...filteredEntries].sort((a, b) => {
+    const byDate = a.date.localeCompare(b.date)
+    if (byDate !== 0) return byDate
+    const aStart = a.start_time ?? ''
+    const bStart = b.start_time ?? ''
+    const byStart = aStart.localeCompare(bStart)
+    if (byStart !== 0) return byStart
+    return String(a.id).localeCompare(String(b.id))
+  })
+
+  const weekHours = weekEntries.reduce((sum, e) => sum + hoursBetween(e.start_time, e.end_time), 0)
+  const weekPending = weekEntries.filter((e) => e.edited && !e.approved).length
+  const weekMissingDetails = weekEntries.filter((e) => needsDetails(e)).length
+
+  const topUsers = (() => {
+    const byUser = new Map<string, number>()
+    for (const e of weekEntries) {
+      const h = hoursBetween(e.start_time, e.end_time)
+      byUser.set(e.name, (byUser.get(e.name) ?? 0) + h)
+    }
+    return Array.from(byUser.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+  })()
+
+  const topClients = (() => {
+    const byClient = new Map<string, number>()
+    for (const e of weekEntries) {
+      const key = displayClient(e) || '—'
+      const h = hoursBetween(e.start_time, e.end_time)
+      byClient.set(key, (byClient.get(key) ?? 0) + h)
+    }
+    return Array.from(byClient.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+  })()
 
   const exportCSV = () => {
     if (!filteredEntries.length) {
@@ -442,6 +506,55 @@ export default function AdminDashboard() {
           <KpiCard title="Missende details" value={String(needsDetailsCount)} sub="start/stop + gestopt" />
         </div>
 
+        {viewMode === 'week' && (
+          <div className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40 mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  Week {weekIso.week}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  {weekStartDate.toLocaleDateString('nl-NL')} t/m {weekEndDate.toLocaleDateString('nl-NL')}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 items-end">
+                <button
+                  onClick={() => setSelectedWeekStart(toLocalYmd(addDays(weekStartDate, -7)))}
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+                >
+                  ← Vorige week
+                </button>
+                <button
+                  onClick={() => setSelectedWeekStart(toLocalYmd(startOfIsoWeek(new Date())))}
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+                >
+                  Deze week
+                </button>
+                <button
+                  onClick={() => setSelectedWeekStart(toLocalYmd(addDays(weekStartDate, 7)))}
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+                >
+                  Volgende week →
+                </button>
+
+                <div>
+                  <label className="text-xs text-gray-600 dark:text-gray-300">Ga naar week (datum)</label>
+                  <input
+                    type="date"
+                    value={selectedWeekStart}
+                    onChange={(e) => {
+                      const d = startOfIsoWeek(parseYmdToLocalDate(e.target.value))
+                      setSelectedWeekStart(toLocalYmd(d))
+                    }}
+                    className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-6 items-end">
           <div>
             <label className="text-xs text-gray-600 dark:text-gray-300">Werknemer</label>
@@ -459,25 +572,34 @@ export default function AdminDashboard() {
             </select>
           </div>
 
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
+          {viewMode === 'list' ? (
+            <>
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
 
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="hidden lg:block" />
+              <div className="hidden lg:block" />
+            </>
+          )}
 
           <div>
             <label className="text-xs text-gray-600 dark:text-gray-300">Status</label>
@@ -505,44 +627,19 @@ export default function AdminDashboard() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => {
-              const now = new Date()
-              const start = startOfIsoWeek(now)
-              const end = new Date(start)
-              end.setDate(end.getDate() + 6)
-              setFrom(toLocalYmd(start))
-              setTo(toLocalYmd(end))
-            }}
-            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
-          >
-            Deze week
-          </button>
-          <button
-            onClick={() => {
-              const now = new Date()
-              const start = startOfIsoWeek(now)
-              start.setDate(start.getDate() - 7)
-              const end = new Date(start)
-              end.setDate(end.getDate() + 6)
-              setFrom(toLocalYmd(start))
-              setTo(toLocalYmd(end))
-            }}
-            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
-          >
-            Vorige week
-          </button>
-          <button
-            onClick={() => {
-              const d = new Date()
-              d.setDate(d.getDate() - 7 * 8)
-              setFrom(toLocalYmd(d))
-              setTo(toLocalYmd(new Date()))
-            }}
-            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
-          >
-            Laatste 8 weken
-          </button>
+          {viewMode === 'list' && (
+            <button
+              onClick={() => {
+                const d = new Date()
+                d.setDate(d.getDate() - 7 * 8)
+                setFrom(toLocalYmd(d))
+                setTo(toLocalYmd(new Date()))
+              }}
+              className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+            >
+              Laatste 8 weken
+            </button>
+          )}
 
           <div className="ml-auto flex gap-2">
             <button
@@ -572,127 +669,100 @@ export default function AdminDashboard() {
           <p>Geen entries gevonden</p>
         ) : viewMode === 'week' ? (
           <div className="space-y-4">
-            {groupedByWeek.map(([weekKey, list]) => {
-              const weekHours = list.reduce((sum, e) => sum + hoursBetween(e.start_time, e.end_time), 0)
-              const pending = list.filter((e) => e.edited && !e.approved).length
-              const details = list.filter((e) => needsDetails(e)).length
+            <div className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-semibold text-gray-900 dark:text-gray-100">Week {weekIso.week}</div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{formatHours(weekHours)} uur</span>
+                  <span className="px-2 py-0.5 rounded bg-yellow-200/70 dark:bg-yellow-900/40">{weekPending} pending</span>
+                  <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{weekMissingDetails} missend</span>
+                  <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{weekEntries.length} entries</span>
+                </div>
+              </div>
 
-              // per user
-              const byUser = new Map<string, number>()
-              for (const e of list) {
-                const h = hoursBetween(e.start_time, e.end_time)
-                byUser.set(e.name, (byUser.get(e.name) ?? 0) + h)
-              }
-              const topUsers = Array.from(byUser.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-
-              // per client
-              const byClient = new Map<string, number>()
-              for (const e of list) {
-                const key = displayClient(e) || '—'
-                const h = hoursBetween(e.start_time, e.end_time)
-                byClient.set(key, (byClient.get(key) ?? 0) + h)
-              }
-              const topClients = Array.from(byClient.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-
-              return (
-                <details key={weekKey} className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40" open>
-                  <summary className="cursor-pointer flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold">
-                      Week {weekKey.replace(/^\d{4}-W/, '')} <span className="text-gray-500 dark:text-gray-400">({weekKey.slice(0, 4)})</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{formatHours(weekHours)} uur</span>
-                      <span className="px-2 py-0.5 rounded bg-yellow-200/70 dark:bg-yellow-900/40">{pending} pending</span>
-                      <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{details} missend</span>
-                      <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{list.length} entries</span>
-                    </div>
-                  </summary>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">Top werknemers</div>
-                      <div className="space-y-1">
-                        {topUsers.map(([name, h]) => (
-                          <div key={name} className="flex justify-between text-sm">
-                            <span>{name}</span>
-                            <span className="font-mono">{formatHours(h)}</span>
-                          </div>
-                        ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">Top werknemers</div>
+                  <div className="space-y-1">
+                    {topUsers.map(([name, h]) => (
+                      <div key={name} className="flex justify-between text-sm">
+                        <span>{name}</span>
+                        <span className="font-mono">{formatHours(h)}</span>
                       </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">Top opdrachtgevers</div>
-                      <div className="space-y-1">
-                        {topClients.map(([name, h]) => (
-                          <div key={name} className="flex justify-between text-sm">
-                            <span className="truncate max-w-[260px]">{name}</span>
-                            <span className="font-mono">{formatHours(h)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    ))}
                   </div>
+                </div>
 
-                  <div className="overflow-x-auto mt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-                    <table className="w-full min-w-[980px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
-                      <thead>
-                        <tr className="bg-orange-50 dark:bg-orange-500/10">
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
-                          <th className="border p-2 text-gray-900 dark:text-gray-100">Actie</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {list.map((e) => (
-                          <tr key={e.id}>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
-                            <td className="border p-2 text-gray-900 dark:text-gray-100">
-                              <div className="flex gap-2">
-                                {e.edited && !e.approved && (
-                                  <button
-                                    onClick={() => approveEntry(e.id)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
-                                  >
-                                    Goedkeuren
-                                  </button>
-                                )}
+                <div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">Top opdrachtgevers</div>
+                  <div className="space-y-1">
+                    {topClients.map(([name, h]) => (
+                      <div key={name} className="flex justify-between text-sm">
+                        <span className="truncate max-w-[260px]">{name}</span>
+                        <span className="font-mono">{formatHours(h)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
+              {weekEntries.length === 0 ? (
+                <div className="mt-4 text-gray-700 dark:text-gray-200">Geen entries gevonden in deze week.</div>
+              ) : (
+                <div className="overflow-x-auto mt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <table className="w-full min-w-[980px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
+                    <thead>
+                      <tr className="bg-orange-50 dark:bg-orange-500/10">
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Status</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Actie</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weekEntries.map((e) => (
+                        <tr key={e.id}>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">{renderStatus(e)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">
+                            <div className="flex gap-2">
+                              {e.edited && !e.approved && (
                                 <button
-                                  onClick={() => deleteEntry(e.id)}
-                                  className="bg-red-600 text-white px-2 py-1 rounded"
+                                  onClick={() => approveEntry(e.id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
                                 >
-                                  Verwijderen
+                                  Goedkeuren
                                 </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </details>
-              )
-            })}
+                              )}
+
+                              <button
+                                onClick={() => deleteEntry(e.id)}
+                                className="bg-red-600 text-white px-2 py-1 rounded"
+                              >
+                                Verwijderen
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
