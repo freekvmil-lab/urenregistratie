@@ -499,13 +499,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-          <KpiCard title="Totaal uren" value={formatHours(totalHours)} sub={`${filteredEntries.length} entries`} />
-          <KpiCard title="Goedgekeurde uren" value={formatHours(approvedHours)} sub={`${filteredEntries.filter((e) => e.approved).length} goedgekeurd`} />
-          <KpiCard title="Wacht op goedkeuring" value={String(pendingCount)} sub="edited=true & approved=false" />
-          <KpiCard title="Missende details" value={String(needsDetailsCount)} sub="start/stop + gestopt" />
-        </div>
-
         {viewMode === 'week' && (
           <div className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -555,114 +548,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-6 items-end">
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Werknemer</label>
-            <select
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="all">Alle werknemers</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name ?? 'Onbekend'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {viewMode === 'list' ? (
-            <>
-              <div>
-                <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="hidden lg:block" />
-              <div className="hidden lg:block" />
-            </>
-          )}
-
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="pending">Wacht op goedkeuring</option>
-              <option value="approved">Goedgekeurd</option>
-              <option value="needs_details">Missende details</option>
-              <option value="all">Alles</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Zoeken</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="naam, datum, klant, locatie…"
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-6">
-          {viewMode === 'list' && (
-            <button
-              onClick={() => {
-                const d = new Date()
-                d.setDate(d.getDate() - 7 * 8)
-                setFrom(toLocalYmd(d))
-                setTo(toLocalYmd(new Date()))
-              }}
-              className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
-            >
-              Laatste 8 weken
-            </button>
-          )}
-
-          <div className="ml-auto flex gap-2">
-            <button
-              onClick={() => setViewMode('week')}
-              className={
-                'px-3 py-1 rounded ' +
-                (viewMode === 'week' ? 'bg-gray-800 text-white' : 'bg-gray-200 dark:bg-gray-700')
-              }
-            >
-              Weekview
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={
-                'px-3 py-1 rounded ' +
-                (viewMode === 'list' ? 'bg-gray-800 text-white' : 'bg-gray-200 dark:bg-gray-700')
-              }
-            >
-              Lijst
-            </button>
-          </div>
-        </div>
-
         {loading ? (
           <p>Loading...</p>
         ) : filteredEntries.length === 0 ? (
@@ -671,7 +556,7 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             <div className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-semibold text-gray-900 dark:text-gray-100">Week {weekIso.week}</div>
+                <div className="font-semibold text-gray-900 dark:text-gray-100">Entries</div>
                 <div className="flex flex-wrap gap-2 text-sm">
                   <span className="px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">{formatHours(weekHours)} uur</span>
                   <span className="px-2 py-0.5 rounded bg-yellow-200/70 dark:bg-yellow-900/40">{weekPending} pending</span>
@@ -823,6 +708,121 @@ export default function AdminDashboard() {
             </table>
           </div>
         )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-6 mb-6 items-end">
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Werknemer</label>
+            <select
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="all">Alle werknemers</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name ?? 'Onbekend'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {viewMode === 'list' ? (
+            <>
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="hidden lg:block" />
+              <div className="hidden lg:block" />
+            </>
+          )}
+
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="pending">Wacht op goedkeuring</option>
+              <option value="approved">Goedgekeurd</option>
+              <option value="needs_details">Missende details</option>
+              <option value="all">Alles</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Zoeken</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="naam, datum, klant, locatie…"
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {viewMode === 'list' && (
+            <button
+              onClick={() => {
+                const d = new Date()
+                d.setDate(d.getDate() - 7 * 8)
+                setFrom(toLocalYmd(d))
+                setTo(toLocalYmd(new Date()))
+              }}
+              className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+            >
+              Laatste 8 weken
+            </button>
+          )}
+
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => setViewMode('week')}
+              className={
+                'px-3 py-1 rounded ' +
+                (viewMode === 'week' ? 'bg-gray-800 text-white' : 'bg-gray-200 dark:bg-gray-700')
+              }
+            >
+              Weekview
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={
+                'px-3 py-1 rounded ' +
+                (viewMode === 'list' ? 'bg-gray-800 text-white' : 'bg-gray-200 dark:bg-gray-700')
+              }
+            >
+              Lijst
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <KpiCard title="Totaal uren" value={formatHours(totalHours)} sub={`${filteredEntries.length} entries`} />
+          <KpiCard title="Goedgekeurde uren" value={formatHours(approvedHours)} sub={`${filteredEntries.filter((e) => e.approved).length} goedgekeurd`} />
+          <KpiCard title="Wacht op goedkeuring" value={String(pendingCount)} sub="edited=true & approved=false" />
+          <KpiCard title="Missende details" value={String(needsDetailsCount)} sub="start/stop + gestopt" />
+        </div>
       </div>
     </div>
   )
