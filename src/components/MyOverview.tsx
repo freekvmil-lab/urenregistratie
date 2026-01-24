@@ -774,6 +774,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
         Totaal: {weekTotal.toFixed(2)} uur
       </p>
 
+      <datalist id="client-list">
+        {clients.map((c) => (
+          <option key={c.id} value={c.name} />
+        ))}
+      </datalist>
+
       {weekEntries.length === 0 && (
         <div className="py-10">
           <div className="mx-auto max-w-xl rounded-xl border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-gray-900/40 p-6 text-center">
@@ -819,12 +825,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
             {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
 
-                <datalist id="client-list">
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.name} />
-                  ))}
-                </datalist>
-
             {list.map((e) => (
               <div
                 key={e.id}
@@ -843,210 +843,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     >
                       ✏️
                     </button>
-                  )}
-
-                  {editing && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-                      <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
-                        <h3 className="font-semibold">Bewerk uren</h3>
-                        <div className="space-y-2">
-                          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          {isAdmin ? (
-                            <>
-                              <select
-                                value={clientId}
-                                onChange={(e) => {
-                                  const nextId = e.target.value
-                                  setClientId(nextId)
-                                  const row = clientsById.get(nextId)
-                                  if (row) setClientText(row.name)
-                                }}
-                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                              >
-                                <option value="">Selecteer opdrachtgever…</option>
-                                {clients.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
-                              <input
-                                list="client-list"
-                                placeholder="Klant"
-                                value={clientText}
-                                onChange={(e) => {
-                                  setClientText(e.target.value)
-                                  setClientId('')
-                                }}
-                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                              />
-                            </>
-                          ) : (
-                            <>
-                              {editing?.client && !isKnownClientName(editing.client) && (
-                                <div className="text-xs text-gray-300">
-                                  Huidige opdrachtgever: <span className="font-semibold">{editing.client}</span> (nog niet in lijst). Je kunt optioneel een bestaande kiezen.
-                                </div>
-                              )}
-                            <select
-                                value={clientId}
-                                onChange={(e) => setClientId(e.target.value)}
-                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                            >
-                              <option value="">Selecteer opdrachtgever…</option>
-                                {clients.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                              ))}
-                            </select>
-                            </>
-                          )}
-                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <div className="flex gap-2">
-                            <input type="number" placeholder="Kilometers" value={editKilometers === '' ? '' : editKilometers} onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
-                            <button
-                              type="button"
-                              onClick={() => calculateKm('edit')}
-                              disabled={kmLoading === 'edit'}
-                              className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
-                            >
-                              {kmLoading === 'edit' ? 'Berekenen…' : 'Kilometers berekenen'}
-                            </button>
-                            <label className="flex items-center gap-2">
-                              <input type="checkbox" checked={editParkingPaid} onChange={(e) => setEditParkingPaid(e.target.checked)} />
-                              Parkeren
-                            </label>
-                          </div>
-
-                          <label className="flex items-center gap-2 text-sm text-gray-200">
-                            <input
-                              type="checkbox"
-                              checked={editRoundTrip}
-                              onChange={(e) => setEditRoundTrip(e.target.checked)}
-                            />
-                            Heen &amp; terug (×2)
-                          </label>
-                          {editParkingPaid && (
-                            <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          )}
-
-                          {kmInfoEdit && (
-                            <div className="text-xs text-yellow-200">{kmInfoEdit}</div>
-                          )}
-
-                          {editError && (
-                            <div className="text-sm text-red-300">{editError}</div>
-                          )}
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
-                          <button onClick={saveEdit} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {manual && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-                      <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
-                        <h3 className="font-semibold">Nieuwe entry van agenda</h3>
-                        <div className="space-y-2">
-                          <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          {isAdmin ? (
-                            <>
-                              <select
-                                value={clientId}
-                                onChange={(e) => {
-                                  const nextId = e.target.value
-                                  setClientId(nextId)
-                                  const row = clientsById.get(nextId)
-                                  if (row) setClientText(row.name)
-                                }}
-                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                              >
-                                <option value="">Selecteer opdrachtgever…</option>
-                                {clients.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
-                              <input
-                                list="client-list"
-                                placeholder="Klant"
-                                value={clientText}
-                                onChange={(e) => {
-                                  setClientText(e.target.value)
-                                  setClientId('')
-                                }}
-                                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                              />
-                            </>
-                          ) : (
-                            <select
-                              value={clientId}
-                              onChange={(e) => setClientId(e.target.value)}
-                              className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
-                            >
-                              <option value="">Selecteer opdrachtgever…</option>
-                              {clients.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          <div className="flex gap-2">
-                            <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
-                            <button
-                              type="button"
-                              onClick={() => calculateKm('manual')}
-                              disabled={kmLoading === 'manual'}
-                              className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
-                            >
-                              {kmLoading === 'manual' ? 'Berekenen…' : 'Kilometers berekenen'}
-                            </button>
-                            <label className="flex items-center gap-2 text-white">
-                              <input type="checkbox" checked={manualParkingPaid} onChange={(e) => setManualParkingPaid(e.target.checked)} />
-                              Parkeren
-                            </label>
-                          </div>
-
-                          <label className="flex items-center gap-2 text-sm text-gray-200">
-                            <input
-                              type="checkbox"
-                              checked={manualRoundTrip}
-                              onChange={(e) => setManualRoundTrip(e.target.checked)}
-                            />
-                            Heen &amp; terug (×2)
-                          </label>
-                          {manualParkingPaid && (
-                            <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
-                          )}
-
-                          {kmInfoManual && (
-                            <div className="text-xs text-yellow-200">{kmInfoManual}</div>
-                          )}
-
-                          {manualError && (
-                            <div className="text-sm text-red-300">{manualError}</div>
-                          )}
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <button onClick={() => setManual(false)} className="px-3 py-1">Annuleren</button>
-                          <button onClick={saveManual} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
-                        </div>
-                      </div>
-                    </div>
                   )}
                 </div>
 
@@ -1090,6 +886,211 @@ export default function MyOverview({ userId }: { userId?: string }) {
           </div>
         )
       })}
+
+      {/* MODALS (rendered once so they also work on empty weeks) */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+            <h3 className="font-semibold">Bewerk uren</h3>
+            <div className="space-y-2">
+              <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              {isAdmin ? (
+                <>
+                  <select
+                    value={clientId}
+                    onChange={(e) => {
+                      const nextId = e.target.value
+                      setClientId(nextId)
+                      const row = clientsById.get(nextId)
+                      if (row) setClientText(row.name)
+                    }}
+                    className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                  >
+                    <option value="">Selecteer opdrachtgever…</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
+                  <input
+                    list="client-list"
+                    placeholder="Klant"
+                    value={clientText}
+                    onChange={(e) => {
+                      setClientText(e.target.value)
+                      setClientId('')
+                    }}
+                    className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                  />
+                </>
+              ) : (
+                <>
+                  {editing?.client && !isKnownClientName(editing.client) && (
+                    <div className="text-xs text-gray-300">
+                      Huidige opdrachtgever: <span className="font-semibold">{editing.client}</span> (nog niet in lijst). Je kunt optioneel een bestaande kiezen.
+                    </div>
+                  )}
+                  <select
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                  >
+                    <option value="">Selecteer opdrachtgever…</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              <div className="flex gap-2">
+                <input type="number" placeholder="Kilometers" value={editKilometers === '' ? '' : editKilometers} onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                <button
+                  type="button"
+                  onClick={() => calculateKm('edit')}
+                  disabled={kmLoading === 'edit'}
+                  className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                >
+                  {kmLoading === 'edit' ? 'Berekenen…' : 'Kilometers berekenen'}
+                </button>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={editParkingPaid} onChange={(e) => setEditParkingPaid(e.target.checked)} />
+                  Parkeren
+                </label>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={editRoundTrip}
+                  onChange={(e) => setEditRoundTrip(e.target.checked)}
+                />
+                Heen &amp; terug (×2)
+              </label>
+              {editParkingPaid && (
+                <input type="number" placeholder="Parkeerkosten" value={editParkingCost === '' ? '' : editParkingCost} onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              )}
+
+              {kmInfoEdit && (
+                <div className="text-xs text-yellow-200">{kmInfoEdit}</div>
+              )}
+
+              {editError && (
+                <div className="text-sm text-red-300">{editError}</div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
+              <button onClick={saveEdit} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {manual && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+            <h3 className="font-semibold">Nieuwe entry</h3>
+            <div className="space-y-2">
+              <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              {isAdmin ? (
+                <>
+                  <select
+                    value={clientId}
+                    onChange={(e) => {
+                      const nextId = e.target.value
+                      setClientId(nextId)
+                      const row = clientsById.get(nextId)
+                      if (row) setClientText(row.name)
+                    }}
+                    className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                  >
+                    <option value="">Selecteer opdrachtgever…</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="text-xs text-gray-400">Of typ een nieuwe / andere opdrachtgever:</div>
+                  <input
+                    list="client-list"
+                    placeholder="Klant"
+                    value={clientText}
+                    onChange={(e) => {
+                      setClientText(e.target.value)
+                      setClientId('')
+                    }}
+                    className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                  />
+                </>
+              ) : (
+                <select
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                >
+                  <option value="">Selecteer opdrachtgever…</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <input placeholder="Locatie" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              <div className="flex gap-2">
+                <input type="number" placeholder="Kilometers" value={manualKilometers === '' ? '' : manualKilometers} onChange={(e) => setManualKilometers(e.target.value === '' ? '' : Number(e.target.value))} className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2" />
+                <button
+                  type="button"
+                  onClick={() => calculateKm('manual')}
+                  disabled={kmLoading === 'manual'}
+                  className="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
+                >
+                  {kmLoading === 'manual' ? 'Berekenen…' : 'Kilometers berekenen'}
+                </button>
+                <label className="flex items-center gap-2 text-white">
+                  <input type="checkbox" checked={manualParkingPaid} onChange={(e) => setManualParkingPaid(e.target.checked)} />
+                  Parkeren
+                </label>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-200">
+                <input
+                  type="checkbox"
+                  checked={manualRoundTrip}
+                  onChange={(e) => setManualRoundTrip(e.target.checked)}
+                />
+                Heen &amp; terug (×2)
+              </label>
+              {manualParkingPaid && (
+                <input type="number" placeholder="Parkeerkosten" value={manualParkingCost === '' ? '' : manualParkingCost} onChange={(e) => setManualParkingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              )}
+
+              {kmInfoManual && (
+                <div className="text-xs text-yellow-200">{kmInfoManual}</div>
+              )}
+
+              {manualError && (
+                <div className="text-sm text-red-300">{manualError}</div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setManual(false)} className="px-3 py-1">Annuleren</button>
+              <button onClick={saveManual} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
