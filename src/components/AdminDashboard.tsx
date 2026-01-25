@@ -439,6 +439,7 @@ export default function AdminDashboard() {
       'Start',
       'Eind',
       'Uren',
+      'Pauze (uur)',
       'Opdrachtgever',
       'Locatie',
       'Kilometers',
@@ -456,6 +457,9 @@ export default function AdminDashboard() {
         formatTime(e.start_time),
         formatTime(e.end_time),
         calculateHours(e),
+        Number(e.break_minutes ?? 0) > 0
+          ? (Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60).toLocaleString('nl-NL', { maximumFractionDigits: 2 })
+          : '',
         displayClient(e),
         e.location ?? '',
         e.kilometers ?? '',
@@ -612,6 +616,7 @@ export default function AdminDashboard() {
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">Pauze</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
@@ -627,6 +632,16 @@ export default function AdminDashboard() {
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">
+                            {Number(e.break_minutes ?? 0) > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-200">
+                                <span aria-hidden>☕</span>
+                                {(Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60).toLocaleString('nl-NL', { maximumFractionDigits: 2 })}u
+                              </span>
+                            ) : (
+                              ''
+                            )}
+                          </td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
@@ -669,6 +684,7 @@ export default function AdminDashboard() {
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
+                  <th className="border p-2 text-gray-900 dark:text-gray-100">Pauze</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Opdrachtgever</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Locatie</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Kilometers</th>
@@ -687,6 +703,16 @@ export default function AdminDashboard() {
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
+                      <td className="border p-2 text-gray-900 dark:text-gray-100">
+                        {Number(e.break_minutes ?? 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-200">
+                            <span aria-hidden>☕</span>
+                            {(Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60).toLocaleString('nl-NL', { maximumFractionDigits: 2 })}u
+                          </span>
+                        ) : (
+                          ''
+                        )}
+                      </td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>

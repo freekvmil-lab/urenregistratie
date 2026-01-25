@@ -263,7 +263,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
                 (isToday ? ' ring-1 ring-orange-500' : '')
               }
               disabled={!inMonth}
-              title={inMonth ? 'Klik om handmatig toe te voegen' : undefined}
+              title={inMonth ? 'Klik om uren toe te voegen' : undefined}
             >
               <div className="flex items-start justify-between">
                 <div className={inMonth ? 'text-gray-100' : 'text-gray-400'}>
@@ -293,7 +293,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
       </div>
 
       <div className="text-xs text-gray-400">
-        Tip: klik op een dag om “Handmatig toevoegen” te openen.
+        Tip: klik op een dag om “Uren toevoegen” te openen.
       </div>
     </section>
   )

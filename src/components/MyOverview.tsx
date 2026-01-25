@@ -808,7 +808,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
       </div>
 
       <p className="font-bold text-gray-900 dark:text-gray-100">
-        Totaal: {weekTotal.toFixed(2)} uur
       </p>
 
       <datalist id="client-list">
@@ -960,6 +959,15 @@ export default function MyOverview({ userId }: { userId?: string }) {
             </div>
           )
         })}
+
+      <div className="flex justify-end">
+        <div className="inline-flex items-center gap-2 rounded-lg border border-orange-200/60 dark:border-orange-500/30 bg-white/60 dark:bg-gray-900/40 px-4 py-2">
+          <span className="text-sm text-gray-700 dark:text-gray-200">Totaal uren</span>
+          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+            {weekTotal.toFixed(2)}
+          </span>
+        </div>
+      </div>
 
       {/* MODALS (rendered once so they also work on empty weeks) */}
       {editing && (

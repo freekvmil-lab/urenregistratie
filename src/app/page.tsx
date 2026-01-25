@@ -86,7 +86,7 @@ export default function HomePage() {
             }}
             className="border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 px-3 py-1 rounded"
           >
-            ➕ Handmatig toevoegen
+            ➕ Uren toevoegen
           </button>
 
           <button
