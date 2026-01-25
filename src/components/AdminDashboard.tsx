@@ -427,47 +427,85 @@ export default function AdminDashboard() {
   })()
 
   const exportCSV = () => {
-    if (!filteredEntries.length) {
-      alert('Geen entries om te exporteren')
+    if (!weekEntries.length) {
+      alert('Geen entries om te exporteren in deze week')
       return
     }
 
-    const header = [
-      'Naam',
-      'Datum',
-      'Week',
-      'Start',
-      'Eind',
-      'Uren',
-      'Pauze (uur)',
-      'Opdrachtgever',
-      'Locatie',
-      'Kilometers',
-      'Parkeren',
-      'Parkeerkosten',
-      'Goedgekeurd',
-    ]
+    const notApprovedCount = weekEntries.filter((e) => e.approved !== true).length
+    if (notApprovedCount > 0) {
+      const ok = confirm(
+        `Er zijn ${notApprovedCount} entry(s) nog niet goedgekeurd. Wil je alsnog exporteren?\n\nExport bevat alleen goedgekeurde uren.`
+      )
+      if (!ok) return
+    }
 
-    const rows = filteredEntries.map((e) => {
-      const iso = getIsoWeek(parseYmdToLocalDate(e.date))
-      return [
-        e.name,
-        e.date,
-        `${iso.year}-W${String(iso.week).padStart(2, '0')}`,
-        formatTime(e.start_time),
-        formatTime(e.end_time),
-        calculateHours(e),
-        Number(e.break_minutes ?? 0) > 0
-          ? (Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60).toLocaleString('nl-NL', { maximumFractionDigits: 2 })
-          : '',
-        displayClient(e),
-        e.location ?? '',
-        e.kilometers ?? '',
-        e.parking_paid ? 'Ja' : 'Nee',
-        e.parking_cost ?? '',
-        e.approved ? 'Ja' : 'Nee',
-      ]
+    const approvedOnly = weekEntries.filter((e) => e.approved === true)
+    if (!approvedOnly.length) {
+      alert('Geen goedgekeurde entries om te exporteren in deze week')
+      return
+    }
+
+    const formatNumberNl = (n: number, maxFractionDigits = 2) =>
+      (Number.isFinite(n) ? n : 0).toLocaleString('nl-NL', {
+        maximumFractionDigits: maxFractionDigits,
+      })
+
+    const weekLabel = `Week ${weekIso.week}`
+
+    type SummaryRow = {
+      client: string
+      employee: string
+      hoursTotal: number
+      kmTotal: number
+      parkingTotal: number
+      breakHoursTotal: number
+    }
+
+    const groups = new Map<string, SummaryRow>()
+    for (const e of approvedOnly) {
+      const clientName = String(displayClient(e) || 'Onbekend').trim() || 'Onbekend'
+      const employeeName = e.name ?? 'Onbekend'
+      const h = entryHours(e)
+      const km = e.kilometers != null && Number.isFinite(e.kilometers) ? Number(e.kilometers) : 0
+      const parking = e.parking_paid ? Math.max(0, Number(e.parking_cost ?? 0) || 0) : 0
+      const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+
+      const key = `${clientName}|${employeeName}`
+      const existing = groups.get(key)
+      if (!existing) {
+        groups.set(key, {
+          client: clientName,
+          employee: employeeName,
+          hoursTotal: h,
+          kmTotal: km,
+          parkingTotal: parking,
+          breakHoursTotal: br,
+        })
+      } else {
+        existing.hoursTotal += h
+        existing.kmTotal += km
+        existing.parkingTotal += parking
+        existing.breakHoursTotal += br
+      }
+    }
+
+    const summary = Array.from(groups.values()).sort((a, b) => {
+      const byClient = a.client.localeCompare(b.client)
+      if (byClient !== 0) return byClient
+      return a.employee.localeCompare(b.employee)
     })
+
+    const header = ['Week', 'Opdrachtgever', 'Werknemer', 'Uren totaal', 'KM', 'Parkeren', 'Pauze']
+    const rows = summary.map((r, idx) => [
+      idx === 0 ? weekLabel : '',
+      r.client,
+      r.employee,
+      formatNumberNl(r.hoursTotal, 2),
+      formatNumberNl(r.kmTotal, 1),
+      formatNumberNl(r.parkingTotal, 2),
+      formatNumberNl(r.breakHoursTotal, 2),
+    ])
 
     const csv = [header, ...rows]
       .map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
@@ -477,8 +515,7 @@ export default function AdminDashboard() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const suffix = `${from || 'all'}_${to || 'all'}`
-    a.download = `admin-export-${suffix}.csv`
+    a.download = `week-${weekIso.week}-export.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
