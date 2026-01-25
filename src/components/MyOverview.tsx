@@ -925,23 +925,11 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     {e.parking_paid && <span>🅿️ €{e.parking_cost ?? 0}</span>}
                   </div>
 
-                  {/* STATUS */}
-                  <div className="text-xs">
-                    {e.approved === true && (
-                      <span className="text-green-500">✅ Goedgekeurd</span>
-                    )}
-                    {e.approved === false && (
-                      <span className="text-yellow-500">⏳ Wacht op goedkeuring</span>
-                    )}
-                    {e.manual ? (
-                      <span className="text-orange-400 ml-2">Handmatig ingevoerd</span>
-                    ) : (
-                      <span className="text-orange-400 ml-2">Start/Stop knop</span>
-                    )}
-                    {!e.manual && needsDetails(e) && (
-                      <span className="text-gray-600 dark:text-gray-400 ml-2">✏️ Data invullen</span>
-                    )}
-                  </div>
+                  {!e.manual && needsDetails(e) && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      ✏️ Data invullen
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
