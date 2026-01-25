@@ -16,6 +16,7 @@ interface Entry {
   kilometers?: number | null
   parking_paid?: boolean | null
   parking_cost?: number | null
+  break_minutes?: number | null
   approved?: boolean | null
 }
 
@@ -117,6 +118,12 @@ export default function ExportPage() {
     return diffMs / 3600000
   }
 
+  const entryHours = (e: Entry) => {
+    const base = hoursBetween(e.start_time, e.end_time)
+    const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+    return Math.max(0, base - br)
+  }
+
   const approvedEntries = entries.filter((e) => e.approved)
 
   const exportCSV = () => {
@@ -142,7 +149,7 @@ export default function ExportPage() {
     const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
 
     const rows = approvedEntries.map((e) => {
-      const hours = e.start_time && e.end_time ? hoursBetween(e.start_time, e.end_time).toFixed(2) : ''
+      const hours = e.start_time && e.end_time ? entryHours(e).toFixed(2) : ''
       return [
         profileMap.get(e.user_id) ?? e.user_id,
         e.date,
@@ -208,7 +215,7 @@ export default function ExportPage() {
       const profileMap = new Map(users.map((u) => [u.id, u.name ?? 'Onbekend']))
 
       const rows = rowsData.map((e) => {
-        const hours = e.start_time && e.end_time ? hoursBetween(e.start_time, e.end_time).toFixed(2) : ''
+        const hours = e.start_time && e.end_time ? entryHours(e).toFixed(2) : ''
         return [
           profileMap.get(e.user_id) ?? e.user_id,
           e.date,
@@ -353,7 +360,7 @@ export default function ExportPage() {
                     <td className="border p-2">{e.date}</td>
                     <td className="border p-2">{formatTime(e.start_time)}</td>
                     <td className="border p-2">{formatTime(e.end_time)}</td>
-                    <td className="border p-2">{e.start_time && e.end_time ? ((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3600000).toFixed(2) : ''}</td>
+                    <td className="border p-2">{e.start_time && e.end_time ? entryHours(e).toFixed(2) : ''}</td>
                     <td className="border p-2">{e.client ?? ''}</td>
                     <td className="border p-2">{e.approved ? <span className="text-green-600">Goedgekeurd</span> : <span className="text-orange-600">Niet goedgekeurd</span>}</td>
                   </tr>

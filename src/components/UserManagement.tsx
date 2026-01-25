@@ -10,6 +10,8 @@ interface Profile {
   role: 'admin' | 'employee'
   hourly_rate?: number | null
   home_address?: string | null
+  break_enabled?: boolean | null
+  default_break_minutes?: number | null
 }
 
 interface Client {
@@ -37,15 +39,30 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true)
 
-    const { data, error } = await supabase
+    let data: any[] | null = null
+    let error: any = null
+
+    const res = await supabase
       .from('profiles')
-      .select('id, name, email, role, hourly_rate, home_address')
+      .select('id, name, email, role, hourly_rate, home_address, break_enabled, default_break_minutes')
       .is('deleted_at', null)
       .order('name')
 
-    if (!error && data) {
-      setUsers(data as Profile[])
+    data = res.data as any[] | null
+    error = res.error
+
+    // Fallback for older schemas where break columns don't exist yet
+    if (error) {
+      const res2 = await supabase
+        .from('profiles')
+        .select('id, name, email, role, hourly_rate, home_address')
+        .is('deleted_at', null)
+        .order('name')
+      data = res2.data as any[] | null
+      error = res2.error
     }
+
+    if (!error && data) setUsers(data as Profile[])
 
     setLoading(false)
   }
@@ -275,6 +292,44 @@ export default function UserManagement() {
     setSaving(null)
   }
 
+  const updateBreakEnabled = async (userId: string, break_enabled: boolean) => {
+    setSaving(userId)
+
+    const patch: any = { break_enabled }
+    if (!break_enabled) patch.default_break_minutes = 0
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(patch)
+      .eq('id', userId)
+
+    if (error) {
+      alert('Pauze instelling wijzigen mislukt')
+      console.error(error)
+    }
+
+    await fetchUsers()
+    setSaving(null)
+  }
+
+  const updateDefaultBreakMinutes = async (userId: string, minutes: number) => {
+    setSaving(userId)
+
+    const safe = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0
+    const { error } = await supabase
+      .from('profiles')
+      .update({ default_break_minutes: safe })
+      .eq('id', userId)
+
+    if (error) {
+      alert('Standaard pauze wijzigen mislukt')
+      console.error(error)
+    }
+
+    await fetchUsers()
+    setSaving(null)
+  }
+
   if (loading) return <p>Gebruikers laden…</p>
 
   const clientsById = new Map(clients.map((c) => [c.id, c.name]))
@@ -362,6 +417,8 @@ export default function UserManagement() {
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Opdrachtgevers</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Uurtarief</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Thuisadres</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Pauze</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Standaard pauze (uur)</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Rol</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Acties</th>
           </tr>
@@ -476,6 +533,69 @@ export default function UserManagement() {
                   }}
                   className="w-full bg-transparent border-b border-gray-400 text-gray-900 dark:text-gray-100"
                   placeholder="Bijv. Dorpsstraat 1, 1234 AB Plaats"
+                />
+              </td>
+
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(u.break_enabled)}
+                    disabled={saving === u.id}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setUsers((prev) =>
+                        prev.map((p) =>
+                          p.id === u.id
+                            ? {
+                                ...p,
+                                break_enabled: checked,
+                                default_break_minutes: checked ? (p.default_break_minutes ?? 0) : 0,
+                              }
+                            : p
+                        )
+                      )
+                    }}
+                    onBlur={async () => {
+                      const current = Boolean(users.find((x) => x.id === u.id)?.break_enabled)
+                      await updateBreakEnabled(u.id, current)
+                    }}
+                  />
+                  <span>Registreren</span>
+                </label>
+              </td>
+
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  value={(() => {
+                    const enabled = Boolean(u.break_enabled)
+                    const minutes = enabled ? Number(u.default_break_minutes ?? 0) : 0
+                    const hours = minutes / 60
+                    return minutes === 0 ? '0' : String(hours)
+                  })()}
+                  disabled={saving === u.id || !Boolean(u.break_enabled)}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    const hours = raw === '' ? 0 : Number(raw)
+                    const minutes = Number.isFinite(hours) ? Math.max(0, Math.round(hours * 60)) : 0
+                    setUsers((prev) =>
+                      prev.map((p) =>
+                        p.id === u.id
+                          ? { ...p, default_break_minutes: minutes }
+                          : p
+                      )
+                    )
+                  }}
+                  onBlur={async () => {
+                    const enabled = Boolean(users.find((x) => x.id === u.id)?.break_enabled)
+                    const minutes = enabled ? Number(users.find((x) => x.id === u.id)?.default_break_minutes ?? 0) : 0
+                    await updateDefaultBreakMinutes(u.id, minutes)
+                  }}
+                  className="w-24 bg-transparent border-b border-gray-400 text-gray-900 dark:text-gray-100"
                 />
               </td>
 

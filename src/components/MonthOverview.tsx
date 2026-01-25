@@ -9,6 +9,7 @@ type Entry = {
   start_time: string | null
   end_time: string | null
   client?: string | null
+  break_minutes?: number | null
 }
 
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
@@ -62,7 +63,7 @@ export default function MonthOverview({ userId }: { userId: string }) {
 
     const { data, error } = await supabase
       .from('time_entries')
-      .select('id, date, start_time, end_time, client')
+      .select('id, date, start_time, end_time, client, break_minutes')
       .eq('user_id', userId)
       .gte('date', ymd(range.start))
       .lte('date', ymd(range.end))
@@ -122,7 +123,9 @@ export default function MonthOverview({ userId }: { userId: string }) {
 
       const clientNameRaw = (e.client ?? '').trim()
       const clientName = clientNameRaw.length > 0 ? clientNameRaw : '—'
-      const entryHours = hoursBetween(e.start_time, e.end_time)
+      const baseHours = hoursBetween(e.start_time, e.end_time)
+      const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+      const entryHours = Math.max(0, baseHours - br)
       prev.perClient.set(
         clientName,
         (prev.perClient.get(clientName) ?? 0) + entryHours

@@ -22,6 +22,7 @@ interface Entry {
   kilometers?: number | null
   parking_paid?: boolean | null
   parking_cost?: number | null
+  break_minutes?: number | null
 }
 
 interface ClientRow {
@@ -120,6 +121,8 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [editError, setEditError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [homeAddress, setHomeAddress] = useState<string>('')
+  const [breakEnabled, setBreakEnabled] = useState(false)
+  const [defaultBreakMinutes, setDefaultBreakMinutes] = useState(0)
   const [kmLoading, setKmLoading] = useState<'edit' | 'manual' | null>(null)
   const [kmInfoEdit, setKmInfoEdit] = useState<string | null>(null)
   const [kmInfoManual, setKmInfoManual] = useState<string | null>(null)
@@ -147,10 +150,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [editRoundTrip, setEditRoundTrip] = useState(true)
   const [editParkingPaid, setEditParkingPaid] = useState(false)
   const [editParkingCost, setEditParkingCost] = useState<number | ''>('')
+  const [editBreakMinutes, setEditBreakMinutes] = useState(0)
   const [manualKilometers, setManualKilometers] = useState<number | ''>('')
   const [manualRoundTrip, setManualRoundTrip] = useState(true)
   const [manualParkingPaid, setManualParkingPaid] = useState(false)
   const [manualParkingCost, setManualParkingCost] = useState<number | ''>('')
+  const [manualBreakMinutes, setManualBreakMinutes] = useState(0)
 
   /* =======================
      FETCH
@@ -254,14 +259,32 @@ export default function MyOverview({ userId }: { userId?: string }) {
       return
     }
 
-    const { data: profile } = await supabase
+    let profile: any = null
+    let error: any = null
+
+    const res = await supabase
       .from('profiles')
-      .select('role, home_address')
+      .select('role, home_address, break_enabled, default_break_minutes')
       .eq('id', user.id)
       .single()
 
+    profile = res.data
+    error = res.error
+
+    if (error) {
+      const res2 = await supabase
+        .from('profiles')
+        .select('role, home_address')
+        .eq('id', user.id)
+        .single()
+      profile = res2.data
+      error = res2.error
+    }
+
     setIsAdmin(profile?.role === 'admin')
     setHomeAddress(String(profile?.home_address ?? '').trim())
+    setBreakEnabled(Boolean(profile?.break_enabled))
+    setDefaultBreakMinutes(Math.max(0, Number(profile?.default_break_minutes ?? 0) || 0))
   }
 
   useEffect(() => {
@@ -449,6 +472,12 @@ export default function MyOverview({ userId }: { userId?: string }) {
     setEditKilometers(e.kilometers ?? '')
     setEditParkingPaid(Boolean(e.parking_paid))
     setEditParkingCost(e.parking_cost ?? '')
+    setEditBreakMinutes(
+      Math.max(
+        0,
+        Number(e.break_minutes ?? (breakEnabled ? defaultBreakMinutes : 0)) || 0
+      )
+    )
   }
 
   const ensureClientIdForAdmin = async (): Promise<{ id: string | null; error?: string }> => {
@@ -509,6 +538,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       kilometers: editKilometers || null,
       parking_paid: editParkingPaid,
       parking_cost: editParkingPaid ? editParkingCost : null,
+      break_minutes: breakEnabled ? Math.max(0, Math.round(editBreakMinutes)) : 0,
       edited: true,
       approved: false,
     }
@@ -574,6 +604,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       kilometers: manualKilometers || null,
       parking_paid: manualParkingPaid,
       parking_cost: manualParkingPaid ? manualParkingCost : null,
+      break_minutes: breakEnabled ? Math.max(0, Math.round(manualBreakMinutes)) : 0,
     }
 
     if (isAdmin) {
@@ -613,12 +644,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
       setManualDate(date)
       setManualError(null)
       setManualRoundTrip(true)
+      setManualBreakMinutes(breakEnabled ? defaultBreakMinutes : 0)
       setManual(true)
     }
 
     window.addEventListener('openManual', handler as EventListener)
     return () => window.removeEventListener('openManual', handler as EventListener)
-  }, [])
+  }, [breakEnabled, defaultBreakMinutes])
 
   useEffect(() => {
     const handler = (ev: any) => {
@@ -633,6 +665,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
         const d = new Date()
         setManualDate(toLocalYmd(d))
         setManualRoundTrip(true)
+        setManualBreakMinutes(breakEnabled ? defaultBreakMinutes : 0)
         setManual(true)
         return
       }
@@ -644,6 +677,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       const en = new Date(endIso)
 
       setManualDate(toLocalYmd(s))
+      setManualBreakMinutes(breakEnabled ? defaultBreakMinutes : 0)
       if (isAllDay) {
         setManualStart('09:00')
         setManualEnd('17:00')
@@ -686,7 +720,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
     window.addEventListener('openManualPrefill', handler as EventListener)
     return () => window.removeEventListener('openManualPrefill', handler as EventListener)
-  }, [])
+  }, [clients, breakEnabled, defaultBreakMinutes])
 
   if (!userId) return <p>Gebruiker laden…</p>
   if (loading) return <p>Overzicht laden…</p>
@@ -721,7 +755,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
   )
 
   const weekTotal = weekEntries.reduce(
-    (s, e) => s + hours(e.start_time, e.end_time),
+    (s, e) => {
+      const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+      return s + Math.max(0, hours(e.start_time, e.end_time) - br)
+    },
     0
   )
 
@@ -810,10 +847,10 @@ export default function MyOverview({ userId }: { userId?: string }) {
       {Object.entries(grouped)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, list]) => {
-          const dayTotal = list.reduce(
-            (s, e) => s + hours(e.start_time, e.end_time),
-            0
-          )
+          const dayTotal = list.reduce((s, e) => {
+            const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+            return s + Math.max(0, hours(e.start_time, e.end_time) - br)
+          }, 0)
 
           return (
             <div
@@ -886,6 +923,24 @@ export default function MyOverview({ userId }: { userId?: string }) {
             <div className="space-y-2">
               <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
               <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              {breakEnabled && (
+                <div>
+                  <div className="text-xs text-gray-300 mb-1">Pauze (uur)</div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.25"
+                    min="0"
+                    value={String((editBreakMinutes ?? 0) / 60)}
+                    onChange={(e) => {
+                      const h = e.target.value === '' ? 0 : Number(e.target.value)
+                      const minutes = Number.isFinite(h) ? Math.max(0, Math.round(h * 60)) : 0
+                      setEditBreakMinutes(minutes)
+                    }}
+                    className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+                  />
+                </div>
+              )}
               {isAdmin ? (
                 <>
                   <select
@@ -992,6 +1047,24 @@ export default function MyOverview({ userId }: { userId?: string }) {
               <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
               <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
               <input type="time" value={manualEnd} onChange={(e) => setManualEnd(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
+              {breakEnabled && (
+                <div>
+                  <div className="text-xs text-gray-300 mb-1">Pauze (uur)</div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.25"
+                    min="0"
+                    value={String((manualBreakMinutes ?? 0) / 60)}
+                    onChange={(e) => {
+                      const h = e.target.value === '' ? 0 : Number(e.target.value)
+                      const minutes = Number.isFinite(h) ? Math.max(0, Math.round(h * 60)) : 0
+                      setManualBreakMinutes(minutes)
+                    }}
+                    className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+                  />
+                </div>
+              )}
               {isAdmin ? (
                 <>
                   <select

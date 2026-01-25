@@ -20,6 +20,7 @@ interface TimeEntry {
   kilometers?: number | null
   parking_paid?: boolean | null
   parking_cost?: number | null
+  break_minutes?: number | null
   approved_at?: string | null
   approved_by?: string | null
 }
@@ -158,7 +159,7 @@ export default function AdminDashboard() {
     const { data: entriesData, error } = await supabase
       .from('time_entries')
       .select(
-        'id, user_id, date, start_time, end_time, manual, edited, approved, client, client_id, location, kilometers, parking_paid, parking_cost, approved_at, approved_by'
+        'id, user_id, date, start_time, end_time, manual, edited, approved, client, client_id, location, kilometers, parking_paid, parking_cost, break_minutes, approved_at, approved_by'
       )
       .order('date', { ascending: false })
 
@@ -332,10 +333,12 @@ export default function AdminDashboard() {
   }
 
 
-  const calculateHours = (start: string | null, end: string | null) => {
-    const h = hoursBetween(start, end)
-    if (!h) return ''
-    return formatHours(h)
+  const calculateHours = (e: TimeEntry) => {
+    const h = hoursBetween(e.start_time, e.end_time)
+    const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+    const net = Math.max(0, h - br)
+    if (!net) return ''
+    return formatHours(net)
   }
 
   const clientsById = new Map(clients.map((c) => [c.id, c.name]))
@@ -344,10 +347,16 @@ export default function AdminDashboard() {
     return e.client ?? ''
   }
 
-  const totalHours = filteredEntries.reduce((sum, e) => sum + hoursBetween(e.start_time, e.end_time), 0)
+  const entryHours = (e: TimeEntry) => {
+    const h = hoursBetween(e.start_time, e.end_time)
+    const br = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+    return Math.max(0, h - br)
+  }
+
+  const totalHours = filteredEntries.reduce((sum, e) => sum + entryHours(e), 0)
   const approvedHours = filteredEntries
     .filter((e) => e.approved)
-    .reduce((sum, e) => sum + hoursBetween(e.start_time, e.end_time), 0)
+    .reduce((sum, e) => sum + entryHours(e), 0)
   const pendingCount = filteredEntries.filter((e) => e.edited && !e.approved).length
   const needsDetailsCount = filteredEntries.filter((e) => needsDetails(e)).length
 
@@ -390,14 +399,14 @@ export default function AdminDashboard() {
     return String(a.id).localeCompare(String(b.id))
   })
 
-  const weekHours = weekEntries.reduce((sum, e) => sum + hoursBetween(e.start_time, e.end_time), 0)
+  const weekHours = weekEntries.reduce((sum, e) => sum + entryHours(e), 0)
   const weekPending = weekEntries.filter((e) => e.edited && !e.approved).length
   const weekMissingDetails = weekEntries.filter((e) => needsDetails(e)).length
 
   const topUsers = (() => {
     const byUser = new Map<string, number>()
     for (const e of weekEntries) {
-      const h = hoursBetween(e.start_time, e.end_time)
+      const h = entryHours(e)
       byUser.set(e.name, (byUser.get(e.name) ?? 0) + h)
     }
     return Array.from(byUser.entries())
@@ -409,7 +418,7 @@ export default function AdminDashboard() {
     const byClient = new Map<string, number>()
     for (const e of weekEntries) {
       const key = displayClient(e) || '—'
-      const h = hoursBetween(e.start_time, e.end_time)
+      const h = entryHours(e)
       byClient.set(key, (byClient.get(key) ?? 0) + h)
     }
     return Array.from(byClient.entries())
@@ -446,7 +455,7 @@ export default function AdminDashboard() {
         `${iso.year}-W${String(iso.week).padStart(2, '0')}`,
         formatTime(e.start_time),
         formatTime(e.end_time),
-        calculateHours(e.start_time, e.end_time),
+        calculateHours(e),
         displayClient(e),
         e.location ?? '',
         e.kilometers ?? '',
@@ -617,7 +626,7 @@ export default function AdminDashboard() {
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
-                          <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
+                            <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
@@ -677,7 +686,7 @@ export default function AdminDashboard() {
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{String(iso.week).padStart(2, '0')}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
-                      <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e.start_time, e.end_time)}</td>
+                      <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{displayClient(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.location ?? ''}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.kilometers != null && Number.isFinite(e.kilometers) ? `${e.kilometers} km` : ''}</td>
