@@ -806,86 +806,77 @@ export default function MyOverview({ userId }: { userId?: string }) {
         </div>
       )}
 
-      {/* DAYS */}
-      {Object.entries(grouped).map(([date, list]) => {
-        const dayTotal = list.reduce(
-          (s, e) => s + hours(e.start_time, e.end_time),
-          0
-        )
+      {/* DAYS (Mon -> Sun) */}
+      {Object.entries(grouped)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, list]) => {
+          const dayTotal = list.reduce(
+            (s, e) => s + hours(e.start_time, e.end_time),
+            0
+          )
 
-        return (
-          <div
-            key={date}
-            className="bg-white border border-orange-200/60 rounded-lg p-4 space-y-3 dark:bg-black/30 dark:border-orange-500/25"
-          >
-            <div className="flex justify-between font-medium text-gray-900 dark:text-gray-100">
-              <span>{formatDate(date)}</span>
-              <span>{dayTotal.toFixed(2)} uur</span>
-            </div>
-
-            {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
-
-            {list.map((e) => (
-              <div
-                key={e.id}
-                className="border-t border-orange-200/50 pt-2 space-y-1 text-sm text-gray-900 dark:border-orange-500/20 dark:text-gray-100"
-              >
-                <div className="flex justify-between">
-                  <span>
-                    {formatTime(e.start_time)} –{' '}
-                    {formatTime(e.end_time)}
-                  </span>
-
-                  {canEdit(e.date) && !e.approved && (
-                    <button
-                      onClick={() => openEdit(e)}
-                      className="text-orange-500"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </div>
-
-                {/* KLUS INFO */}
-                <div className="text-xs text-gray-700 dark:text-gray-400 flex flex-wrap gap-2">
-                  {displayClientName(e) && <span>👤 {displayClientName(e)}</span>}
-                  {e.location && <span>📍 {e.location}</span>}
-                  {e.kilometers && (
-                    <span>🚗 {e.kilometers} km</span>
-                  )}
-                  {e.parking_paid && (
-                    <span>
-                      🅿️ €{e.parking_cost ?? 0}
-                    </span>
-                  )}
-                </div>
-
-                {/* STATUS */}
-                <div className="text-xs">
-                  {e.approved === true && (
-                    <span className="text-green-500">
-                      ✅ Goedgekeurd
-                    </span>
-                  )}
-                  {e.approved === false && (
-                    <span className="text-yellow-500">
-                      ⏳ Wacht op goedkeuring
-                    </span>
-                  )}
-                  {e.manual ? (
-                    <span className="text-orange-400 ml-2">Handmatig ingevoerd</span>
-                  ) : (
-                    <span className="text-orange-400 ml-2">Start/Stop knop</span>
-                  )}
-                  {!e.manual && needsDetails(e) && (
-                    <span className="text-gray-600 dark:text-gray-400 ml-2">✏️ Data invullen</span>
-                  )}
-                </div>
+          return (
+            <div
+              key={date}
+              className="bg-white border border-orange-200/60 rounded-lg p-4 space-y-3 dark:bg-black/30 dark:border-orange-500/25"
+            >
+              <div className="flex justify-between font-medium text-gray-900 dark:text-gray-100">
+                <span>{formatDate(date)}</span>
+                <span>{dayTotal.toFixed(2)} uur</span>
               </div>
-            ))}
-          </div>
-        )
-      })}
+
+              {/* inline start/stop is rendered in TimeTracker; no duplicate here */}
+
+              {list.map((e) => (
+                <div
+                  key={e.id}
+                  className="border-t border-orange-200/50 pt-2 space-y-1 text-sm text-gray-900 dark:border-orange-500/20 dark:text-gray-100"
+                >
+                  <div className="flex justify-between">
+                    <span>
+                      {formatTime(e.start_time)} – {formatTime(e.end_time)}
+                    </span>
+
+                    {canEdit(e.date) && !e.approved && (
+                      <button
+                        onClick={() => openEdit(e)}
+                        className="text-orange-500"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
+
+                  {/* KLUS INFO */}
+                  <div className="text-xs text-gray-700 dark:text-gray-400 flex flex-wrap gap-2">
+                    {displayClientName(e) && <span>👤 {displayClientName(e)}</span>}
+                    {e.location && <span>📍 {e.location}</span>}
+                    {e.kilometers && <span>🚗 {e.kilometers} km</span>}
+                    {e.parking_paid && <span>🅿️ €{e.parking_cost ?? 0}</span>}
+                  </div>
+
+                  {/* STATUS */}
+                  <div className="text-xs">
+                    {e.approved === true && (
+                      <span className="text-green-500">✅ Goedgekeurd</span>
+                    )}
+                    {e.approved === false && (
+                      <span className="text-yellow-500">⏳ Wacht op goedkeuring</span>
+                    )}
+                    {e.manual ? (
+                      <span className="text-orange-400 ml-2">Handmatig ingevoerd</span>
+                    ) : (
+                      <span className="text-orange-400 ml-2">Start/Stop knop</span>
+                    )}
+                    {!e.manual && needsDetails(e) && (
+                      <span className="text-gray-600 dark:text-gray-400 ml-2">✏️ Data invullen</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })}
 
       {/* MODALS (rendered once so they also work on empty weeks) */}
       {editing && (
