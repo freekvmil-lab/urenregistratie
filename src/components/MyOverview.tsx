@@ -824,7 +824,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
               Wat jammer dat je nog niet hebt gewerkt…
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              “De week is nog helemaal leeg… zo leeg dat hij echo geeft.”
+              Voeg snel je uren toe, klik op agenda ophalen om je geplande diensten te zien.
             </div>
             <div className="mt-4 flex justify-center">
               <button
@@ -907,7 +907,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                       {formatTime(e.start_time)} – {formatTime(e.end_time)}
                     </span>
 
-                    {canEdit(e.date) && !e.approved && (
+                    {e.approved !== true && (
                       <button
                         onClick={() => openEdit(e)}
                         className="text-orange-500"
