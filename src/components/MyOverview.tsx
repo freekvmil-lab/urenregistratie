@@ -918,11 +918,36 @@ export default function MyOverview({ userId }: { userId?: string }) {
                   </div>
 
                   {/* KLUS INFO */}
-                  <div className="text-xs text-gray-700 dark:text-gray-400 flex flex-wrap gap-2">
-                    {displayClientName(e) && <span>👤 {displayClientName(e)}</span>}
-                    {e.location && <span>📍 {e.location}</span>}
-                    {e.kilometers && <span>🚗 {e.kilometers} km</span>}
-                    {e.parking_paid && <span>🅿️ €{e.parking_cost ?? 0}</span>}
+                  <div className="text-xs text-gray-800 dark:text-gray-300 flex flex-wrap gap-2">
+                    {displayClientName(e) && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 font-semibold text-orange-900 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-orange-100">
+                        <span aria-hidden>👤</span>
+                        {displayClientName(e)}
+                      </span>
+                    )}
+
+                    {e.location && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+                        <span aria-hidden>📍</span>
+                        {e.location}
+                      </span>
+                    )}
+
+                    {(e.kilometers !== null && e.kilometers !== undefined) && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+                        <span aria-hidden>🚗</span>
+                        {Number(e.kilometers).toLocaleString('nl-NL', { maximumFractionDigits: 1 })} km
+                      </span>
+                    )}
+
+                    {e.parking_paid && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+                        <span aria-hidden>🅿️</span>
+                        {e.parking_cost !== null && e.parking_cost !== undefined
+                          ? `€${Number(e.parking_cost).toLocaleString('nl-NL', { maximumFractionDigits: 2 })}`
+                          : 'Parkeren'}
+                      </span>
+                    )}
                   </div>
 
                   {!e.manual && needsDetails(e) && (
