@@ -852,13 +852,46 @@ export default function MyOverview({ userId }: { userId?: string }) {
             return s + Math.max(0, hours(e.start_time, e.end_time) - br)
           }, 0)
 
+          const dayBreakMinutes = list.reduce(
+            (s, e) => s + Math.max(0, Number(e.break_minutes ?? 0) || 0),
+            0
+          )
+          const hasEdited = list.some((e) => Boolean(e.edited))
+          const editedEntries = list.filter((e) => Boolean(e.edited))
+          const allEditedApproved =
+            editedEntries.length > 0 && editedEntries.every((e) => e.approved === true)
+          const anyEditedPending = editedEntries.some((e) => e.approved !== true)
+
           return (
             <div
               key={date}
               className="bg-white border border-orange-200/60 rounded-lg p-4 space-y-3 dark:bg-black/30 dark:border-orange-500/25"
             >
-              <div className="flex justify-between font-medium text-gray-900 dark:text-gray-100">
-                <span>{formatDate(date)}</span>
+              <div className="flex items-start justify-between gap-3 font-medium text-gray-900 dark:text-gray-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>{formatDate(date)}</span>
+
+                  {hasEdited && anyEditedPending && !allEditedApproved && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-xs font-semibold text-yellow-800 dark:border-yellow-500/25 dark:bg-yellow-500/10 dark:text-yellow-200">
+                      <span aria-hidden>⏳</span>
+                      Uren zijn ingevuld – wacht op goedkeuring
+                    </span>
+                  )}
+
+                  {hasEdited && allEditedApproved && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-800 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-200">
+                      <span aria-hidden>✅</span>
+                      Uren zijn goedgekeurd
+                    </span>
+                  )}
+
+                  {dayBreakMinutes > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-200">
+                      <span aria-hidden>☕</span>
+                      Pauze: {(dayBreakMinutes / 60).toLocaleString('nl-NL', { maximumFractionDigits: 2 })} uur
+                    </span>
+                  )}
+                </div>
                 <span>{dayTotal.toFixed(2)} uur</span>
               </div>
 
