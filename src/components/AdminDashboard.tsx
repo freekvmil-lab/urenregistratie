@@ -80,6 +80,27 @@ const startOfIsoWeek = (dateInput: Date) => {
   return d
 }
 
+const isoWeekValueFromYmd = (ymd: string) => {
+  const d = parseYmdToLocalDate(ymd)
+  const iso = getIsoWeek(d)
+  return `${iso.year}-W${String(iso.week).padStart(2, '0')}`
+}
+
+const ymdFromIsoWeekValue = (weekValue: string) => {
+  // weekValue: YYYY-Www
+  const m = /^([0-9]{4})-W([0-9]{2})$/.exec(String(weekValue).trim())
+  if (!m) return toLocalYmd(startOfIsoWeek(new Date()))
+  const year = Number(m[1])
+  const week = Number(m[2])
+  if (!year || !week) return toLocalYmd(startOfIsoWeek(new Date()))
+
+  // ISO week 1 is the week with Jan 4th
+  const jan4 = new Date(year, 0, 4)
+  const week1Monday = startOfIsoWeek(jan4)
+  const monday = addDays(week1Monday, (week - 1) * 7)
+  return toLocalYmd(monday)
+}
+
 const hoursBetween = (start: string | null, end: string | null) => {
   if (!start || !end) return 0
   const diffMs = new Date(end).getTime() - new Date(start).getTime()
@@ -123,6 +144,9 @@ export default function AdminDashboard() {
   const [exportClientId, setExportClientId] = useState<string>('')
   const [exportWeekStart, setExportWeekStart] = useState<string>(() =>
     toLocalYmd(startOfIsoWeek(new Date()))
+  )
+  const [exportWeekValue, setExportWeekValue] = useState<string>(() =>
+    isoWeekValueFromYmd(toLocalYmd(startOfIsoWeek(new Date())))
   )
 
   const [viewMode, setViewMode] = useState<ViewMode>('week')
@@ -573,8 +597,6 @@ export default function AdminDashboard() {
         maximumFractionDigits: maxFractionDigits,
       })
 
-    const header = ['Week', 'Datum', 'Opdrachtgever', 'Werknemer', 'Uren totaal', 'KM', 'Parkeren', 'Pauze']
-
     type DayRow = {
       date: string
       employee: string
@@ -613,6 +635,11 @@ export default function AdminDashboard() {
       }
     }
 
+    const anyBreaks = Array.from(groups.values()).some((r) => (r.breakHoursTotal ?? 0) > 0)
+
+    const header = ['Week', 'Datum', 'Opdrachtgever', 'Werknemer', 'Uren totaal', 'KM', 'Parkeren']
+    if (anyBreaks) header.push('Pauze')
+
     const rows = Array.from(groups.values())
       .sort((a, b) => {
         const byDate = a.date.localeCompare(b.date)
@@ -627,7 +654,7 @@ export default function AdminDashboard() {
         formatNumberNl(r.hoursTotal, 2),
         formatNumberNl(r.kmTotal, 1),
         formatNumberNl(r.parkingTotal, 2),
-        formatNumberNl(r.breakHoursTotal, 2),
+        ...(anyBreaks ? [formatNumberNl(r.breakHoursTotal, 2)] : []),
       ])
 
     const csv = [header, ...rows]
@@ -675,6 +702,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => {
                 setExportWeekStart(selectedWeekStart)
+                setExportWeekValue(isoWeekValueFromYmd(selectedWeekStart))
                 setExportClientId('')
                 setExportClientOpen(true)
               }}
@@ -1014,13 +1042,14 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-300">Week (datum)</label>
+                  <label className="text-xs text-gray-600 dark:text-gray-300">Week</label>
                   <input
-                    type="date"
-                    value={exportWeekStart}
+                    type="week"
+                    value={exportWeekValue}
                     onChange={(e) => {
-                      const d = startOfIsoWeek(parseYmdToLocalDate(e.target.value))
-                      setExportWeekStart(toLocalYmd(d))
+                      const v = e.target.value
+                      setExportWeekValue(v)
+                      setExportWeekStart(ymdFromIsoWeekValue(v))
                     }}
                     className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
