@@ -746,13 +746,12 @@ export default function AdminDashboard() {
                 </button>
 
                 <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-300">Ga naar week (datum)</label>
+                  <label className="text-xs text-gray-600 dark:text-gray-300">Ga naar week</label>
                   <input
-                    type="date"
-                    value={selectedWeekStart}
+                    type="week"
+                    value={isoWeekValueFromYmd(selectedWeekStart)}
                     onChange={(e) => {
-                      const d = startOfIsoWeek(parseYmdToLocalDate(e.target.value))
-                      setSelectedWeekStart(toLocalYmd(d))
+                      setSelectedWeekStart(ymdFromIsoWeekValue(e.target.value))
                     }}
                     className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
