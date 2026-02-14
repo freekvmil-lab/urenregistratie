@@ -119,6 +119,12 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<string>('all')
   const [loading, setLoading] = useState(true)
 
+  const [exportClientOpen, setExportClientOpen] = useState(false)
+  const [exportClientId, setExportClientId] = useState<string>('')
+  const [exportWeekStart, setExportWeekStart] = useState<string>(() =>
+    toLocalYmd(startOfIsoWeek(new Date()))
+  )
+
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
@@ -427,12 +433,14 @@ export default function AdminDashboard() {
   })()
 
   const exportCSV = () => {
-    if (!weekEntries.length) {
+    const weekAll = entries.filter((e) => e.date >= selectedWeekStart && e.date <= weekEndYmd)
+
+    if (!weekAll.length) {
       alert('Geen entries om te exporteren in deze week')
       return
     }
 
-    const notApprovedCount = weekEntries.filter((e) => e.approved !== true).length
+    const notApprovedCount = weekAll.filter((e) => e.approved !== true).length
     if (notApprovedCount > 0) {
       const ok = confirm(
         `Er zijn ${notApprovedCount} entry(s) nog niet goedgekeurd. Wil je alsnog exporteren?\n\nExport bevat alleen goedgekeurde uren.`
@@ -440,7 +448,7 @@ export default function AdminDashboard() {
       if (!ok) return
     }
 
-    const approvedOnly = weekEntries.filter((e) => e.approved === true)
+    const approvedOnly = weekAll.filter((e) => e.approved === true)
     if (!approvedOnly.length) {
       alert('Geen goedgekeurde entries om te exporteren in deze week')
       return
@@ -520,6 +528,124 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url)
   }
 
+  const exportClientCSV = () => {
+    if (!exportClientId) {
+      alert('Selecteer een opdrachtgever')
+      return
+    }
+
+    const weekStart = exportWeekStart
+    const weekStartDate = parseYmdToLocalDate(weekStart)
+    const weekEndDate = addDays(weekStartDate, 6)
+    const weekEnd = toLocalYmd(weekEndDate)
+    const weekIsoLocal = getIsoWeek(weekStartDate)
+
+    const clientName = clientsById.get(String(exportClientId)) ?? ''
+
+    const weekAll = entries.filter((e) => e.date >= weekStart && e.date <= weekEnd)
+    const weekClientAll = weekAll.filter((e) => {
+      if (String(e.client_id ?? '') === String(exportClientId)) return true
+      if (clientName && String(e.client ?? '') === clientName) return true
+      return false
+    })
+
+    if (!weekClientAll.length) {
+      alert('Geen entries gevonden voor deze opdrachtgever in deze week')
+      return
+    }
+
+    const notApprovedCount = weekClientAll.filter((e) => e.approved !== true).length
+    if (notApprovedCount > 0) {
+      const ok = confirm(
+        `Er zijn ${notApprovedCount} entry(s) nog niet goedgekeurd. Wil je alsnog exporteren?\n\nExport bevat alleen goedgekeurde uren.`
+      )
+      if (!ok) return
+    }
+
+    const approvedOnly = weekClientAll.filter((e) => e.approved === true)
+    if (!approvedOnly.length) {
+      alert('Geen goedgekeurde entries om te exporteren voor deze opdrachtgever in deze week')
+      return
+    }
+
+    const formatNumberNl = (n: number, maxFractionDigits = 2) =>
+      (Number.isFinite(n) ? n : 0).toLocaleString('nl-NL', {
+        maximumFractionDigits: maxFractionDigits,
+      })
+
+    const header = ['Week', 'Datum', 'Opdrachtgever', 'Werknemer', 'Uren totaal', 'KM', 'Parkeren', 'Pauze']
+
+    type DayRow = {
+      date: string
+      employee: string
+      hoursTotal: number
+      kmTotal: number
+      parkingTotal: number
+      breakHoursTotal: number
+    }
+
+    const groups = new Map<string, DayRow>()
+    for (const e of approvedOnly) {
+      const employee = e.name ?? 'Onbekend'
+      const date = e.date
+      const key = `${date}|${employee}`
+
+      const h = entryHours(e)
+      const brH = Math.max(0, Number(e.break_minutes ?? 0) || 0) / 60
+      const km = e.kilometers != null && Number.isFinite(e.kilometers) ? Number(e.kilometers) : 0
+      const parking = e.parking_paid ? Math.max(0, Number(e.parking_cost ?? 0) || 0) : 0
+
+      const existing = groups.get(key)
+      if (!existing) {
+        groups.set(key, {
+          date,
+          employee,
+          hoursTotal: h,
+          kmTotal: km,
+          parkingTotal: parking,
+          breakHoursTotal: brH,
+        })
+      } else {
+        existing.hoursTotal += h
+        existing.kmTotal += km
+        existing.parkingTotal += parking
+        existing.breakHoursTotal += brH
+      }
+    }
+
+    const rows = Array.from(groups.values())
+      .sort((a, b) => {
+        const byDate = a.date.localeCompare(b.date)
+        if (byDate !== 0) return byDate
+        return a.employee.localeCompare(b.employee)
+      })
+      .map((r) => [
+        `Week ${weekIsoLocal.week}`,
+        r.date,
+        clientName || '—',
+        r.employee,
+        formatNumberNl(r.hoursTotal, 2),
+        formatNumberNl(r.kmTotal, 1),
+        formatNumberNl(r.parkingTotal, 2),
+        formatNumberNl(r.breakHoursTotal, 2),
+      ])
+
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const safeClient = (clientName || 'opdrachtgever').replace(/[^a-z0-9]/gi, '_')
+    a.download = `week-${weekIsoLocal.week}-${safeClient}-details.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    setExportClientOpen(false)
+  }
+
   const renderStatus = (e: TimeEntry) => {
     if (!e.edited) return <span className="text-gray-400">—</span>
     if (e.approved)
@@ -545,6 +671,16 @@ export default function AdminDashboard() {
             </button>
             <button onClick={exportCSV} className="px-3 py-1 rounded bg-gray-800 text-white">
               Export CSV
+            </button>
+            <button
+              onClick={() => {
+                setExportWeekStart(selectedWeekStart)
+                setExportClientId('')
+                setExportClientOpen(true)
+              }}
+              className="px-3 py-1 rounded bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              Export CSV opdrachtgever
             </button>
           </div>
         </div>
@@ -851,6 +987,63 @@ export default function AdminDashboard() {
             />
           </div>
         </div>
+
+        {exportClientOpen && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="w-full max-w-md rounded-lg bg-white dark:bg-gray-900 p-5 border border-orange-200/60 dark:border-orange-500/30">
+              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">Export CSV opdrachtgever</div>
+              <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                Kies een opdrachtgever en week. Export bevat alleen goedgekeurde uren.
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-xs text-gray-600 dark:text-gray-300">Opdrachtgever</label>
+                  <select
+                    value={exportClientId}
+                    onChange={(e) => setExportClientId(e.target.value)}
+                    className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Selecteer opdrachtgever…</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-600 dark:text-gray-300">Week (datum)</label>
+                  <input
+                    type="date"
+                    value={exportWeekStart}
+                    onChange={(e) => {
+                      const d = startOfIsoWeek(parseYmdToLocalDate(e.target.value))
+                      setExportWeekStart(toLocalYmd(d))
+                    }}
+                    className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => setExportClientOpen(false)}
+                  className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={exportClientCSV}
+                  className="px-3 py-1 rounded bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  Export
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-6">
           {viewMode === 'list' && (
