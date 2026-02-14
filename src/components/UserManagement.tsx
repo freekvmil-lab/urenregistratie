@@ -839,7 +839,7 @@ export default function UserManagement() {
                   </button>
                 </div>
                 <div className="mt-2 text-xs opacity-70">
-                  Let op: deze feature werkt pas nadat je de SQL-migratie hebt uitgevoerd (bucket + tabel + RLS).
+                  Let op: er zit een 50MB limiet op bestanden. Zorg dat je een goede bestandsnaam kiest, deze wordt niet automatisch aangepast.
                 </div>
               </div>
 
