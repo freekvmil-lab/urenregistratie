@@ -41,6 +41,7 @@ export default function Navbar() {
   const links = useMemo(() => {
     const base = [
       { href: '/', label: 'Home', adminOnly: false },
+      { href: '/intranet', label: 'Intranet', adminOnly: false },
       { href: '/availability', label: 'Beschikbaarheid', adminOnly: false },
     ]
     const adminLinks = [
