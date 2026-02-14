@@ -19,6 +19,27 @@ interface Client {
   name: string
 }
 
+type EmployeeDocument = {
+  id: string
+  employee_id: string
+  filename: string
+  object_path: string
+  mime_type: string | null
+  size_bytes: number | null
+  uploaded_by: string | null
+  created_at: string
+}
+
+function sanitizeFilename(name: string): string {
+  const trimmed = String(name ?? '').trim()
+  const base = trimmed || 'document'
+  return base
+    .replace(/[/\\]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/[^a-zA-Z0-9 ._\-()]/g, '')
+    .slice(0, 120)
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,6 +56,140 @@ export default function UserManagement() {
   const [createBusy, setCreateBusy] = useState(false)
   const [createMessage, setCreateMessage] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [docsForUser, setDocsForUser] = useState<Profile | null>(null)
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [docsError, setDocsError] = useState<string | null>(null)
+  const [docs, setDocs] = useState<EmployeeDocument[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+
+  const loadDocs = async (employeeId: string) => {
+    setDocsLoading(true)
+    setDocsError(null)
+    try {
+      const { data, error } = await supabase
+        .from('employee_documents')
+        .select('id, employee_id, filename, object_path, mime_type, size_bytes, uploaded_by, created_at')
+        .eq('employee_id', employeeId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setDocs((data ?? []) as EmployeeDocument[])
+    } catch (e: any) {
+      const msg = String(e?.message ?? 'Documenten laden mislukt')
+      setDocsError(msg)
+      setDocs([])
+    } finally {
+      setDocsLoading(false)
+    }
+  }
+
+  const openDocs = async (u: Profile) => {
+    setDocsForUser(u)
+    setUploadFile(null)
+    await loadDocs(u.id)
+  }
+
+  const closeDocs = () => {
+    setDocsForUser(null)
+    setDocsError(null)
+    setDocs([])
+    setUploadFile(null)
+  }
+
+  const downloadDoc = async (doc: EmployeeDocument) => {
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('employee-documents')
+        .createSignedUrl(doc.object_path, 60)
+      if (error) throw error
+
+      const url = data?.signedUrl
+      if (!url) throw new Error('Geen download URL')
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (e: any) {
+      alert(e?.message ?? 'Download mislukt')
+    }
+  }
+
+  const uploadDoc = async () => {
+    const employeeId = docsForUser?.id
+    if (!employeeId) return
+    if (!uploadFile) {
+      setDocsError('Kies eerst een bestand.')
+      return
+    }
+
+    setUploading(true)
+    setDocsError(null)
+
+    const file = uploadFile
+    const docId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
+    const safeName = sanitizeFilename(file.name)
+    const objectPath = `employee/${employeeId}/${docId}/${safeName}`
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const up = await supabase
+        .storage
+        .from('employee-documents')
+        .upload(objectPath, file, { contentType: file.type || undefined, upsert: false })
+      if (up.error) throw up.error
+
+      const ins = await supabase
+        .from('employee_documents')
+        .insert({
+          id: docId,
+          employee_id: employeeId,
+          filename: safeName,
+          object_path: objectPath,
+          mime_type: file.type || null,
+          size_bytes: Number.isFinite(file.size) ? file.size : null,
+          uploaded_by: user?.id ?? null,
+        })
+      if (ins.error) {
+        await supabase.storage.from('employee-documents').remove([objectPath])
+        throw ins.error
+      }
+
+      setUploadFile(null)
+      await loadDocs(employeeId)
+    } catch (e: any) {
+      setDocsError(String(e?.message ?? 'Upload mislukt'))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const deleteDoc = async (doc: EmployeeDocument) => {
+    const confirmed = window.confirm(`Bestand verwijderen: ${doc.filename}?`)
+    if (!confirmed) return
+
+    setDeletingDocId(doc.id)
+    setDocsError(null)
+    try {
+      const rm = await supabase.storage.from('employee-documents').remove([doc.object_path])
+      if (rm.error) throw rm.error
+
+      const del = await supabase
+        .from('employee_documents')
+        .delete()
+        .eq('id', doc.id)
+      if (del.error) throw del.error
+
+      if (docsForUser?.id) await loadDocs(docsForUser.id)
+    } catch (e: any) {
+      setDocsError(String(e?.message ?? 'Verwijderen mislukt'))
+    } finally {
+      setDeletingDocId(null)
+    }
+  }
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -420,6 +575,7 @@ export default function UserManagement() {
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Pauze</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Standaard pauze (uur)</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Rol</th>
+            <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Documenten</th>
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Acties</th>
           </tr>
         </thead>
@@ -616,6 +772,15 @@ export default function UserManagement() {
                 </select>
               </td>
 
+              <td className="border p-2 text-gray-900 dark:text-gray-100">
+                <button
+                  onClick={() => openDocs(u)}
+                  className="text-orange-700 hover:text-orange-900 dark:text-orange-300 dark:hover:text-orange-200"
+                >
+                  Documenten
+                </button>
+              </td>
+
               <td className="border p-2 text-right">
                 <button
                   onClick={() => deleteUser(u.id, u.name ?? u.email ?? 'deze gebruiker')}
@@ -630,6 +795,115 @@ export default function UserManagement() {
         </tbody>
         </table>
       </div>
+
+      {docsForUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeDocs}
+          />
+
+          <div className="relative w-full max-w-2xl rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-xl">
+            <div className="flex items-start justify-between gap-4 p-4 border-b border-orange-200/60 dark:border-orange-500/30">
+              <div>
+                <div className="text-lg font-bold">Documenten</div>
+                <div className="text-sm opacity-80">{docsForUser.name ?? docsForUser.email ?? docsForUser.id}</div>
+              </div>
+              <button
+                onClick={closeDocs}
+                className="px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Sluiten
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="rounded border border-orange-200/60 dark:border-orange-500/30 p-3 bg-orange-50/30 dark:bg-transparent">
+                <div className="font-semibold mb-2">Upload</div>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <input
+                    type="file"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null
+                      setUploadFile(f)
+                    }}
+                    className="block w-full text-sm"
+                  />
+                  <button
+                    onClick={uploadDoc}
+                    disabled={uploading || !uploadFile}
+                    className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploaden…' : 'Upload'}
+                  </button>
+                </div>
+                <div className="mt-2 text-xs opacity-70">
+                  Let op: deze feature werkt pas nadat je de SQL-migratie hebt uitgevoerd (bucket + tabel + RLS).
+                </div>
+              </div>
+
+              {docsError && (
+                <div className="mt-3 text-sm text-red-700 dark:text-red-300">{docsError}</div>
+              )}
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold">Bestanden</div>
+                  <button
+                    onClick={() => loadDocs(docsForUser.id)}
+                    disabled={docsLoading}
+                    className="text-sm text-orange-700 hover:text-orange-900 dark:text-orange-300 dark:hover:text-orange-200 disabled:opacity-50"
+                  >
+                    {docsLoading ? 'Laden…' : 'Verversen'}
+                  </button>
+                </div>
+
+                <div className="mt-2 rounded border border-orange-200/60 dark:border-orange-500/30 overflow-hidden">
+                  {docsLoading ? (
+                    <div className="p-3 text-sm opacity-70">Documenten laden…</div>
+                  ) : docs.length === 0 ? (
+                    <div className="p-3 text-sm opacity-70">Nog geen documenten.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-orange-100 dark:bg-orange-500/10">
+                        <tr>
+                          <th className="text-left p-2">Bestand</th>
+                          <th className="text-left p-2">Datum</th>
+                          <th className="text-right p-2">Acties</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {docs.map((d) => (
+                          <tr key={d.id} className="odd:bg-white even:bg-orange-50/30 dark:odd:bg-transparent dark:even:bg-black/10">
+                            <td className="p-2 break-all">{d.filename}</td>
+                            <td className="p-2 whitespace-nowrap">{new Date(d.created_at).toLocaleString()}</td>
+                            <td className="p-2 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => downloadDoc(d)}
+                                className="text-orange-700 hover:text-orange-900 dark:text-orange-300 dark:hover:text-orange-200 mr-3"
+                              >
+                                Download
+                              </button>
+                              <button
+                                onClick={() => deleteDoc(d)}
+                                disabled={deletingDocId === d.id}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                              >
+                                {deletingDocId === d.id ? 'Bezig…' : 'Verwijder'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
