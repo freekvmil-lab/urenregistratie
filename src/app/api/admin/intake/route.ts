@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
+import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
+import path from 'node:path'
 
 export const runtime = 'nodejs'
 
@@ -244,16 +247,26 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
     ;(globalThis as any).DOMMatrix = CSSMatrix
   }
 
-  // pdf-parse v2 exports a PDFParse class; we use it directly to get concatenated text.
-  const mod: any = await import('pdf-parse')
+  // Use CommonJS build via require to avoid Turbopack/Vercel worker chunk resolution issues.
+  const require = createRequire(import.meta.url)
+  const mod: any = require('pdf-parse')
+
   const PDFParseCtor: any = mod?.PDFParse
-  if (!PDFParseCtor) {
-    throw new Error('PDF parser unavailable')
+  if (!PDFParseCtor) throw new Error('PDF parser unavailable')
+
+  // Force worker source to a real file inside node_modules (works in serverless bundles).
+  try {
+    const entryPath = require.resolve('pdf-parse')
+    // entryPath -> .../pdf-parse/dist/pdf-parse/cjs/index.cjs
+    // worker     -> .../pdf-parse/dist/worker/pdf.worker.mjs
+    const workerPath = path.resolve(path.dirname(entryPath), '../../worker/pdf.worker.mjs')
+    const workerUrl = pathToFileURL(workerPath).toString()
+    PDFParseCtor.setWorker(workerUrl)
+  } catch {
+    // non-fatal; we'll try parsing anyway
   }
 
-  // Serverless environments (e.g. Vercel) may not bundle pdf.worker.mjs correctly.
-  // Disable worker usage so parsing happens in-process.
-  const parser = new PDFParseCtor({ data: buf, disableWorker: true })
+  const parser = new PDFParseCtor({ data: buf })
   const textResult = await parser.getText()
   const rawText = String(textResult?.text ?? '')
   await parser.destroy().catch(() => {})
