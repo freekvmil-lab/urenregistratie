@@ -188,8 +188,16 @@ function extractName(text: string): string | null {
 
 function extractAddress(text: string): string | null {
   const street = extractByLabel(text, /^(adres|woonadres|straat)\b/i)
-  const postcode = extractByLabel(text, /^postcode\b/i)
-  const woonplaats = extractByLabel(text, /^woonplaats\b/i)
+
+  let postcode = extractByLabel(text, /^postcode\b/i)
+  let woonplaats = extractByLabel(text, /^woonplaats\b/i)
+
+  // This form often renders Postcode + Woonplaats on the same line.
+  if (!woonplaats || (postcode && /\bwoonplaats\b/i.test(postcode))) {
+    const parsed = extractPostcodeWoonplaats(text)
+    if (parsed?.postcode) postcode = parsed.postcode
+    if (parsed?.woonplaats) woonplaats = parsed.woonplaats
+  }
 
   const parts: string[] = []
   if (street) parts.push(street)
@@ -199,6 +207,23 @@ function extractAddress(text: string): string | null {
 
   const combined = parts.join(', ').trim()
   return combined || null
+}
+
+function extractPostcodeWoonplaats(text: string): { postcode: string | null; woonplaats: string | null } | null {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  for (const line of lines) {
+    // Example: "Postcode 1613 KE Woonplaats Grootebroek"
+    const m = line.match(/\bpostcode\b\s+(.+?)\s+\bwoonplaats\b\s+(.+)$/i)
+    if (!m) continue
+    const postcode = String(m[1] ?? '').trim() || null
+    const woonplaats = String(m[2] ?? '').trim() || null
+    if (postcode || woonplaats) return { postcode, woonplaats }
+  }
+  return null
 }
 
 type ParseResult = {
