@@ -251,7 +251,9 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
     throw new Error('PDF parser unavailable')
   }
 
-  const parser = new PDFParseCtor({ data: buf })
+  // Serverless environments (e.g. Vercel) may not bundle pdf.worker.mjs correctly.
+  // Disable worker usage so parsing happens in-process.
+  const parser = new PDFParseCtor({ data: buf, disableWorker: true })
   const textResult = await parser.getText()
   const rawText = String(textResult?.text ?? '')
   await parser.destroy().catch(() => {})
