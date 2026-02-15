@@ -237,6 +237,13 @@ type ParseResult = {
 async function parsePdf(file: File): Promise<{ rawText: string; extracted: ParseResult }>{
   const buf = Buffer.from(await file.arrayBuffer())
 
+  // pdfjs expects DOMMatrix to exist; Node doesn't provide it.
+  if (!(globalThis as any).DOMMatrix) {
+    const dm: any = await import('dommatrix')
+    const CSSMatrix: any = dm?.default ?? dm
+    ;(globalThis as any).DOMMatrix = CSSMatrix
+  }
+
   // pdf-parse v2 exports a PDFParse class; we use it directly to get concatenated text.
   const mod: any = await import('pdf-parse')
   const PDFParseCtor: any = mod?.PDFParse
