@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
-import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
-import path from 'node:path'
 
 export const runtime = 'nodejs'
 
@@ -247,29 +244,27 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
     ;(globalThis as any).DOMMatrix = CSSMatrix
   }
 
-  // Use CommonJS build via require to avoid Turbopack/Vercel worker chunk resolution issues.
-  const require = createRequire(import.meta.url)
-  const mod: any = require('pdf-parse')
+  // Use PDF.js directly (serverless-safe): disableWorker avoids worker bundling issues.
+  const pdfjsMod: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const pdfjs: any = pdfjsMod?.default ?? pdfjsMod
 
-  const PDFParseCtor: any = mod?.PDFParse
-  if (!PDFParseCtor) throw new Error('PDF parser unavailable')
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true })
+  const doc = await loadingTask.promise
 
-  // Force worker source to a real file inside node_modules (works in serverless bundles).
-  try {
-    const entryPath = require.resolve('pdf-parse')
-    // entryPath -> .../pdf-parse/dist/pdf-parse/cjs/index.cjs
-    // worker     -> .../pdf-parse/dist/worker/pdf.worker.mjs
-    const workerPath = path.resolve(path.dirname(entryPath), '../../worker/pdf.worker.mjs')
-    const workerUrl = pathToFileURL(workerPath).toString()
-    PDFParseCtor.setWorker(workerUrl)
-  } catch {
-    // non-fatal; we'll try parsing anyway
+  const parts: string[] = []
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum)
+    const content = await page.getTextContent()
+    const pageText = (content.items ?? [])
+      .map((it: any) => String(it?.str ?? '').trim())
+      .filter(Boolean)
+      .join(' ')
+    if (pageText) parts.push(pageText)
   }
 
-  const parser = new PDFParseCtor({ data: buf })
-  const textResult = await parser.getText()
-  const rawText = String(textResult?.text ?? '')
-  await parser.destroy().catch(() => {})
+  const rawText = parts.join('\n')
+  await doc.destroy().catch(() => {})
+  await loadingTask.destroy?.().catch?.(() => {})
   const text = rawText.replace(/\u0000/g, ' ')
 
   const email = extractEmail(text)
