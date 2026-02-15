@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
+import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
 
 export const runtime = 'nodejs'
 
@@ -247,6 +249,21 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
   // Use PDF.js directly (serverless-safe): disableWorker avoids worker bundling issues.
   const pdfjsMod: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const pdfjs: any = pdfjsMod?.default ?? pdfjsMod
+
+  // In serverless builds, the default "./pdf.worker.mjs" resolution can point into
+  // `.next/server/chunks` and fail. We force a stable workerSrc using a data: URL.
+  // Node's ESM loader supports `data:` for dynamic import.
+  try {
+    if (!pdfjs?.GlobalWorkerOptions?.workerSrc) {
+      const require = createRequire(import.meta.url)
+      const workerPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+      const workerCode = await readFile(workerPath, 'utf8')
+      const workerBase64 = Buffer.from(workerCode, 'utf8').toString('base64')
+      pdfjs.GlobalWorkerOptions.workerSrc = `data:application/javascript;base64,${workerBase64}`
+    }
+  } catch {
+    // non-fatal; pdfjs will throw a clearer error if it still can't initialize.
+  }
 
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true })
   const doc = await loadingTask.promise
