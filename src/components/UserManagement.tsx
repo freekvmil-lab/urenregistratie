@@ -30,6 +30,14 @@ type EmployeeDocument = {
   created_at: string
 }
 
+type IntakeExtracted = {
+  email: string | null
+  name: string | null
+  home_address: string | null
+  confidence: 'low' | 'medium'
+  warnings: string[]
+}
+
 function sanitizeFilename(name: string): string {
   const trimmed = String(name ?? '').trim()
   const base = trimmed || 'document'
@@ -64,6 +72,144 @@ export default function UserManagement() {
   const [uploading, setUploading] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+
+  const [intakeOpen, setIntakeOpen] = useState(false)
+  const [intakeFile, setIntakeFile] = useState<File | null>(null)
+  const [intakeExtracted, setIntakeExtracted] = useState<IntakeExtracted | null>(null)
+  const [intakeEmail, setIntakeEmail] = useState('')
+  const [intakeName, setIntakeName] = useState('')
+  const [intakeAddress, setIntakeAddress] = useState('')
+  const [intakeBusy, setIntakeBusy] = useState(false)
+  const [intakeCreateBusy, setIntakeCreateBusy] = useState(false)
+  const [intakeMessage, setIntakeMessage] = useState<string | null>(null)
+
+  const openIntake = () => {
+    setIntakeOpen(true)
+    setIntakeFile(null)
+    setIntakeExtracted(null)
+    setIntakeEmail('')
+    setIntakeName('')
+    setIntakeAddress('')
+    setIntakeMessage(null)
+  }
+
+  const closeIntake = () => {
+    setIntakeOpen(false)
+    setIntakeFile(null)
+    setIntakeExtracted(null)
+    setIntakeEmail('')
+    setIntakeName('')
+    setIntakeAddress('')
+    setIntakeMessage(null)
+    setIntakeBusy(false)
+    setIntakeCreateBusy(false)
+  }
+
+  const parseIntake = async (file: File) => {
+    setIntakeBusy(true)
+    setIntakeMessage(null)
+    setIntakeExtracted(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        setIntakeMessage('Niet ingelogd.')
+        return
+      }
+
+      const fd = new FormData()
+      fd.set('mode', 'parse')
+      fd.set('file', file)
+
+      const res = await fetch('/api/admin/intake', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: fd,
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setIntakeMessage(json?.details ? String(json.details) : json?.error ? String(json.error) : 'Inlezen mislukt')
+        return
+      }
+
+      const extracted = json?.extracted as IntakeExtracted
+      setIntakeExtracted(extracted)
+      setIntakeEmail(String(extracted?.email ?? ''))
+      setIntakeName(String(extracted?.name ?? ''))
+      setIntakeAddress(String(extracted?.home_address ?? ''))
+    } catch (e: any) {
+      setIntakeMessage(String(e?.message ?? 'Inlezen mislukt'))
+    } finally {
+      setIntakeBusy(false)
+    }
+  }
+
+  const createFromIntake = async () => {
+    if (!intakeFile) {
+      setIntakeMessage('Kies eerst het inschrijfformulier (PDF).')
+      return
+    }
+
+    const email = intakeEmail.trim().toLowerCase()
+    if (!email) {
+      setIntakeMessage('E-mail is verplicht (controleer/verbeter de extractie).')
+      return
+    }
+
+    setIntakeCreateBusy(true)
+    setIntakeMessage(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        setIntakeMessage('Niet ingelogd.')
+        return
+      }
+
+      const fd = new FormData()
+      fd.set('mode', 'create')
+      fd.set('file', intakeFile)
+      fd.set('email', email)
+      fd.set('name', intakeName.trim())
+      fd.set('home_address', intakeAddress.trim())
+
+      const res = await fetch('/api/admin/intake', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: fd,
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setIntakeMessage(json?.details ? String(json.details) : json?.error ? String(json.error) : 'Aanmaken mislukt')
+        return
+      }
+
+      const newId = String(json?.id ?? '')
+      setIntakeMessage('Werknemer aangemaakt + formulier opgeslagen in documenten.')
+      await fetchUsers()
+
+      if (newId) {
+        const newUser = users.find((u) => u.id === newId) ?? null
+        if (newUser) await openDocs(newUser)
+      }
+    } catch (e: any) {
+      setIntakeMessage(String(e?.message ?? 'Aanmaken mislukt'))
+    } finally {
+      setIntakeCreateBusy(false)
+    }
+  }
 
   const loadDocs = async (employeeId: string) => {
     setDocsLoading(true)
@@ -496,6 +642,18 @@ export default function UserManagement() {
       <div className="border border-orange-200/60 dark:border-orange-500/30 rounded p-3 mb-4 bg-white dark:bg-transparent">
         <h3 className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Werknemer toevoegen</h3>
 
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="text-sm opacity-80">
+            Tip: heb je een inschrijfformulier (PDF)? Importeren kan ook.
+          </div>
+          <button
+            onClick={openIntake}
+            className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+          >
+            📄 Inschrijf formulier uploaden
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm mb-1 text-gray-700 dark:text-gray-200">E-mail</label>
@@ -899,6 +1057,120 @@ export default function UserManagement() {
                     </table>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {intakeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeIntake}
+          />
+
+          <div className="relative w-full max-w-2xl rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-xl">
+            <div className="flex items-start justify-between gap-4 p-4 border-b border-orange-200/60 dark:border-orange-500/30">
+              <div>
+                <div className="text-lg font-bold">Inschrijf formulier importeren</div>
+                <div className="text-sm opacity-80">Upload het PDF-formulier en controleer de velden.</div>
+              </div>
+              <button
+                onClick={closeIntake}
+                className="px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Sluiten
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="rounded border border-orange-200/60 dark:border-orange-500/30 p-3 bg-orange-50/30 dark:bg-transparent">
+                <div className="font-semibold mb-2">PDF upload</div>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    disabled={intakeBusy || intakeCreateBusy}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0] ?? null
+                      setIntakeFile(f)
+                      setIntakeExtracted(null)
+                      if (f) await parseIntake(f)
+                    }}
+                    className="block w-full text-sm"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (intakeFile) await parseIntake(intakeFile)
+                    }}
+                    disabled={intakeBusy || !intakeFile}
+                    className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {intakeBusy ? 'Inlezen…' : 'Opnieuw inlezen'}
+                  </button>
+                </div>
+                <div className="mt-2 text-xs opacity-70">
+                  Werkt het niet? Dan is de PDF waarschijnlijk een scan (geen selecteerbare tekst). Dan is OCR nodig.
+                </div>
+              </div>
+
+              {intakeExtracted && (
+                <div className="mt-3 text-xs opacity-80">
+                  Extractie: {intakeExtracted.confidence}{' '}
+                  {intakeExtracted.warnings?.length ? `(${intakeExtracted.warnings.join(', ')})` : ''}
+                </div>
+              )}
+
+              {intakeMessage && (
+                <div className="mt-3 text-sm text-gray-900 dark:text-gray-100">{intakeMessage}</div>
+              )}
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm mb-1 opacity-80">E-mail</label>
+                  <input
+                    value={intakeEmail}
+                    onChange={(e) => setIntakeEmail(e.target.value)}
+                    className="w-full bg-transparent border rounded px-2 py-1"
+                    placeholder="naam@bedrijf.nl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1 opacity-80">Naam</label>
+                  <input
+                    value={intakeName}
+                    onChange={(e) => setIntakeName(e.target.value)}
+                    className="w-full bg-transparent border rounded px-2 py-1"
+                    placeholder="Voornaam Achternaam"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm mb-1 opacity-80">Adres</label>
+                  <input
+                    value={intakeAddress}
+                    onChange={(e) => setIntakeAddress(e.target.value)}
+                    className="w-full bg-transparent border rounded px-2 py-1"
+                    placeholder="Straat 1, 1234 AB Plaats"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={createFromIntake}
+                  disabled={intakeCreateBusy || intakeBusy || !intakeFile}
+                  className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {intakeCreateBusy ? 'Aanmaken…' : 'Werknemer aanmaken'}
+                </button>
+                <div className="text-xs opacity-70">
+                  Dit maakt een nieuwe gebruiker aan en slaat de PDF op in documenten.
+                </div>
+              </div>
+
+              <div className="mt-3 text-xs opacity-70">
+                Voor dit onderdeel moeten ook de document-tabellen/bucket actief zijn (documents.sql).
               </div>
             </div>
           </div>

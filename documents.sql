@@ -1,5 +1,9 @@
 -- Employee documents (Supabase Storage + metadata)
 -- Run this in Supabase SQL editor.
+--
+-- Used by:
+-- - Admin "Documenten" upload/download UI
+-- - Admin "Inschrijf formulier importeren" flow (creates a user, then stores the intake PDF here)
 
 -- 1) Metadata table
 create extension if not exists "pgcrypto";
