@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
+import { pathToFileURL } from 'node:url'
 
 export const runtime = 'nodejs'
 
@@ -246,23 +247,20 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
     ;(globalThis as any).DOMMatrix = CSSMatrix
   }
 
-  // Use PDF.js directly (serverless-safe): disableWorker avoids worker bundling issues.
-  const pdfjsMod: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const pdfjs: any = pdfjsMod?.default ?? pdfjsMod
+  // Use PDF.js directly.
+  const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
 
-  // In serverless builds, the default "./pdf.worker.mjs" resolution can point into
-  // `.next/server/chunks` and fail. We force a stable workerSrc using a data: URL.
-  // Node's ESM loader supports `data:` for dynamic import.
+  // Serverless/Next chunks can break the default "./pdf.worker.mjs" import.
+  // Force a stable workerSrc pointing to node_modules (file:// URL). If that fails,
+  // fall back to embedding the worker as a data: URL.
+  const require = createRequire(import.meta.url)
+  const workerPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
   try {
-    if (!pdfjs?.GlobalWorkerOptions?.workerSrc) {
-      const require = createRequire(import.meta.url)
-      const workerPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
-      const workerCode = await readFile(workerPath, 'utf8')
-      const workerBase64 = Buffer.from(workerCode, 'utf8').toString('base64')
-      pdfjs.GlobalWorkerOptions.workerSrc = `data:application/javascript;base64,${workerBase64}`
-    }
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString()
   } catch {
-    // non-fatal; pdfjs will throw a clearer error if it still can't initialize.
+    const workerCode = await readFile(workerPath, 'utf8')
+    const workerBase64 = Buffer.from(workerCode, 'utf8').toString('base64')
+    pdfjs.GlobalWorkerOptions.workerSrc = `data:application/javascript;base64,${workerBase64}`
   }
 
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true })
