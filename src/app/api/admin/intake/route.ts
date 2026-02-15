@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
-import { createRequire } from 'node:module'
-import { readFile } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
 
 export const runtime = 'nodejs'
 
@@ -250,17 +247,13 @@ async function parsePdf(file: File): Promise<{ rawText: string; extracted: Parse
   // Use PDF.js directly.
   const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs')
 
-  // Serverless/Next chunks can break the default "./pdf.worker.mjs" import.
-  // Force a stable workerSrc pointing to node_modules (file:// URL). If that fails,
-  // fall back to embedding the worker as a data: URL.
-  const require = createRequire(import.meta.url)
-  const workerPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
-  try {
-    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString()
-  } catch {
-    const workerCode = await readFile(workerPath, 'utf8')
-    const workerBase64 = Buffer.from(workerCode, 'utf8').toString('base64')
-    pdfjs.GlobalWorkerOptions.workerSrc = `data:application/javascript;base64,${workerBase64}`
+  // In bundled/serverless environments, `require.resolve()` can be transformed into a
+  // numeric module id, which then breaks path/URL logic. Instead, preload the worker
+  // module into `globalThis.pdfjsWorker` so PDF.js can set up its fake worker without
+  // importing from a file path.
+  if (!(globalThis as any).pdfjsWorker) {
+    const pdfjsWorker: any = await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
+    ;(globalThis as any).pdfjsWorker = pdfjsWorker
   }
 
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true })
