@@ -152,13 +152,78 @@ function extractEmail(text: string): string | null {
   return m ? m[0].toLowerCase() : null
 }
 
+function normalizeExtractedText(text: string): string {
+  return String(text ?? '')
+    .replace(/\u0000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const NEXT_FIELD_LABELS = [
+  'Naam bedrijf',
+  'Mailadres werknemer',
+  'E-mail',
+  'Email',
+  'Naam',
+  'Meisjesnaam',
+  'Voorletters',
+  'Roepnaam',
+  'Adres',
+  'Postcode',
+  'Woonplaats',
+  'Geboortedatum',
+  'Telefoonnummer',
+  'Geslacht',
+  'Nationaliteit',
+  'Burgerlijke staat',
+  'BSN-nummer',
+  'IBAN-nummer',
+  'Datum in dienst',
+  'Beroep',
+  'Soort contract',
+  'Fase',
+  'Oproepkracht',
+].map(escapeRegex)
+
+const NEXT_LABEL_LOOKAHEAD = `(?=\\s+(?:${NEXT_FIELD_LABELS.join('|')})\\b|$)`
+
+function captureBetween(text: string, startLabel: RegExp, stopLookahead: string): string | null {
+  const m = text.match(new RegExp(`${startLabel.source}\\s*:?\\s*(.+?)\\s*${stopLookahead}`, startLabel.flags))
+  if (!m) return null
+  const value = String(m[1] ?? '').trim()
+  return value || null
+}
+
 function extractName(text: string): string | null {
+  const normalized = normalizeExtractedText(text)
+
   const first = extractByLabel(text, /^voornaam\b/i)
   const last = extractByLabel(text, /^achternaam\b/i)
   if (first || last) {
     const full = `${first ?? ''} ${last ?? ''}`.trim()
     return full || null
   }
+
+  // PDFs often come back as a single long line. Prefer the "Naam" that occurs soon after the email.
+  // Example: "Mailadres werknemer test@x.nl Naam Jan Jansen Adres ..."
+  const nearEmail = normalized.match(
+    new RegExp(
+      String.raw`Mailadres werknemer\s+[^\s]+@[^\s]+\s+Naam\s+(.+?)\s*(?=\s+(?:Meisjesnaam|Voorletters|Roepnaam|Adres|Postcode|Woonplaats)\b|$)`,
+      'i'
+    )
+  )
+  if (nearEmail?.[1]) {
+    const v = String(nearEmail[1]).trim()
+    if (v) return v
+  }
+
+  // Generic single-line fallback, but ignore "Naam bedrijf".
+  const generic = captureBetween(normalized, /(?:^|\s)Naam\b(?!\s+bedrijf)/i, NEXT_LABEL_LOOKAHEAD)
+  if (generic) return generic
 
   const lines = text
     .split(/\r?\n/)
@@ -187,10 +252,28 @@ function extractName(text: string): string | null {
 }
 
 function extractAddress(text: string): string | null {
-  const street = extractByLabel(text, /^(adres|woonadres|straat)\b/i)
+  const normalized = normalizeExtractedText(text)
 
-  let postcode = extractByLabel(text, /^postcode\b/i)
-  let woonplaats = extractByLabel(text, /^woonplaats\b/i)
+  // Single-line robust parsing first.
+  const street =
+    captureBetween(normalized, /(?:^|\s)Adres\b/i, '(?=\\s+Postcode\\b|$)') ||
+    captureBetween(normalized, /(?:^|\s)(?:Woonadres|Straat)\b/i, '(?=\\s+Postcode\\b|$)') ||
+    extractByLabel(text, /^(adres|woonadres|straat)\b/i)
+
+  let postcode: string | null = null
+  let woonplaats: string | null = null
+
+  const postcodeMatch = normalized.match(/(?:^|\s)Postcode\b\s*:?\s*(\d{4}\s?[A-Z]{2})\b/i)
+  if (postcodeMatch?.[1]) postcode = postcodeMatch[1].toUpperCase().replace(/\s+/, ' ')
+
+  const woonplaatsMatch = normalized.match(
+    new RegExp(String.raw`(?:^|\s)Woonplaats\b\s*:?\s*(.+?)\s*(?=\s+(?:Geboortedatum|Telefoonnummer|Geslacht|Nationaliteit|Burgerlijke staat|BSN-nummer|IBAN-nummer|Datum in dienst|Beroep|Soort contract|Fase|Oproepkracht)\b|$)`, 'i')
+  )
+  if (woonplaatsMatch?.[1]) woonplaats = String(woonplaatsMatch[1]).trim()
+
+  // Keep the older label-based approach as a fallback when we do have real line breaks.
+  if (!postcode) postcode = extractByLabel(text, /^postcode\b/i)
+  if (!woonplaats) woonplaats = extractByLabel(text, /^woonplaats\b/i)
 
   // This form often renders Postcode + Woonplaats on the same line.
   if (!woonplaats || (postcode && /\bwoonplaats\b/i.test(postcode))) {
