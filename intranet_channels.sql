@@ -223,3 +223,67 @@ on public.intranet_messages
 for delete
 to authenticated
 using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+-- -----------------
+-- RPC: MEMBER LIST
+-- -----------------
+-- Allow channel members (and admins) to list all members of a channel.
+-- Implemented as SECURITY DEFINER to avoid RLS recursion on intranet_channel_members.
+create or replace function public.intranet_list_channel_members(p_channel_id uuid)
+returns table (
+  member_id uuid,
+  name text,
+  email text,
+  role text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return;
+  end if;
+
+  -- Admin can list members for any channel.
+  if exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') then
+    return query
+      select m.member_id, pr.name, pr.email, pr.role
+      from public.intranet_channel_members m
+      join public.profiles pr on pr.id = m.member_id
+      where m.channel_id = p_channel_id
+        and pr.deleted_at is null
+      order by lower(coalesce(pr.name, pr.email, pr.id::text)) asc;
+    return;
+  end if;
+
+  -- Non-admin must have access to the channel (public OR member).
+  if not exists (
+    select 1
+    from public.intranet_channels c
+    where c.id = p_channel_id
+      and (
+        c.is_private = false
+        or exists (
+          select 1
+          from public.intranet_channel_members m2
+          where m2.channel_id = p_channel_id
+            and m2.member_id = auth.uid()
+        )
+      )
+  ) then
+    return;
+  end if;
+
+  return query
+    select m.member_id, pr.name, pr.email, pr.role
+    from public.intranet_channel_members m
+    join public.profiles pr on pr.id = m.member_id
+    where m.channel_id = p_channel_id
+      and pr.deleted_at is null
+    order by lower(coalesce(pr.name, pr.email, pr.id::text)) asc;
+end;
+$$;
+
+revoke all on function public.intranet_list_channel_members(uuid) from public;
+grant execute on function public.intranet_list_channel_members(uuid) to authenticated;
