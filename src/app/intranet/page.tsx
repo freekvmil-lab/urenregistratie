@@ -1114,9 +1114,44 @@ export default function IntranetPage() {
           ) : loading ? (
             <div className="text-sm opacity-70">Laden…</div>
           ) : !selectedThread ? (
-            <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
-              <div className="font-semibold">Selecteer een thread</div>
-              <div className="text-sm opacity-80">Kies links een thread om de inhoud te lezen.</div>
+            <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-semibold">Threads</div>
+                <div className="text-xs opacity-70">Klik om te openen</div>
+              </div>
+
+              <div className="mt-3">
+                {posts.length === 0 ? (
+                  <div className="text-sm opacity-70">Nog geen threads.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {posts.map((t) => {
+                      const replies = repliesByParent[t.id] ?? []
+                      const preview = String(t.body ?? '').split('\n')[0] || '(leeg)'
+                      const authorLabel = t.author?.name || t.author?.email || t.author_id
+
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedThreadId(t.id)
+                            setReplyingTo(null)
+                          }}
+                          className="w-full text-left rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3 hover:bg-orange-50 dark:hover:bg-white/5"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs opacity-70 truncate">{authorLabel}</div>
+                            <div className="text-[10px] opacity-60 shrink-0">{replies.length}</div>
+                          </div>
+                          <div className="mt-1 text-sm font-semibold truncate">{preview}</div>
+                          <div className="mt-1 text-[10px] opacity-60 truncate">{formatDateTime(t.created_at)}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <>
