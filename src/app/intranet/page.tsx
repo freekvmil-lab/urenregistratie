@@ -80,6 +80,8 @@ export default function IntranetPage() {
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  const [rtNonce, setRtNonce] = useState(0)
+
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingDraft, setEditingDraft] = useState('')
   const [savingEditId, setSavingEditId] = useState<string | null>(null)
@@ -107,6 +109,9 @@ export default function IntranetPage() {
   const mountedRef = useRef(true)
   const replyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const loadingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const channelMembersLoadingWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchMessagesSeqRef = useRef(0)
   const fetchChannelsSeqRef = useRef(0)
@@ -211,7 +216,14 @@ export default function IntranetPage() {
       return
     }
 
-    if (!silent) setChannelMembersLoading(true)
+    if (!silent) {
+      setChannelMembersLoading(true)
+      if (channelMembersLoadingWatchdogRef.current) clearTimeout(channelMembersLoadingWatchdogRef.current)
+      channelMembersLoadingWatchdogRef.current = setTimeout(() => {
+        if (!mountedRef.current) return
+        setChannelMembersLoading(false)
+      }, 20000)
+    }
     try {
       const { data, error } = await supabase.rpc('intranet_list_channel_members', {
         p_channel_id: channelId,
@@ -226,6 +238,10 @@ export default function IntranetPage() {
       if (seq !== loadChannelMembersSeqRef.current) return
       setChannelMembers([])
     } finally {
+      if (channelMembersLoadingWatchdogRef.current) {
+        clearTimeout(channelMembersLoadingWatchdogRef.current)
+        channelMembersLoadingWatchdogRef.current = null
+      }
       if (seq === loadChannelMembersSeqRef.current) setChannelMembersLoading(false)
     }
   }
@@ -383,6 +399,8 @@ export default function IntranetPage() {
     const channelId = opts?.channelId ?? activeChannelId
     const seq = ++fetchMessagesSeqRef.current
 
+    const hasCachedData = messages.length > 0 || Object.keys(repliesByParent).length > 0
+
     if (!channelId) {
       if (seq !== fetchMessagesSeqRef.current) return
       setMessages([])
@@ -392,7 +410,17 @@ export default function IntranetPage() {
     }
 
     if (!silent) setError(null)
-    if (!silent) setLoading(true)
+    // Only show a blocking loader if we don't have anything to render yet.
+    if (!silent && !hasCachedData) {
+      setLoading(true)
+      if (loadingWatchdogRef.current) clearTimeout(loadingWatchdogRef.current)
+      loadingWatchdogRef.current = setTimeout(() => {
+        if (!mountedRef.current) return
+        if (seq !== fetchMessagesSeqRef.current) return
+        setLoading(false)
+        setError('Laden duurt te lang. Controleer je verbinding en klik op ↻ (of herconnect).')
+      }, 20000)
+    }
 
     try {
       // Prefer join to show author name/email when FK exists.
@@ -508,6 +536,10 @@ export default function IntranetPage() {
       setMessages([])
       setRepliesByParent({})
     } finally {
+      if (loadingWatchdogRef.current) {
+        clearTimeout(loadingWatchdogRef.current)
+        loadingWatchdogRef.current = null
+      }
       if (mountedRef.current && seq === fetchMessagesSeqRef.current) setLoading(false)
     }
   }
@@ -540,6 +572,16 @@ export default function IntranetPage() {
     channelMembersRefreshTimerRef.current = setTimeout(() => {
       loadChannelMembers({ silent, channelId, uid })
     }, debounceMs)
+  }
+
+  const reconnect = async () => {
+    // Force realtime resubscribe + a visible refresh.
+    setRtNonce((n) => n + 1)
+    await fetchChannels({ silent: false })
+    if (activeChannelId) {
+      await fetchMessages({ silent: false, channelId: activeChannelId })
+      await loadChannelMembers({ silent: false, channelId: activeChannelId, uid: userId })
+    }
   }
 
   const getAccessToken = async () => {
@@ -838,9 +880,36 @@ export default function IntranetPage() {
       if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
       if (channelsRefreshTimerRef.current) clearTimeout(channelsRefreshTimerRef.current)
       if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
+
+      if (loadingWatchdogRef.current) clearTimeout(loadingWatchdogRef.current)
+      if (channelMembersLoadingWatchdogRef.current) clearTimeout(channelMembersLoadingWatchdogRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return
+      scheduleFetchChannels({ silent: true, debounceMs: 0 })
+      scheduleFetchMessages(activeChannelId, { silent: true, debounceMs: 0 })
+      scheduleLoadChannelMembers(activeChannelId, userId, { silent: true, debounceMs: 0 })
+    }
+
+    const onOnline = () => {
+      scheduleFetchChannels({ silent: true, debounceMs: 0 })
+      scheduleFetchMessages(activeChannelId, { silent: true, debounceMs: 0 })
+      scheduleLoadChannelMembers(activeChannelId, userId, { silent: true, debounceMs: 0 })
+    }
+
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility)
+    if (typeof window !== 'undefined') window.addEventListener('online', onOnline)
+
+    return () => {
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility)
+      if (typeof window !== 'undefined') window.removeEventListener('online', onOnline)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId, userId])
 
   useEffect(() => {
     if (!activeChannelId) return
@@ -849,10 +918,18 @@ export default function IntranetPage() {
     }
     if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
     if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
-    fetchMessages({ channelId: activeChannelId })
-    loadChannelMembers({ channelId: activeChannelId })
+
+    // Avoid showing threads from the previous channel.
+    setSelectedThreadId(null)
+    setReplyingTo(null)
+    setMessages([])
+    setRepliesByParent({})
+    setLoading(true)
+
+    fetchMessages({ channelId: activeChannelId, silent: false })
+    loadChannelMembers({ channelId: activeChannelId, uid: userId, silent: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChannelId, userId])
+  }, [activeChannelId])
 
   useEffect(() => {
     if (!userId) {
@@ -900,7 +977,7 @@ export default function IntranetPage() {
       if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChannelId])
+  }, [activeChannelId, userId, rtNonce])
 
   const canPostAnnouncement = Boolean(userId) && Boolean(activeChannelId) && (
     !activeChannel?.announcements_only || isAdmin
@@ -1095,7 +1172,7 @@ export default function IntranetPage() {
         <div className="p-2 flex-1 overflow-auto">
           {!activeChannelId ? (
             <div className="text-sm opacity-70 p-2">Selecteer eerst een kanaal.</div>
-          ) : loading ? (
+          ) : loading && posts.length === 0 ? (
             <div className="text-sm opacity-70 p-2">Laden…</div>
           ) : posts.length === 0 ? (
             <div className="text-sm opacity-70 p-2">Nog geen threads.</div>
@@ -1217,14 +1294,25 @@ export default function IntranetPage() {
             </div>
           )}
 
-          {error && <div className="mb-4 text-sm text-red-700 dark:text-red-300">{error}</div>}
+          {error && (
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="text-sm text-red-700 dark:text-red-300">{error}</div>
+              <button
+                type="button"
+                onClick={reconnect}
+                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Herconnect
+              </button>
+            </div>
+          )}
 
           {!activeChannelId ? (
             <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
               <div className="font-semibold">Selecteer een kanaal</div>
               <div className="text-sm opacity-80">Kies links een kanaal om threads te zien.</div>
             </div>
-          ) : loading ? (
+          ) : loading && posts.length === 0 ? (
             <div className="text-sm opacity-70">Laden…</div>
           ) : !selectedThread ? (
             <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3 sm:p-4">
@@ -1539,7 +1627,7 @@ export default function IntranetPage() {
             <div className="text-sm opacity-70">Selecteer eerst een kanaal.</div>
           ) : !userId ? (
             <div className="text-sm opacity-70">Log in om leden te zien.</div>
-          ) : channelMembersLoading ? (
+          ) : channelMembersLoading && channelMembers.length === 0 ? (
             <div className="text-sm opacity-70">Laden…</div>
           ) : channelMembers.length === 0 ? (
             <div className="text-sm opacity-70">Geen leden (of geen toegang).</div>
@@ -1644,7 +1732,7 @@ export default function IntranetPage() {
               <div className="p-2">
                 {!activeChannelId ? (
                   <div className="text-sm opacity-70 p-2">Selecteer eerst een kanaal.</div>
-                ) : loading ? (
+                ) : loading && posts.length === 0 ? (
                   <div className="text-sm opacity-70 p-2">Laden…</div>
                 ) : posts.length === 0 ? (
                   <div className="text-sm opacity-70 p-2">Nog geen threads.</div>
