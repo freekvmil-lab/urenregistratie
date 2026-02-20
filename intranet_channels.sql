@@ -129,12 +129,10 @@ on public.intranet_channel_members
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.intranet_channel_members mine
-    where mine.channel_id = intranet_channel_members.channel_id
-      and mine.member_id = auth.uid()
-  )
+  -- IMPORTANT: don't reference intranet_channel_members in a subquery here,
+  -- otherwise Postgres/Supabase can detect infinite recursion in RLS evaluation.
+  -- Admin can see all memberships; users can see only their own membership rows.
+  (member_id = auth.uid())
   or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
 );
 
