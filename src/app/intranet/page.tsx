@@ -108,6 +108,18 @@ export default function IntranetPage() {
   const replyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const fetchMessagesSeqRef = useRef(0)
+  const fetchChannelsSeqRef = useRef(0)
+  const loadChannelMembersSeqRef = useRef(0)
+
+  const lastMessagesFetchAtRef = useRef<number>(0)
+  const lastChannelsFetchAtRef = useRef<number>(0)
+  const lastChannelMembersFetchAtRef = useRef<number>(0)
+
+  const messagesRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const channelsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const channelMembersRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const activeChannel = useMemo(
     () => channels.find((c) => c.id === activeChannelId) ?? null,
     [channels, activeChannelId]
@@ -185,24 +197,36 @@ export default function IntranetPage() {
     }, 1800)
   }
 
-  const loadChannelMembers = async () => {
-    if (!activeChannelId || !userId) {
+  const loadChannelMembers = async (opts?: { silent?: boolean; channelId?: string | null; uid?: string | null }) => {
+    const silent = Boolean(opts?.silent)
+    const channelId = opts?.channelId ?? activeChannelId
+    const uid = opts?.uid ?? userId
+
+    const seq = ++loadChannelMembersSeqRef.current
+
+    if (!channelId || !uid) {
+      if (seq !== loadChannelMembersSeqRef.current) return
       setChannelMembers([])
+      setChannelMembersLoading(false)
       return
     }
 
-    setChannelMembersLoading(true)
+    if (!silent) setChannelMembersLoading(true)
     try {
       const { data, error } = await supabase.rpc('intranet_list_channel_members', {
-        p_channel_id: activeChannelId,
+        p_channel_id: channelId,
       })
       if (error) throw error
+      if (seq !== loadChannelMembersSeqRef.current) return
       setChannelMembers((data ?? []) as ChannelMemberListItem[])
+      lastChannelMembersFetchAtRef.current = Date.now()
     } catch (e: any) {
       console.warn('loadChannelMembers failed', e)
+      if (silent) return
+      if (seq !== loadChannelMembersSeqRef.current) return
       setChannelMembers([])
     } finally {
-      setChannelMembersLoading(false)
+      if (seq === loadChannelMembersSeqRef.current) setChannelMembersLoading(false)
     }
   }
 
@@ -221,8 +245,10 @@ export default function IntranetPage() {
     setIsAdmin(profile?.role === 'admin')
   }
 
-  const fetchChannels = async () => {
-    setError(null)
+  const fetchChannels = async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent)
+    const seq = ++fetchChannelsSeqRef.current
+    if (!silent) setError(null)
     try {
       const { data, error } = await supabase
         .from('intranet_channels')
@@ -241,7 +267,9 @@ export default function IntranetPage() {
       })) as IntranetChannel[]
 
       if (!mountedRef.current) return
+      if (seq !== fetchChannelsSeqRef.current) return
       setChannels(list)
+      lastChannelsFetchAtRef.current = Date.now()
 
       const stored = typeof window !== 'undefined' ? window.localStorage.getItem('intranet.activeChannelId') : null
       const preferred = stored && list.some((x) => x.id === stored) ? stored : null
@@ -249,12 +277,10 @@ export default function IntranetPage() {
       const next = activeChannelId && list.some((x) => x.id === activeChannelId) ? activeChannelId : (preferred ?? fallback)
       if (next && next !== activeChannelId) setActiveChannelId(next)
     } catch (e: any) {
+      if (silent) return
+      if (seq !== fetchChannelsSeqRef.current) return
       const msg = String(e?.message ?? 'Kanalen laden mislukt')
-      setError(
-        msg.includes('intranet_channels')
-          ? `${msg}. Heb je intranet_channels.sql al uitgevoerd in Supabase?`
-          : msg
-      )
+      setError(msg.includes('intranet_channels') ? `${msg}. Heb je intranet_channels.sql al uitgevoerd in Supabase?` : msg)
       // Keep existing channels in UI on transient errors.
     }
   }
@@ -352,16 +378,21 @@ export default function IntranetPage() {
     }
   }
 
-  const fetchMessages = async () => {
-    if (!activeChannelId) {
+  const fetchMessages = async (opts?: { silent?: boolean; channelId?: string | null }) => {
+    const silent = Boolean(opts?.silent)
+    const channelId = opts?.channelId ?? activeChannelId
+    const seq = ++fetchMessagesSeqRef.current
+
+    if (!channelId) {
+      if (seq !== fetchMessagesSeqRef.current) return
       setMessages([])
       setRepliesByParent({})
       setLoading(false)
       return
     }
 
-    setError(null)
-    setLoading(true)
+    if (!silent) setError(null)
+    if (!silent) setLoading(true)
 
     try {
       // Prefer join to show author name/email when FK exists.
@@ -374,7 +405,7 @@ export default function IntranetPage() {
       const resTop = await supabase
         .from('intranet_messages')
         .select(baseSelect)
-        .eq('channel_id', activeChannelId)
+        .eq('channel_id', channelId)
         .is('parent_id', null)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -387,7 +418,7 @@ export default function IntranetPage() {
         const resTop2 = await supabase
           .from('intranet_messages')
           .select('id, channel_id, parent_id, author_id, body, created_at')
-          .eq('channel_id', activeChannelId)
+          .eq('channel_id', channelId)
           .is('parent_id', null)
           .order('created_at', { ascending: false })
           .limit(50)
@@ -399,7 +430,7 @@ export default function IntranetPage() {
 
       const topMsgs = (top ?? []).map((r: any) => ({
         id: String(r.id),
-        channel_id: String(r.channel_id ?? activeChannelId),
+        channel_id: String(r.channel_id ?? channelId),
         parent_id: r.parent_id ? String(r.parent_id) : null,
         reply_to_id: r.reply_to_id ? String(r.reply_to_id) : null,
         author_id: String(r.author_id),
@@ -415,7 +446,7 @@ export default function IntranetPage() {
         const resReplies = await supabase
           .from('intranet_messages')
           .select(baseSelect)
-          .eq('channel_id', activeChannelId)
+          .eq('channel_id', channelId)
           .in('parent_id', parentIds)
           .order('created_at', { ascending: true })
 
@@ -423,7 +454,7 @@ export default function IntranetPage() {
           const resReplies2 = await supabase
             .from('intranet_messages')
             .select('id, channel_id, parent_id, author_id, body, created_at')
-            .eq('channel_id', activeChannelId)
+            .eq('channel_id', channelId)
             .in('parent_id', parentIds)
             .order('created_at', { ascending: true })
 
@@ -436,7 +467,7 @@ export default function IntranetPage() {
 
       const replyMsgs = replies.map((r: any) => ({
         id: String(r.id),
-        channel_id: String(r.channel_id ?? activeChannelId),
+        channel_id: String(r.channel_id ?? channelId),
         parent_id: r.parent_id ? String(r.parent_id) : null,
         reply_to_id: r.reply_to_id ? String(r.reply_to_id) : null,
         author_id: String(r.author_id),
@@ -454,9 +485,20 @@ export default function IntranetPage() {
       }
 
       if (!mountedRef.current) return
+      if (seq !== fetchMessagesSeqRef.current) return
       setMessages(topMsgs)
       setRepliesByParent(grouped)
+      setError(null)
+      lastMessagesFetchAtRef.current = Date.now()
     } catch (e: any) {
+      if (!mountedRef.current) return
+      if (seq !== fetchMessagesSeqRef.current) return
+
+      if (silent) {
+        console.warn('fetchMessages failed (silent)', e)
+        return
+      }
+
       const msg = String(e?.message ?? 'Laden mislukt')
       setError(
         msg.includes('intranet_messages')
@@ -466,8 +508,38 @@ export default function IntranetPage() {
       setMessages([])
       setRepliesByParent({})
     } finally {
-      if (mountedRef.current) setLoading(false)
+      if (mountedRef.current && seq === fetchMessagesSeqRef.current) setLoading(false)
     }
+  }
+
+  const scheduleFetchMessages = (channelId: string | null, opts?: { silent?: boolean; debounceMs?: number }) => {
+    const silent = opts?.silent ?? true
+    const debounceMs = opts?.debounceMs ?? 250
+    if (Date.now() - lastMessagesFetchAtRef.current < 400) return
+    if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
+    messagesRefreshTimerRef.current = setTimeout(() => {
+      fetchMessages({ silent, channelId })
+    }, debounceMs)
+  }
+
+  const scheduleFetchChannels = (opts?: { silent?: boolean; debounceMs?: number }) => {
+    const silent = opts?.silent ?? true
+    const debounceMs = opts?.debounceMs ?? 350
+    if (Date.now() - lastChannelsFetchAtRef.current < 500) return
+    if (channelsRefreshTimerRef.current) clearTimeout(channelsRefreshTimerRef.current)
+    channelsRefreshTimerRef.current = setTimeout(() => {
+      fetchChannels({ silent })
+    }, debounceMs)
+  }
+
+  const scheduleLoadChannelMembers = (channelId: string | null, uid: string | null, opts?: { silent?: boolean; debounceMs?: number }) => {
+    const silent = opts?.silent ?? true
+    const debounceMs = opts?.debounceMs ?? 350
+    if (Date.now() - lastChannelMembersFetchAtRef.current < 500) return
+    if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
+    channelMembersRefreshTimerRef.current = setTimeout(() => {
+      loadChannelMembers({ silent, channelId, uid })
+    }, debounceMs)
   }
 
   const getAccessToken = async () => {
@@ -762,6 +834,10 @@ export default function IntranetPage() {
     return () => {
       mountedRef.current = false
       authSub?.subscription?.unsubscribe()
+
+      if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
+      if (channelsRefreshTimerRef.current) clearTimeout(channelsRefreshTimerRef.current)
+      if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -771,17 +847,19 @@ export default function IntranetPage() {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('intranet.activeChannelId', activeChannelId)
     }
-    fetchMessages()
-    loadChannelMembers()
+    if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
+    if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
+    fetchMessages({ channelId: activeChannelId })
+    loadChannelMembers({ channelId: activeChannelId })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChannelId])
+  }, [activeChannelId, userId])
 
   useEffect(() => {
     if (!userId) {
       setChannelMembers([])
       return
     }
-    if (activeChannelId) loadChannelMembers()
+    if (activeChannelId) loadChannelMembers({ channelId: activeChannelId, uid: userId, silent: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
@@ -794,28 +872,32 @@ export default function IntranetPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'intranet_messages', filter: `channel_id=eq.${activeChannelId}` },
         () => {
-          fetchMessages()
+          scheduleFetchMessages(activeChannelId, { silent: true })
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'intranet_channels' },
         () => {
-          fetchChannels()
+          scheduleFetchChannels({ silent: true })
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'intranet_channel_members' },
         () => {
-          fetchChannels()
-          loadChannelMembers()
+          scheduleFetchChannels({ silent: true })
+          scheduleLoadChannelMembers(activeChannelId, userId, { silent: true })
         }
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(rt)
+
+      if (messagesRefreshTimerRef.current) clearTimeout(messagesRefreshTimerRef.current)
+      if (channelsRefreshTimerRef.current) clearTimeout(channelsRefreshTimerRef.current)
+      if (channelMembersRefreshTimerRef.current) clearTimeout(channelMembersRefreshTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChannelId])
@@ -933,7 +1015,7 @@ export default function IntranetPage() {
               </button>
             )}
             <button
-              onClick={fetchChannels}
+              onClick={() => fetchChannels()}
               className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
               title="Kanalen verversen"
             >
@@ -1000,7 +1082,7 @@ export default function IntranetPage() {
               +
             </button>
             <button
-              onClick={fetchMessages}
+              onClick={() => fetchMessages({ channelId: activeChannelId })}
               disabled={!activeChannelId}
               className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
               title="Threads verversen"
@@ -1087,7 +1169,7 @@ export default function IntranetPage() {
                 Kanalen / threads
               </button>
               <button
-                onClick={fetchMessages}
+                onClick={() => fetchMessages({ channelId: activeChannelId })}
                 disabled={!activeChannelId}
                 className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
                 title="Threads verversen"
@@ -1431,7 +1513,7 @@ export default function IntranetPage() {
           <div className="font-bold truncate">Leden</div>
           <div className="flex items-center gap-2">
             <button
-              onClick={loadChannelMembers}
+              onClick={() => loadChannelMembers({ channelId: activeChannelId, uid: userId })}
               disabled={channelMembersLoading}
               className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
             >
@@ -1549,7 +1631,7 @@ export default function IntranetPage() {
                     +
                   </button>
                   <button
-                    onClick={fetchMessages}
+                    onClick={() => fetchMessages({ channelId: activeChannelId })}
                     disabled={!activeChannelId}
                     className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
                     title="Threads verversen"
