@@ -78,6 +78,8 @@ export default function IntranetPage() {
   const [channels, setChannels] = useState<IntranetChannel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [channelMembersLoading, setChannelMembersLoading] = useState(false)
   const [channelMembers, setChannelMembers] = useState<ChannelMemberListItem[]>([])
@@ -885,9 +887,9 @@ export default function IntranetPage() {
   )
 
   return (
-    <div className="h-[calc(100vh-56px)] sm:h-[calc(100vh-72px)] flex bg-white dark:bg-black/30 text-gray-900 dark:text-gray-100">
+    <div className="h-[calc(100dvh-56px)] sm:h-[calc(100dvh-72px)] flex bg-white dark:bg-black/30 text-gray-900 dark:text-gray-100">
       {/* Channels sidebar */}
-      <aside className="w-72 border-r border-orange-200/60 dark:border-orange-500/30 flex flex-col min-w-0">
+      <aside className="w-72 border-r border-orange-200/60 dark:border-orange-500/30 hidden lg:flex flex-col min-w-0">
         <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
           <div className="font-bold truncate">Intranet</div>
           <div className="flex items-center gap-2">
@@ -1044,8 +1046,24 @@ export default function IntranetPage() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-start justify-between gap-3">
+        <div className="p-2 sm:p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-start justify-between gap-3">
           <div className="min-w-0">
+            <div className="lg:hidden mb-2 flex items-center gap-2">
+              <button
+                onClick={() => setMobileNavOpen(true)}
+                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Kanalen / threads
+              </button>
+              <button
+                onClick={fetchMessages}
+                disabled={!activeChannelId}
+                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+                title="Threads verversen"
+              >
+                ↻
+              </button>
+            </div>
             <div className="text-lg font-bold truncate">
               {activeChannel ? `#${activeChannel.name}` : 'Selecteer een kanaal'}
             </div>
@@ -1078,7 +1096,7 @@ export default function IntranetPage() {
           )}
         </div>
 
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-2 sm:p-4">
           {!userId && (
             <div className="mb-4 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
               <div className="font-semibold">Niet ingelogd</div>
@@ -1312,6 +1330,153 @@ export default function IntranetPage() {
           )}
         </div>
       </aside>
+
+      {/* Mobile drawer: channels + threads */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileNavOpen(false)} />
+          <div className="absolute left-0 top-0 h-[100dvh] w-[92vw] max-w-sm bg-white dark:bg-gray-900 border-r border-orange-200/60 dark:border-orange-500/30 shadow-xl flex flex-col">
+            <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
+              <div className="font-bold truncate">Intranet</div>
+              <button
+                onClick={() => setMobileNavOpen(false)}
+                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Sluiten
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              <div className="p-2">
+                <div className="text-xs font-semibold opacity-70 px-2 mb-1">Kanalen</div>
+                {channels.length === 0 ? (
+                  <div className="text-sm opacity-70 p-2">Geen kanalen (of geen toegang).</div>
+                ) : (
+                  <div className="space-y-1">
+                    {channels.map((c) => {
+                      const active = c.id === activeChannelId
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setActiveChannelId(c.id)
+                            setSelectedThreadId(null)
+                            setMobileNavOpen(false)
+                          }}
+                          className={
+                            'w-full text-left px-3 py-2 rounded border ' +
+                            (active
+                              ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
+                              : 'border-transparent hover:bg-orange-50 dark:hover:bg-white/5')
+                          }
+                          title={c.description ?? undefined}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="truncate">#{c.name}</div>
+                            {c.is_private && <span className="text-[10px] opacity-70">privé</span>}
+                          </div>
+                          {c.description && <div className="text-xs opacity-70 truncate">{c.description}</div>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-3 py-2 border-t border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
+                <div className="font-semibold text-sm truncate">Threads</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (!canStartThread) return
+                      setNewPost('')
+                      setNewThreadOpen(true)
+                    }}
+                    disabled={!canStartThread}
+                    className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+                    title={!activeChannelId ? 'Selecteer eerst een kanaal' : !userId ? 'Log in om een thread te starten' : 'Nieuwe thread'}
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={fetchMessages}
+                    disabled={!activeChannelId}
+                    className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+                    title="Threads verversen"
+                  >
+                    ↻
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-2">
+                {!activeChannelId ? (
+                  <div className="text-sm opacity-70 p-2">Selecteer eerst een kanaal.</div>
+                ) : loading ? (
+                  <div className="text-sm opacity-70 p-2">Laden…</div>
+                ) : posts.length === 0 ? (
+                  <div className="text-sm opacity-70 p-2">Nog geen threads.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {posts.map((t) => {
+                      const selected = t.id === selectedThreadId
+                      const replies = repliesByParent[t.id] ?? []
+                      const preview = String(t.body ?? '').split('\n')[0] || '(leeg)'
+                      const authorLabel = t.author?.name || t.author?.email || t.author_id
+                      return (
+                        <div
+                          key={t.id}
+                          className={
+                            'w-full rounded border flex items-stretch gap-1 ' +
+                            (selected
+                              ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
+                              : 'border-transparent hover:bg-orange-50 dark:hover:bg-white/5')
+                          }
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedThreadId(t.id)
+                              setReplyingTo(null)
+                              setMobileNavOpen(false)
+                            }}
+                            className="flex-1 min-w-0 text-left px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs opacity-70 truncate">{authorLabel}</div>
+                              <div className="text-[10px] opacity-60 shrink-0">{replies.length}</div>
+                            </div>
+                            <div className="text-sm font-semibold truncate">{preview}</div>
+                            <div className="text-[10px] opacity-60 truncate">{formatDateTime(t.created_at)}</div>
+                          </button>
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                await deleteMessage(t.id)
+                                setReplyingTo(null)
+                                setSelectedThreadId((prev) => (prev === t.id ? null : prev))
+                              }}
+                              className="px-2 text-xs opacity-70 hover:opacity-100 hover:text-red-700"
+                              title="Thread verwijderen"
+                              aria-label="Thread verwijderen"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Channel modal */}
       {channelModalOpen && (
