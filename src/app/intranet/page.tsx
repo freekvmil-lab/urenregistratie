@@ -1192,10 +1192,12 @@ export default function IntranetPage() {
                   <select
                     value={profilePickId}
                     onChange={(e) => setProfilePickId(e.target.value)}
-                    className="flex-1 bg-transparent border rounded px-2 py-2"
+                    className="flex-1 rounded border px-3 py-2 bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100 border-orange-200/60 dark:border-orange-500/30"
                     disabled={profilesLoading}
                   >
-                    <option value="">Kies een medewerker…</option>
+                    <option value="" className="bg-white text-gray-500 dark:bg-gray-950 dark:text-gray-400">
+                      Kies een medewerker…
+                    </option>
                     {availableProfiles.map((p) => {
                       const label = p.name || p.email || p.id
                       return (
