@@ -66,6 +66,7 @@ export default function IntranetPage() {
 
   const [newPost, setNewPost] = useState('')
   const [posting, setPosting] = useState(false)
+  const [newThreadOpen, setNewThreadOpen] = useState(false)
 
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -718,9 +719,9 @@ export default function IntranetPage() {
   )
 
   const postAnnouncement = async () => {
-    if (!canPostAnnouncement) return
+    if (!canPostAnnouncement) return false
     const body = newPost.trim()
-    if (!body) return
+    if (!body) return false
 
     setPosting(true)
     setError(null)
@@ -736,8 +737,10 @@ export default function IntranetPage() {
 
       setNewPost('')
       await fetchMessages()
+      return true
     } catch (e: any) {
       setError(String(e?.message ?? 'Plaatsen mislukt'))
+      return false
     } finally {
       setPosting(false)
     }
@@ -860,14 +863,36 @@ export default function IntranetPage() {
 
         <div className="px-3 py-2 border-t border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
           <div className="font-semibold text-sm truncate">Threads</div>
-          <button
-            onClick={fetchMessages}
-            disabled={!activeChannelId}
-            className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-            title="Threads verversen"
-          >
-            ↻
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (!canStartThread) return
+                setNewPost('')
+                setNewThreadOpen(true)
+              }}
+              disabled={!canStartThread}
+              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+              title={
+                !activeChannelId
+                  ? 'Selecteer eerst een kanaal'
+                  : !userId
+                    ? 'Log in om een thread te starten'
+                    : activeChannel?.announcements_only && !isAdmin
+                      ? 'Alleen admin kan in dit kanaal threads starten'
+                      : 'Nieuwe thread'
+              }
+            >
+              +
+            </button>
+            <button
+              onClick={fetchMessages}
+              disabled={!activeChannelId}
+              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+              title="Threads verversen"
+            >
+              ↻
+            </button>
+          </div>
         </div>
 
         <div className="p-2 flex-1 overflow-auto">
@@ -957,34 +982,6 @@ export default function IntranetPage() {
           )}
 
           {error && <div className="mb-4 text-sm text-red-700 dark:text-red-300">{error}</div>}
-
-          {canStartThread && (
-            <div className="mb-4 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
-              <div className="font-semibold mb-2">Nieuw topic</div>
-              <textarea
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                rows={3}
-                className="w-full rounded border px-3 py-2 bg-transparent"
-                placeholder={activeChannel?.announcements_only ? 'Schrijf een update…' : 'Schrijf een bericht…'}
-              />
-              <div className="mt-2 flex items-center gap-3">
-                <button
-                  onClick={postAnnouncement}
-                  disabled={posting || !newPost.trim()}
-                  className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {posting ? 'Plaatsen…' : 'Plaatsen'}
-                </button>
-                <button
-                  onClick={fetchMessages}
-                  className="text-sm text-orange-700 hover:text-orange-900 dark:text-orange-300 dark:hover:text-orange-200"
-                >
-                  Verversen
-                </button>
-              </div>
-            </div>
-          )}
 
           {!activeChannelId ? (
             <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
@@ -1218,6 +1215,63 @@ export default function IntranetPage() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New thread modal */}
+      {newThreadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setNewThreadOpen(false)
+              setNewPost('')
+            }}
+          />
+          <div className="relative w-full max-w-2xl rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-gray-900 shadow-xl">
+            <div className="p-4 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-3">
+              <div className="font-bold truncate">Nieuw topic {activeChannel ? `(#${activeChannel.name})` : ''}</div>
+              <button
+                onClick={() => {
+                  setNewThreadOpen(false)
+                  setNewPost('')
+                }}
+                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Sluiten
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {!canStartThread ? (
+                <div className="text-sm text-red-700 dark:text-red-300">
+                  Je mag in dit kanaal geen nieuwe threads starten.
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={newPost}
+                    onChange={(e) => setNewPost(e.target.value)}
+                    rows={6}
+                    className="w-full rounded border px-3 py-2 bg-transparent"
+                    placeholder={activeChannel?.announcements_only ? 'Schrijf een update…' : 'Schrijf een bericht…'}
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs opacity-70">Tip: de eerste regel wordt gebruikt als preview.</div>
+                    <button
+                      onClick={async () => {
+                        const ok = await postAnnouncement()
+                        if (ok) setNewThreadOpen(false)
+                      }}
+                      disabled={posting || !newPost.trim()}
+                      className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                    >
+                      {posting ? 'Plaatsen…' : 'Plaatsen'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
