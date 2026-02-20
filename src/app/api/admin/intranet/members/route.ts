@@ -75,6 +75,68 @@ type Body = {
   member_id?: string
 }
 
+export async function GET(req: Request) {
+  try {
+    const auth = await requireAdmin(req)
+    if (!auth.ok) return auth.res
+
+    const url = new URL(req.url)
+    const channel_id = String(url.searchParams.get('channel_id') ?? '').trim()
+    if (!channel_id) {
+      return NextResponse.json({ error: 'missing_channel_id' }, { status: 400 })
+    }
+
+    const { data: members, error: membersError } = await auth.supabase
+      .from('intranet_channel_members')
+      .select('member_id, created_at')
+      .eq('channel_id', channel_id)
+
+    if (membersError) {
+      return NextResponse.json({ error: 'members_query_failed', details: membersError.message }, { status: 400 })
+    }
+
+    const ids = (members ?? []).map((m: any) => String(m.member_id)).filter(Boolean)
+    let profiles: any[] = []
+    if (ids.length > 0) {
+      const { data: profs, error: profError } = await auth.supabase
+        .from('profiles')
+        .select('id, name, email, role, deleted_at')
+        .in('id', ids)
+
+      if (profError) {
+        return NextResponse.json({ error: 'profiles_query_failed', details: profError.message }, { status: 400 })
+      }
+      profiles = profs ?? []
+    }
+
+    const byId = new Map<string, any>(profiles.map((p: any) => [String(p.id), p]))
+    const result = (members ?? []).map((m: any) => {
+      const pid = String(m.member_id)
+      const p = byId.get(pid) ?? null
+      return {
+        member_id: pid,
+        created_at: String(m.created_at ?? ''),
+        profile: p
+          ? {
+              id: String(p.id),
+              name: p.name === null || p.name === undefined ? null : String(p.name),
+              email: p.email === null || p.email === undefined ? null : String(p.email),
+              role: String(p.role ?? 'employee'),
+              deleted_at: p.deleted_at === null || p.deleted_at === undefined ? null : String(p.deleted_at),
+            }
+          : null,
+      }
+    })
+
+    return NextResponse.json({ ok: true, members: result })
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: 'unexpected_error', details: String(err?.message ?? err) },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requireAdmin(req)
