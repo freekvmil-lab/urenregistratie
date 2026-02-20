@@ -904,14 +904,12 @@ export default function IntranetPage() {
         <div className="flex-1 overflow-auto p-4">
           {!userId && (
             <div className="mb-4 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
-            <div className="font-semibold">Niet ingelogd</div>
-            <div className="text-sm opacity-80">Log in om te reageren.</div>
+              <div className="font-semibold">Niet ingelogd</div>
+              <div className="text-sm opacity-80">Log in om te reageren.</div>
             </div>
           )}
 
-          {error && (
-            <div className="mb-4 text-sm text-red-700 dark:text-red-300">{error}</div>
-          )}
+          {error && <div className="mb-4 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
           {canStartThread && (
             <div className="mb-4 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
@@ -920,239 +918,244 @@ export default function IntranetPage() {
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 rows={3}
-                  <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setRightTab('thread')}
-                        className={
-                          'text-sm px-2 py-1 rounded border ' +
-                          (rightTab === 'thread'
-                            ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
-                            : 'border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5')
-                        }
-                      >
-                        Thread
-                      </button>
-                      <button
-                        onClick={() => setRightTab('members')}
-                        className={
-                          'text-sm px-2 py-1 rounded border ' +
-                          (rightTab === 'members'
-                            ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
-                            : 'border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5')
-                        }
-                      >
-                        Leden
-                      </button>
-                    </div>
+                className="w-full rounded border px-3 py-2 bg-transparent"
+                placeholder={activeChannel?.announcements_only ? 'Schrijf een update…' : 'Schrijf een bericht…'}
+              />
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  onClick={postAnnouncement}
+                  disabled={posting || !newPost.trim()}
+                  className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {posting ? 'Plaatsen…' : 'Plaatsen'}
+                </button>
+                <button
+                  onClick={fetchMessages}
+                  className="text-sm text-orange-700 hover:text-orange-900 dark:text-orange-300 dark:hover:text-orange-200"
+                >
+                  Verversen
+                </button>
+              </div>
+            </div>
+          )}
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={loadChannelMembers}
-                        disabled={channelMembersLoading}
-                        className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+          {loading ? (
+            <div className="text-sm opacity-70">Laden…</div>
+          ) : !activeChannelId ? (
+            <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
+              <div className="font-semibold">Selecteer een kanaal</div>
+              <div className="text-sm opacity-80">Kies links een kanaal om berichten te zien.</div>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
+              <div className="font-semibold">Nog geen berichten</div>
+              <div className="text-sm opacity-80">Start een eerste topic in dit kanaal.</div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {posts.map((p) => {
+                const replies = repliesByParent[p.id] ?? []
+                const authorLabel = p.author?.name || p.author?.email || p.author_id
+                const selected = p.id === selectedThreadId
+
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedThreadId(p.id)
+                      setReplyingTo(null)
+                    }}
+                    className={
+                      'w-full text-left rounded border p-4 ' +
+                      (selected
+                        ? 'border-orange-400/70 dark:border-orange-400/40 bg-orange-50/60 dark:bg-white/5'
+                        : 'border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 hover:bg-orange-50/40 dark:hover:bg-white/5')
+                    }
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm opacity-80">{formatDateTime(p.created_at)}</div>
+                        <div className="font-semibold truncate">{authorLabel}</div>
+                      </div>
+                      <div className="text-sm opacity-70 shrink-0">{replies.length} reacties</div>
+                    </div>
+                    <div className="mt-2 text-sm whitespace-pre-wrap line-clamp-3">{p.body}</div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Right panel */}
+      <aside className="w-[420px] border-l border-orange-200/60 dark:border-orange-500/30 hidden lg:flex flex-col min-w-0">
+        <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRightTab('thread')}
+              className={
+                'text-sm px-2 py-1 rounded border ' +
+                (rightTab === 'thread'
+                  ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
+                  : 'border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5')
+              }
+            >
+              Thread
+            </button>
+            <button
+              onClick={() => setRightTab('members')}
+              className={
+                'text-sm px-2 py-1 rounded border ' +
+                (rightTab === 'members'
+                  ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
+                  : 'border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5')
+              }
+            >
+              Leden
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadChannelMembers}
+              disabled={channelMembersLoading}
+              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+            >
+              {channelMembersLoading ? 'Laden…' : 'Ververs'}
+            </button>
+            {isAdmin && activeChannel && (
+              <button
+                onClick={() => {
+                  setMembersOpen(true)
+                  loadMembers()
+                  loadProfilesAlphabetical()
+                }}
+                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+              >
+                Beheren
+              </button>
+            )}
+          </div>
+        </div>
+
+        {rightTab === 'thread' ? (
+          selectedThread ? (
+            <>
+              <div className="flex-1 overflow-auto p-3">
+                <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
+                  <div className="text-xs opacity-70">{formatDateTime(selectedThread.created_at)}</div>
+                  <div className="mt-1 whitespace-pre-wrap text-sm">{selectedThread.body}</div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {selectedThreadReplies.map((r) => {
+                    const replyAuthor = r.author?.name || r.author?.email || r.author_id
+                    return (
+                      <div
+                        key={r.id}
+                        className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3"
                       >
-                        {channelMembersLoading ? 'Laden…' : 'Ververs'}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs opacity-80">{formatDateTime(r.created_at)}</div>
+                            <div className="text-sm font-semibold">{replyAuthor}</div>
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                deleteMessage(r.id)
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              Verwijder
+                            </button>
+                          )}
+                        </div>
+                        <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="p-3 border-t border-orange-200/60 dark:border-orange-500/30">
+                {userId ? (
+                  <>
+                    <textarea
+                      value={replyDrafts[selectedThread.id] ?? ''}
+                      onChange={(e) =>
+                        setReplyDrafts((prev) => ({
+                          ...prev,
+                          [selectedThread.id]: e.target.value,
+                        }))
+                      }
+                      rows={2}
+                      className="w-full rounded border px-3 py-2 bg-transparent"
+                      placeholder="Schrijf een reactie…"
+                    />
+                    <div className="mt-2 flex items-center gap-3">
+                      <button
+                        onClick={() => sendReply(selectedThread.id)}
+                        disabled={sendingReplyId === selectedThread.id || !(replyDrafts[selectedThread.id] ?? '').trim()}
+                        className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                      >
+                        {sendingReplyId === selectedThread.id ? 'Versturen…' : 'Verstuur'}
                       </button>
-                      {isAdmin && activeChannel && (
+                      <button
+                        onClick={() => setSelectedThreadId(null)}
+                        className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                      >
+                        Sluiten
+                      </button>
+                      {isAdmin && (
                         <button
-                          onClick={() => {
-                            setMembersOpen(true)
-                            loadMembers()
-                            loadProfilesAlphabetical()
-                          }}
-                          className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                          onClick={() => deleteMessage(selectedThread.id)}
+                          className="text-sm text-red-600 hover:text-red-800"
                         >
-                          Beheren
+                          Verwijder topic
                         </button>
                       )}
                     </div>
-                  </div>
-
-                  {rightTab === 'thread' ? (
-                    selectedThread ? (
-                      <>
-                        <div className="flex-1 overflow-auto p-3">
-                          <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
-                            <div className="text-xs opacity-70">{formatDateTime(selectedThread.created_at)}</div>
-                            <div className="mt-1 whitespace-pre-wrap text-sm">{selectedThread.body}</div>
-                          </div>
-
-                          <div className="mt-3 space-y-2">
-                            {selectedThreadReplies.map((r) => {
-                              const replyAuthor = r.author?.name || r.author?.email || r.author_id
-                              return (
-                                <div
-                                  key={r.id}
-                                  className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <div className="text-xs opacity-80">{formatDateTime(r.created_at)}</div>
-                                      <div className="text-sm font-semibold">{replyAuthor}</div>
-                                    </div>
-                                    {isAdmin && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.preventDefault()
-                                          e.stopPropagation()
-                                          deleteMessage(r.id)
-                                        }}
-                                        className="text-xs text-red-600 hover:text-red-800"
-                                      >
-                                        Verwijder
-                                      </button>
-                                    )}
-                                  </div>
-                                  <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
-                                </div>
-                              )}
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="p-3 border-t border-orange-200/60 dark:border-orange-500/30">
-                          {userId ? (
-                            <>
-                              <textarea
-                                value={replyDrafts[selectedThread.id] ?? ''}
-                                onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [selectedThread.id]: e.target.value }))}
-                                rows={2}
-                                className="w-full rounded border px-3 py-2 bg-transparent"
-                                placeholder="Schrijf een reactie…"
-                              />
-                              <div className="mt-2 flex items-center gap-3">
-                                <button
-                                  onClick={() => sendReply(selectedThread.id)}
-                                  disabled={sendingReplyId === selectedThread.id || !(replyDrafts[selectedThread.id] ?? '').trim()}
-                                  className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
-                                >
-                                  {sendingReplyId === selectedThread.id ? 'Versturen…' : 'Verstuur'}
-                                </button>
-                                <button
-                                  onClick={() => setSelectedThreadId(null)}
-                                  className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
-                                >
-                                  Sluiten
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => deleteMessage(selectedThread.id)}
-                                    className="text-sm text-red-600 hover:text-red-800"
-                                  >
-                                    Verwijder topic
-                                  </button>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-sm opacity-70">Log in om te reageren.</div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-3 text-sm opacity-70">Selecteer een topic om de thread te openen.</div>
-                    )
-                  ) : (
-                    <div className="flex-1 overflow-auto p-3">
-                      {!activeChannelId ? (
-                        <div className="text-sm opacity-70">Selecteer eerst een kanaal.</div>
-                      ) : !userId ? (
-                        <div className="text-sm opacity-70">Log in om leden te zien.</div>
-                      ) : channelMembersLoading ? (
-                        <div className="text-sm opacity-70">Laden…</div>
-                      ) : channelMembers.length === 0 ? (
-                        <div className="text-sm opacity-70">Geen leden (of geen toegang).</div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="text-xs opacity-70">{channelMembers.length} leden</div>
-                          {channelMembers.map((m) => {
-                            const label = m.name || m.email || m.member_id
-                            return (
-                              <div
-                                key={m.member_id}
-                                className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-2"
-                              >
-                                <div className="text-sm font-semibold truncate">{label}</div>
-                                {m.email && m.name && <div className="text-xs opacity-70 truncate">{m.email}</div>}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                              e.preventDefault()
-                              e.stopPropagation()
-                              deleteMessage(r.id)
-                            }}
-                            className="text-xs text-red-600 hover:text-red-800"
-                          >
-                            Verwijder
-                          </button>
-                        )}
-                      </div>
-                      <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
+                  </>
+                ) : (
+                  <div className="text-sm opacity-70">Log in om te reageren.</div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="p-3 text-sm opacity-70">Selecteer een topic om de thread te openen.</div>
+          )
+        ) : (
+          <div className="flex-1 overflow-auto p-3">
+            {!activeChannelId ? (
+              <div className="text-sm opacity-70">Selecteer eerst een kanaal.</div>
+            ) : !userId ? (
+              <div className="text-sm opacity-70">Log in om leden te zien.</div>
+            ) : channelMembersLoading ? (
+              <div className="text-sm opacity-70">Laden…</div>
+            ) : channelMembers.length === 0 ? (
+              <div className="text-sm opacity-70">Geen leden (of geen toegang).</div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-xs opacity-70">{channelMembers.length} leden</div>
+                {channelMembers.map((m) => {
+                  const label = m.name || m.email || m.member_id
+                  return (
+                    <div
+                      key={m.member_id}
+                      className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-2"
+                    >
+                      <div className="text-sm font-semibold truncate">{label}</div>
+                      {m.email && m.name && <div className="text-xs opacity-70 truncate">{m.email}</div>}
                     </div>
                   )
                 })}
               </div>
-            </div>
-
-            <div className="p-3 border-t border-orange-200/60 dark:border-orange-500/30">
-              {userId ? (
-                <>
-                  <textarea
-                    value={replyDrafts[selectedThread.id] ?? ''}
-                    onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [selectedThread.id]: e.target.value }))}
-                    rows={2}
-                    className="w-full rounded border px-3 py-2 bg-transparent"
-                    placeholder="Schrijf een reactie…"
-                  />
-                  <div className="mt-2 flex items-center gap-3">
-                    <button
-                      onClick={() => sendReply(selectedThread.id)}
-                      disabled={sendingReplyId === selectedThread.id || !(replyDrafts[selectedThread.id] ?? '').trim()}
-                      className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
-                    >
-                      {sendingReplyId === selectedThread.id ? 'Versturen…' : 'Verstuur'}
-                    </button>
-                    {isAdmin && (
-                      <button
-                        onClick={() => deleteMessage(selectedThread.id)}
-                        className="text-sm text-red-600 hover:text-red-800"
-                      >
-                        Verwijder topic
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="text-sm opacity-70">Log in om te reageren.</div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
-              <div className="font-bold truncate">Leden</div>
-              {isAdmin && activeChannel && (
-                <button
-                  onClick={() => {
-                    setMembersOpen(true)
-                    loadMembers()
-                    loadProfilesAlphabetical()
-                  }}
-                  className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
-                >
-                  Beheren
-                </button>
-              )}
-            </div>
-            <div className="p-3 text-sm opacity-70">
-              Selecteer een topic om de thread te openen.
-            </div>
-          </>
+            )}
+          </div>
         )}
       </aside>
 
