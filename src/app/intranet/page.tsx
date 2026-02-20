@@ -21,6 +21,7 @@ type IntranetMessage = {
   id: string
   channel_id: string
   parent_id: string | null
+  reply_to_id?: string | null
   author_id: string
   body: string
   created_at: string
@@ -97,6 +98,7 @@ export default function IntranetPage() {
   const [memberMutating, setMemberMutating] = useState<string | null>(null)
 
   const mountedRef = useRef(true)
+  const replyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const activeChannel = useMemo(
     () => channels.find((c) => c.id === activeChannelId) ?? null,
@@ -112,6 +114,18 @@ export default function IntranetPage() {
     () => (selectedThreadId ? (repliesByParent[selectedThreadId] ?? []) : []),
     [repliesByParent, selectedThreadId]
   )
+
+  const replyLookup = useMemo(() => {
+    const map = new Map<string, IntranetMessage>()
+    if (selectedThread) map.set(selectedThread.id, selectedThread)
+    for (const r of selectedThreadReplies) map.set(r.id, r)
+    return map
+  }, [selectedThread, selectedThreadReplies])
+
+  const replyingToMessage = useMemo(() => {
+    if (!replyingTo) return null
+    return replyLookup.get(replyingTo) ?? null
+  }, [replyLookup, replyingTo])
 
   const loadChannelMembers = async () => {
     if (!activeChannelId || !userId) {
@@ -295,7 +309,7 @@ export default function IntranetPage() {
     try {
       // Prefer join to show author name/email when FK exists.
       const baseSelect =
-        'id, channel_id, parent_id, author_id, body, created_at, author:profiles!intranet_messages_author_id_fkey(name, email)'
+        'id, channel_id, parent_id, reply_to_id, author_id, body, created_at, author:profiles!intranet_messages_author_id_fkey(name, email)'
 
       let top: any[] | null = null
       let err: any = null
@@ -330,6 +344,7 @@ export default function IntranetPage() {
         id: String(r.id),
         channel_id: String(r.channel_id ?? activeChannelId),
         parent_id: r.parent_id ? String(r.parent_id) : null,
+        reply_to_id: r.reply_to_id ? String(r.reply_to_id) : null,
         author_id: String(r.author_id),
         body: String(r.body ?? ''),
         created_at: String(r.created_at),
@@ -366,6 +381,7 @@ export default function IntranetPage() {
         id: String(r.id),
         channel_id: String(r.channel_id ?? activeChannelId),
         parent_id: r.parent_id ? String(r.parent_id) : null,
+        reply_to_id: r.reply_to_id ? String(r.reply_to_id) : null,
         author_id: String(r.author_id),
         body: String(r.body ?? ''),
         created_at: String(r.created_at),
@@ -764,12 +780,21 @@ export default function IntranetPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.from('intranet_messages').insert({
+      const replyToId = replyingTo && replyingTo !== parentId ? replyingTo : null
+      const payload: any = {
         channel_id: activeChannelId,
         parent_id: parentId,
         author_id: userId,
         body,
-      })
+      }
+      if (replyToId) payload.reply_to_id = replyToId
+
+      let { error } = await supabase.from('intranet_messages').insert(payload)
+      if (error && String(error?.message ?? '').toLowerCase().includes('reply_to_id')) {
+        // Backward compat if SQL migration hasn't been applied yet.
+        delete payload.reply_to_id
+        ;({ error } = await supabase.from('intranet_messages').insert(payload))
+      }
       if (error) throw error
 
       setReplyDrafts((prev) => ({ ...prev, [parentId]: '' }))
@@ -1023,6 +1048,10 @@ export default function IntranetPage() {
                   ) : (
                     selectedThreadReplies.map((r) => {
                       const replyAuthor = r.author?.name || r.author?.email || r.author_id
+                      const repliedTo = r.reply_to_id ? replyLookup.get(r.reply_to_id) ?? null : null
+                      const repliedToLabel = repliedTo
+                        ? repliedTo.author?.name || repliedTo.author?.email || repliedTo.author_id
+                        : null
                       return (
                         <div
                           key={r.id}
@@ -1033,19 +1062,39 @@ export default function IntranetPage() {
                               <div className="text-xs opacity-80">{formatDateTime(r.created_at)}</div>
                               <div className="text-sm font-semibold truncate">{replyAuthor}</div>
                             </div>
-                            {isAdmin && (
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  deleteMessage(r.id)
-                                }}
-                                className="text-xs text-red-600 hover:text-red-800"
-                              >
-                                Verwijder
-                              </button>
-                            )}
+                            <div className="flex items-center gap-3 shrink-0">
+                              {userId && (
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setReplyingTo(r.id)
+                                    setTimeout(() => replyTextareaRef.current?.focus(), 0)
+                                  }}
+                                  className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                >
+                                  Reageer
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    deleteMessage(r.id)
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-800"
+                                >
+                                  Verwijder
+                                </button>
+                              )}
+                            </div>
                           </div>
+                          {repliedToLabel && (
+                            <div className="mt-2 text-xs opacity-70">
+                              ↪︎ reactie op <span className="font-semibold">{repliedToLabel}</span>
+                            </div>
+                          )}
                           <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
                         </div>
                       )
@@ -1057,7 +1106,24 @@ export default function IntranetPage() {
               <div className="mt-4 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-3">
                 {userId ? (
                   <>
+                    {replyingToMessage && selectedThread && replyingToMessage.id !== selectedThread.id && (
+                      <div className="mb-2 flex items-center justify-between gap-2 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/60 dark:bg-black/20 px-3 py-2">
+                        <div className="text-xs opacity-80 truncate">
+                          Reageer op:{' '}
+                          <span className="font-semibold">
+                            {replyingToMessage.author?.name || replyingToMessage.author?.email || replyingToMessage.author_id}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setReplyingTo(null)}
+                          className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                        >
+                          Annuleer
+                        </button>
+                      </div>
+                    )}
                     <textarea
+                      ref={replyTextareaRef}
                       value={replyDrafts[selectedThread.id] ?? ''}
                       onChange={(e) =>
                         setReplyDrafts((prev) => ({
@@ -1067,7 +1133,11 @@ export default function IntranetPage() {
                       }
                       rows={2}
                       className="w-full rounded border px-3 py-2 bg-transparent"
-                      placeholder="Schrijf een reactie…"
+                      placeholder={
+                        replyingToMessage && selectedThread && replyingToMessage.id !== selectedThread.id
+                          ? 'Schrijf een reactie op deze reactie…'
+                          : 'Schrijf een reactie…'
+                      }
                     />
                     <div className="mt-2 flex items-center gap-3">
                       <button

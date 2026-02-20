@@ -54,6 +54,14 @@ begin
     -- ignore
   end;
 
+  -- Optional: allow replies to target another reply (nested conversation), while keeping parent_id as the thread root.
+  begin
+    alter table public.intranet_messages
+      add column if not exists reply_to_id uuid null references public.intranet_messages(id) on delete set null;
+  exception when others then
+    -- ignore
+  end;
+
   update public.intranet_messages
     set channel_id = default_channel_id
     where channel_id is null;
@@ -66,6 +74,9 @@ begin
 
   create index if not exists intranet_messages_channel_parent_created_at_idx
     on public.intranet_messages (channel_id, parent_id, created_at);
+
+  create index if not exists intranet_messages_channel_parent_reply_to_created_at_idx
+    on public.intranet_messages (channel_id, parent_id, reply_to_id, created_at);
 
   create index if not exists intranet_messages_channel_created_at_idx
     on public.intranet_messages (channel_id, created_at desc);
