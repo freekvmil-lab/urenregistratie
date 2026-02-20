@@ -73,6 +73,8 @@ export default function IntranetPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [sendingReplyId, setSendingReplyId] = useState<string | null>(null)
 
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null)
+
   const [channels, setChannels] = useState<IntranetChannel[]>([])
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
 
@@ -99,6 +101,7 @@ export default function IntranetPage() {
 
   const mountedRef = useRef(true)
   const replyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const activeChannel = useMemo(
     () => channels.find((c) => c.id === activeChannelId) ?? null,
@@ -126,6 +129,26 @@ export default function IntranetPage() {
     if (!replyingTo) return null
     return replyLookup.get(replyingTo) ?? null
   }, [replyLookup, replyingTo])
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+        highlightTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  const scrollToMessage = (messageId: string) => {
+    const el = typeof document !== 'undefined' ? document.getElementById(`msg-${messageId}`) : null
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightMessageId(messageId)
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current)
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightMessageId((prev) => (prev === messageId ? null : prev))
+    }, 1800)
+  }
 
   const loadChannelMembers = async () => {
     if (!activeChannelId || !userId) {
@@ -935,26 +958,49 @@ export default function IntranetPage() {
                 const preview = String(t.body ?? '').split('\n')[0] || '(leeg)'
                 const authorLabel = t.author?.name || t.author?.email || t.author_id
                 return (
-                  <button
+                  <div
                     key={t.id}
-                    onClick={() => {
-                      setSelectedThreadId(t.id)
-                      setReplyingTo(null)
-                    }}
                     className={
-                      'w-full text-left px-3 py-2 rounded border ' +
+                      'w-full rounded border flex items-stretch gap-1 ' +
                       (selected
                         ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300/60 dark:border-orange-500/30'
                         : 'border-transparent hover:bg-orange-50 dark:hover:bg-white/5')
                     }
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs opacity-70 truncate">{authorLabel}</div>
-                      <div className="text-[10px] opacity-60 shrink-0">{replies.length}</div>
-                    </div>
-                    <div className="text-sm font-semibold truncate">{preview}</div>
-                    <div className="text-[10px] opacity-60 truncate">{formatDateTime(t.created_at)}</div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedThreadId(t.id)
+                        setReplyingTo(null)
+                      }}
+                      className="flex-1 min-w-0 text-left px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs opacity-70 truncate">{authorLabel}</div>
+                        <div className="text-[10px] opacity-60 shrink-0">{replies.length}</div>
+                      </div>
+                      <div className="text-sm font-semibold truncate">{preview}</div>
+                      <div className="text-[10px] opacity-60 truncate">{formatDateTime(t.created_at)}</div>
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          await deleteMessage(t.id)
+                          setReplyingTo(null)
+                          setSelectedThreadId((prev) => (prev === t.id ? null : prev))
+                        }}
+                        className="px-2 text-xs opacity-70 hover:opacity-100 hover:text-red-700"
+                        title="Thread verwijderen"
+                        aria-label="Thread verwijderen"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -1022,22 +1068,18 @@ export default function IntranetPage() {
             </div>
           ) : (
             <>
-              <div className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4">
+              <div
+                id={`msg-${selectedThread.id}`}
+                className={
+                  "rounded border border-orange-200/60 dark:border-orange-500/30 bg-white dark:bg-black/30 p-4 transition " +
+                  (highlightMessageId === selectedThread.id ? 'ring-2 ring-orange-400/70' : '')
+                }
+              >
                 <div className="text-xs opacity-70">{formatDateTime(selectedThread.created_at)}</div>
                 <div className="mt-1 text-sm font-semibold">
                   {selectedThread.author?.name || selectedThread.author?.email || selectedThread.author_id}
                 </div>
                 <div className="mt-3 text-sm whitespace-pre-wrap">{selectedThread.body}</div>
-                {isAdmin && (
-                  <div className="mt-3">
-                    <button
-                      onClick={() => deleteMessage(selectedThread.id)}
-                      className="text-sm text-red-600 hover:text-red-800"
-                    >
-                      Verwijder thread
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="mt-4">
@@ -1055,7 +1097,11 @@ export default function IntranetPage() {
                       return (
                         <div
                           key={r.id}
-                          className="rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3"
+                          id={`msg-${r.id}`}
+                          className={
+                            "rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3 transition " +
+                            (highlightMessageId === r.id ? 'ring-2 ring-orange-400/70' : '')
+                          }
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -1092,7 +1138,18 @@ export default function IntranetPage() {
                           </div>
                           {repliedToLabel && (
                             <div className="mt-2 text-xs opacity-70">
-                              ↪︎ reactie op <span className="font-semibold">{repliedToLabel}</span>
+                              ↪︎ reactie op{' '}
+                              {repliedTo ? (
+                                <button
+                                  type="button"
+                                  onClick={() => scrollToMessage(repliedTo.id)}
+                                  className="font-semibold underline underline-offset-2 hover:opacity-90"
+                                >
+                                  {repliedToLabel}
+                                </button>
+                              ) : (
+                                <span className="font-semibold">{repliedToLabel}</span>
+                              )}
                             </div>
                           )}
                           <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
@@ -1110,9 +1167,13 @@ export default function IntranetPage() {
                       <div className="mb-2 flex items-center justify-between gap-2 rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/60 dark:bg-black/20 px-3 py-2">
                         <div className="text-xs opacity-80 truncate">
                           Reageer op:{' '}
-                          <span className="font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => scrollToMessage(replyingToMessage.id)}
+                            className="font-semibold underline underline-offset-2 hover:opacity-90"
+                          >
                             {replyingToMessage.author?.name || replyingToMessage.author?.email || replyingToMessage.author_id}
-                          </span>
+                          </button>
                         </div>
                         <button
                           onClick={() => setReplyingTo(null)}
