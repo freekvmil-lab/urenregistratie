@@ -118,6 +118,36 @@ export default function IntranetPage() {
     [repliesByParent, selectedThreadId]
   )
 
+  const repliesNested = useMemo(() => {
+    const ROOT = '__root__'
+    const byParent = new Map<string, IntranetMessage[]>()
+
+    if (!selectedThread) {
+      return { ROOT, byParent, roots: [] as IntranetMessage[] }
+    }
+
+    const knownIds = new Set<string>([selectedThread.id])
+    for (const r of selectedThreadReplies) knownIds.add(r.id)
+
+    const push = (key: string, msg: IntranetMessage) => {
+      const list = byParent.get(key)
+      if (list) list.push(msg)
+      else byParent.set(key, [msg])
+    }
+
+    for (const r of selectedThreadReplies) {
+      const raw = r.reply_to_id ? String(r.reply_to_id) : null
+      const key =
+        !raw || raw === selectedThread.id || !knownIds.has(raw)
+          ? ROOT
+          : raw
+
+      push(key, r)
+    }
+
+    return { ROOT, byParent, roots: byParent.get(ROOT) ?? [] }
+  }, [selectedThread, selectedThreadReplies])
+
   const replyLookup = useMemo(() => {
     const map = new Map<string, IntranetMessage>()
     if (selectedThread) map.set(selectedThread.id, selectedThread)
@@ -180,7 +210,6 @@ export default function IntranetPage() {
 
     if (error) {
       console.warn('role load failed', error)
-      setIsAdmin(false)
       return
     }
 
@@ -221,7 +250,7 @@ export default function IntranetPage() {
           ? `${msg}. Heb je intranet_channels.sql al uitgevoerd in Supabase?`
           : msg
       )
-      setChannels([])
+      // Keep existing channels in UI on transient errors.
     }
   }
 
@@ -684,11 +713,16 @@ export default function IntranetPage() {
 
     init()
 
-    const { data: authSub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
+    const { data: authSub } = supabase.auth.onAuthStateChange(async (evt, session) => {
       const uid = session?.user?.id ?? null
       setUserId(uid)
-      setIsAdmin(false)
-      if (uid) await loadRole(uid)
+      if (!uid) {
+        setIsAdmin(false)
+      } else {
+        // Avoid showing stale admin UI when a different user signs in.
+        if (evt === 'SIGNED_IN') setIsAdmin(false)
+        await loadRole(uid)
+      }
       await fetchChannels()
     })
 
@@ -1088,74 +1122,72 @@ export default function IntranetPage() {
                   {(selectedThreadReplies ?? []).length === 0 ? (
                     <div className="text-sm opacity-70">Nog geen reacties.</div>
                   ) : (
-                    selectedThreadReplies.map((r) => {
-                      const replyAuthor = r.author?.name || r.author?.email || r.author_id
-                      const repliedTo = r.reply_to_id ? replyLookup.get(r.reply_to_id) ?? null : null
-                      const repliedToLabel = repliedTo
-                        ? repliedTo.author?.name || repliedTo.author?.email || repliedTo.author_id
-                        : null
-                      return (
-                        <div
-                          key={r.id}
-                          id={`msg-${r.id}`}
-                          className={
-                            "rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3 transition " +
-                            (highlightMessageId === r.id ? 'ring-2 ring-orange-400/70' : '')
-                          }
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-xs opacity-80">{formatDateTime(r.created_at)}</div>
-                              <div className="text-sm font-semibold truncate">{replyAuthor}</div>
+                    (() => {
+                      const renderReply = (r: IntranetMessage, depth: number) => {
+                        const replyAuthor = r.author?.name || r.author?.email || r.author_id
+                        const children = repliesNested.byParent.get(r.id) ?? []
+                        const pad = Math.min(depth, 6) * 12
+
+                        return (
+                          <div key={r.id} style={{ marginLeft: pad }} className="space-y-2">
+                            <div
+                              id={`msg-${r.id}`}
+                              className={
+                                "rounded border border-orange-200/60 dark:border-orange-500/30 bg-white/70 dark:bg-black/20 p-3 transition " +
+                                (highlightMessageId === r.id ? 'ring-2 ring-orange-400/70' : '')
+                              }
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-xs opacity-80">{formatDateTime(r.created_at)}</div>
+                                  <div className="text-sm font-semibold truncate">{replyAuthor}</div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  {userId && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        setReplyingTo(r.id)
+                                        setTimeout(() => replyTextareaRef.current?.focus(), 0)
+                                      }}
+                                      className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                    >
+                                      Reageer
+                                    </button>
+                                  )}
+                                  {isAdmin && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        deleteMessage(r.id)
+                                      }}
+                                      className="text-xs text-red-600 hover:text-red-800"
+                                    >
+                                      Verwijder
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              {userId && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    setReplyingTo(r.id)
-                                    setTimeout(() => replyTextareaRef.current?.focus(), 0)
-                                  }}
-                                  className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
-                                >
-                                  Reageer
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    deleteMessage(r.id)
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800"
-                                >
-                                  Verwijder
-                                </button>
-                              )}
-                            </div>
+
+                            {children.length > 0 && (
+                              <div className="space-y-2 pl-3 border-l border-orange-200/60 dark:border-orange-500/30">
+                                {children.map((c) => renderReply(c, depth + 1))}
+                              </div>
+                            )}
                           </div>
-                          {repliedToLabel && (
-                            <div className="mt-2 text-xs opacity-70">
-                              ↪︎ reactie op{' '}
-                              {repliedTo ? (
-                                <button
-                                  type="button"
-                                  onClick={() => scrollToMessage(repliedTo.id)}
-                                  className="font-semibold underline underline-offset-2 hover:opacity-90"
-                                >
-                                  {repliedToLabel}
-                                </button>
-                              ) : (
-                                <span className="font-semibold">{repliedToLabel}</span>
-                              )}
-                            </div>
-                          )}
-                          <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
+                        )
+                      }
+
+                      return (
+                        <div className="space-y-2">
+                          {repliesNested.roots.map((r) => renderReply(r, 0))}
                         </div>
                       )
-                    })
+                    })()
                   )}
                 </div>
               </div>
