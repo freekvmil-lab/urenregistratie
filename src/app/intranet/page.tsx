@@ -1091,13 +1091,6 @@ export default function IntranetPage() {
                 +
               </button>
             )}
-            <button
-              onClick={() => fetchChannels()}
-              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
-              title="Kanalen verversen"
-            >
-              ↻
-            </button>
           </div>
         </div>
 
@@ -1157,14 +1150,6 @@ export default function IntranetPage() {
               }
             >
               +
-            </button>
-            <button
-              onClick={() => fetchMessages({ channelId: activeChannelId })}
-              disabled={!activeChannelId}
-              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-              title="Threads verversen"
-            >
-              ↻
             </button>
           </div>
         </div>
@@ -1244,14 +1229,6 @@ export default function IntranetPage() {
                 className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
               >
                 Kanalen / threads
-              </button>
-              <button
-                onClick={() => fetchMessages({ channelId: activeChannelId })}
-                disabled={!activeChannelId}
-                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-                title="Threads verversen"
-              >
-                ↻
               </button>
             </div>
             <div className="text-lg font-bold truncate">
@@ -1600,13 +1577,6 @@ export default function IntranetPage() {
         <div className="p-3 border-b border-orange-200/60 dark:border-orange-500/30 flex items-center justify-between gap-2">
           <div className="font-bold truncate">Leden</div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadChannelMembers({ channelId: activeChannelId, uid: userId })}
-              disabled={channelMembersLoading}
-              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-            >
-              {channelMembersLoading ? 'Laden…' : 'Ververs'}
-            </button>
             {isAdmin && activeChannel && (
               <button
                 onClick={() => {
@@ -1717,14 +1687,6 @@ export default function IntranetPage() {
                     title={!activeChannelId ? 'Selecteer eerst een kanaal' : !userId ? 'Log in om een thread te starten' : 'Nieuwe thread'}
                   >
                     +
-                  </button>
-                  <button
-                    onClick={() => fetchMessages({ channelId: activeChannelId })}
-                    disabled={!activeChannelId}
-                    className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-                    title="Threads verversen"
-                  >
-                    ↻
                   </button>
                 </div>
               </div>
