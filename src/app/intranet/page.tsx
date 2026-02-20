@@ -80,6 +80,10 @@ export default function IntranetPage() {
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingDraft, setEditingDraft] = useState('')
+  const [savingEditId, setSavingEditId] = useState<string | null>(null)
+
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
   const [channelMembersLoading, setChannelMembersLoading] = useState(false)
   const [channelMembers, setChannelMembers] = useState<ChannelMemberListItem[]>([])
@@ -97,7 +101,6 @@ export default function IntranetPage() {
   const [members, setMembers] = useState<ChannelMember[]>([])
   const [profilesLoading, setProfilesLoading] = useState(false)
   const [profiles, setProfiles] = useState<AdminProfileLite[]>([])
-  const [profileFilter, setProfileFilter] = useState('')
   const [profilePickId, setProfilePickId] = useState<string>('')
   const [memberMutating, setMemberMutating] = useState<string | null>(null)
 
@@ -686,17 +689,45 @@ export default function IntranetPage() {
 
   const availableProfiles = useMemo(() => {
     const memberIds = new Set(members.map((m) => m.member_id))
-    const needle = profileFilter.trim().toLowerCase()
     return profiles
       .filter((p) => !p.deleted_at)
       .filter((p) => !memberIds.has(p.id))
-      .filter((p) => {
-        if (!needle) return true
-        const name = (p.name ?? '').toLowerCase()
-        const email = (p.email ?? '').toLowerCase()
-        return name.includes(needle) || email.includes(needle)
-      })
-  }, [profiles, members, profileFilter])
+  }, [profiles, members])
+
+  const startEdit = (msg: IntranetMessage) => {
+    if (!userId) return
+    if (msg.author_id !== userId) return
+    setEditingMessageId(msg.id)
+    setEditingDraft(msg.body ?? '')
+  }
+
+  const cancelEdit = () => {
+    setEditingMessageId(null)
+    setEditingDraft('')
+  }
+
+  const saveEdit = async (messageId: string) => {
+    if (!userId) {
+      setError('Je bent niet ingelogd.')
+      return
+    }
+
+    const body = editingDraft.trim()
+    if (!body) return
+
+    setSavingEditId(messageId)
+    setError(null)
+    try {
+      const { error } = await supabase.from('intranet_messages').update({ body }).eq('id', messageId)
+      if (error) throw error
+      cancelEdit()
+      await fetchMessages()
+    } catch (e: any) {
+      setError(String(e?.message ?? 'Bewerken mislukt'))
+    } finally {
+      setSavingEditId(null)
+    }
+  }
 
   useEffect(() => {
     mountedRef.current = true
@@ -1162,11 +1193,54 @@ export default function IntranetPage() {
                   (highlightMessageId === selectedThread.id ? 'ring-2 ring-orange-400/70' : '')
                 }
               >
-                <div className="text-xs opacity-70">{formatDateTime(selectedThread.created_at)}</div>
-                <div className="mt-1 text-sm font-semibold">
-                  {selectedThread.author?.name || selectedThread.author?.email || selectedThread.author_id}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs opacity-70">{formatDateTime(selectedThread.created_at)}</div>
+                    <div className="mt-1 text-sm font-semibold truncate">
+                      {selectedThread.author?.name || selectedThread.author?.email || selectedThread.author_id}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {userId && selectedThread.author_id === userId && editingMessageId !== selectedThread.id && (
+                      <button
+                        onClick={() => startEdit(selectedThread)}
+                        className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                      >
+                        Bewerk
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-3 text-sm whitespace-pre-wrap">{selectedThread.body}</div>
+
+                {editingMessageId === selectedThread.id ? (
+                  <>
+                    <textarea
+                      value={editingDraft}
+                      onChange={(e) => setEditingDraft(e.target.value)}
+                      rows={6}
+                      className="mt-3 w-full rounded border px-3 py-2 bg-transparent"
+                      placeholder="Bewerk je bericht…"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => saveEdit(selectedThread.id)}
+                        disabled={savingEditId === selectedThread.id || !editingDraft.trim()}
+                        className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                      >
+                        {savingEditId === selectedThread.id ? 'Opslaan…' : 'Opslaan'}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                      >
+                        Annuleer
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 text-sm whitespace-pre-wrap">{selectedThread.body}</div>
+                )}
               </div>
 
               <div className="mt-4">
@@ -1180,6 +1254,7 @@ export default function IntranetPage() {
                         const replyAuthor = r.author?.name || r.author?.email || r.author_id
                         const children = repliesNested.byParent.get(r.id) ?? []
                         const pad = Math.min(depth, 6) * 12
+                        const isEditing = editingMessageId === r.id
 
                         return (
                           <div key={r.id} style={{ marginLeft: pad }} className="space-y-2">
@@ -1196,7 +1271,7 @@ export default function IntranetPage() {
                                   <div className="text-sm font-semibold truncate">{replyAuthor}</div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
-                                  {userId && (
+                                  {userId && !isEditing && (
                                     <button
                                       onClick={(e) => {
                                         e.preventDefault()
@@ -1207,6 +1282,18 @@ export default function IntranetPage() {
                                       className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
                                     >
                                       Reageer
+                                    </button>
+                                  )}
+                                  {userId && r.author_id === userId && !isEditing && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        startEdit(r)
+                                      }}
+                                      className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                    >
+                                      Bewerk
                                     </button>
                                   )}
                                   {isAdmin && (
@@ -1223,7 +1310,35 @@ export default function IntranetPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
+
+                              {isEditing ? (
+                                <>
+                                  <textarea
+                                    value={editingDraft}
+                                    onChange={(e) => setEditingDraft(e.target.value)}
+                                    rows={4}
+                                    className="mt-2 w-full rounded border px-3 py-2 bg-transparent"
+                                    placeholder="Bewerk je reactie…"
+                                  />
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <button
+                                      onClick={() => saveEdit(r.id)}
+                                      disabled={savingEditId === r.id || !editingDraft.trim()}
+                                      className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                                    >
+                                      {savingEditId === r.id ? 'Opslaan…' : 'Opslaan'}
+                                    </button>
+                                    <button
+                                      onClick={cancelEdit}
+                                      className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                    >
+                                      Annuleer
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="mt-2 text-sm whitespace-pre-wrap">{r.body}</div>
+                              )}
                             </div>
 
                             {children.length > 0 && (
@@ -1690,20 +1805,8 @@ export default function IntranetPage() {
               <div>
                 <div className="font-semibold mb-2">Toevoegen (alfabetisch)</div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={loadProfilesAlphabetical}
-                    disabled={profilesLoading}
-                    className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
-                  >
-                    {profilesLoading ? 'Laden…' : 'Ververs lijst'}
-                  </button>
-                  <input
-                    value={profileFilter}
-                    onChange={(e) => setProfileFilter(e.target.value)}
-                    className="flex-1 bg-transparent border rounded px-2 py-1"
-                    placeholder="(optioneel) filter"
-                  />
+                <div className="text-xs opacity-70">
+                  Lijst wordt automatisch geladen zodra je dit scherm opent.
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">

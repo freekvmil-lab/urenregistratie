@@ -228,6 +228,15 @@ to authenticated
 using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'))
 with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'));
 
+-- Authors can edit their own messages (body) after sending.
+drop policy if exists "intranet_messages_author_update" on public.intranet_messages;
+create policy "intranet_messages_author_update"
+on public.intranet_messages
+for update
+to authenticated
+using (author_id = auth.uid())
+with check (author_id = auth.uid());
+
 drop policy if exists "intranet_messages_admin_delete" on public.intranet_messages;
 create policy "intranet_messages_admin_delete"
 on public.intranet_messages
