@@ -80,9 +80,10 @@ export default function IntranetPage() {
   const [membersOpen, setMembersOpen] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
   const [members, setMembers] = useState<ChannelMember[]>([])
-  const [memberSearch, setMemberSearch] = useState('')
-  const [memberResults, setMemberResults] = useState<AdminProfileLite[]>([])
-  const [memberSearching, setMemberSearching] = useState(false)
+  const [profilesLoading, setProfilesLoading] = useState(false)
+  const [profiles, setProfiles] = useState<AdminProfileLite[]>([])
+  const [profileFilter, setProfileFilter] = useState('')
+  const [profilePickId, setProfilePickId] = useState<string>('')
   const [memberMutating, setMemberMutating] = useState<string | null>(null)
 
   const mountedRef = useRef(true)
@@ -519,9 +520,9 @@ export default function IntranetPage() {
     }
   }
 
-  const searchProfiles = async () => {
+  const loadProfilesAlphabetical = async () => {
     if (!isAdmin) return
-    setMemberSearching(true)
+    setProfilesLoading(true)
     setError(null)
     try {
       const token = await getAccessToken()
@@ -529,20 +530,19 @@ export default function IntranetPage() {
         setError('Niet ingelogd.')
         return
       }
-      const q = memberSearch.trim()
-      const res = await fetch(`/api/admin/intranet/profiles?q=${encodeURIComponent(q)}&limit=20`, {
+      const res = await fetch(`/api/admin/intranet/profiles?limit=500`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(json?.details ? String(json.details) : json?.error ? String(json.error) : 'Zoeken mislukt')
+        setError(json?.details ? String(json.details) : json?.error ? String(json.error) : 'Profielen laden mislukt')
         return
       }
-      setMemberResults((json?.profiles ?? []) as AdminProfileLite[])
+      setProfiles((json?.profiles ?? []) as AdminProfileLite[])
     } catch (e: any) {
-      setError(String(e?.message ?? 'Zoeken mislukt'))
+      setError(String(e?.message ?? 'Profielen laden mislukt'))
     } finally {
-      setMemberSearching(false)
+      setProfilesLoading(false)
     }
   }
 
@@ -581,6 +581,20 @@ export default function IntranetPage() {
       setMemberMutating(null)
     }
   }
+
+  const availableProfiles = useMemo(() => {
+    const memberIds = new Set(members.map((m) => m.member_id))
+    const needle = profileFilter.trim().toLowerCase()
+    return profiles
+      .filter((p) => !p.deleted_at)
+      .filter((p) => !memberIds.has(p.id))
+      .filter((p) => {
+        if (!needle) return true
+        const name = (p.name ?? '').toLowerCase()
+        const email = (p.email ?? '').toLowerCase()
+        return name.includes(needle) || email.includes(needle)
+      })
+  }, [profiles, members, profileFilter])
 
   useEffect(() => {
     mountedRef.current = true
@@ -823,6 +837,7 @@ export default function IntranetPage() {
                 onClick={() => {
                   setMembersOpen(true)
                   loadMembers()
+                  loadProfilesAlphabetical()
                 }}
                 className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
               >
@@ -1022,6 +1037,7 @@ export default function IntranetPage() {
                   onClick={() => {
                     setMembersOpen(true)
                     loadMembers()
+                    loadProfilesAlphabetical()
                   }}
                   className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
                 >
@@ -1154,48 +1170,54 @@ export default function IntranetPage() {
               </div>
 
               <div>
-                <div className="font-semibold mb-2">Zoeken & toevoegen</div>
+                <div className="font-semibold mb-2">Toevoegen (alfabetisch)</div>
+
                 <div className="flex items-center gap-2">
-                  <input
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="flex-1 bg-transparent border rounded px-2 py-1"
-                    placeholder="zoek op naam of e-mail"
-                  />
                   <button
-                    onClick={searchProfiles}
-                    disabled={memberSearching}
+                    onClick={loadProfilesAlphabetical}
+                    disabled={profilesLoading}
                     className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
                   >
-                    {memberSearching ? 'Zoeken…' : 'Zoek'}
+                    {profilesLoading ? 'Laden…' : 'Ververs lijst'}
+                  </button>
+                  <input
+                    value={profileFilter}
+                    onChange={(e) => setProfileFilter(e.target.value)}
+                    className="flex-1 bg-transparent border rounded px-2 py-1"
+                    placeholder="(optioneel) filter"
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <select
+                    value={profilePickId}
+                    onChange={(e) => setProfilePickId(e.target.value)}
+                    className="flex-1 bg-transparent border rounded px-2 py-2"
+                    disabled={profilesLoading}
+                  >
+                    <option value="">Kies een medewerker…</option>
+                    {availableProfiles.map((p) => {
+                      const label = p.name || p.email || p.id
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {label}{p.email && p.name ? ` (${p.email})` : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  <button
+                    onClick={async () => {
+                      if (!profilePickId) return
+                      await setMember(profilePickId, true)
+                      setProfilePickId('')
+                    }}
+                    disabled={!profilePickId || memberMutating === profilePickId}
+                    className="text-sm px-3 py-2 rounded border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50"
+                  >
+                    {memberMutating === profilePickId ? 'Toevoegen…' : 'Toevoegen'}
                   </button>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {memberResults.map((p) => {
-                    const isMember = members.some((m) => m.member_id === p.id)
-                    const label = p.name || p.email || p.id
-                    return (
-                      <div key={p.id} className="rounded border border-orange-200/60 dark:border-orange-500/30 p-2 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold truncate">{label}</div>
-                          {p.email && <div className="text-xs opacity-70 truncate">{p.email}</div>}
-                        </div>
-                        <button
-                          onClick={() => setMember(p.id, !isMember)}
-                          disabled={memberMutating === p.id}
-                          className={
-                            'text-sm px-2 py-1 rounded border disabled:opacity-50 ' +
-                            (isMember
-                              ? 'border-red-200 text-red-700 hover:bg-red-50'
-                              : 'border-green-200 text-green-700 hover:bg-green-50')
-                          }
-                        >
-                          {isMember ? 'Verwijder' : 'Toevoegen'}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
+
                 <div className="mt-2 text-xs opacity-70">
                   Tip: bij een privé kanaal moet je iedereen hier toevoegen.
                 </div>

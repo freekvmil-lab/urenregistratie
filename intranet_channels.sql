@@ -156,6 +156,7 @@ using (
 
 -- Messages: readable if user can see the channel.
 drop policy if exists "intranet_messages_read_all" on public.intranet_messages;
+drop policy if exists "intranet_messages_read_by_channel" on public.intranet_messages;
 create policy "intranet_messages_read_by_channel"
 on public.intranet_messages
 for select

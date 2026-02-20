@@ -75,33 +75,34 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url)
     const q = String(url.searchParams.get('q') ?? '').trim().toLowerCase()
-    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20) || 20))
+    const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') ?? 200) || 200))
+    const page = Math.max(0, Number(url.searchParams.get('page') ?? 0) || 0)
+    const from = page * limit
+    const to = from + limit - 1
 
-    // If no query, return a small recent-ish set.
+    // Return alphabetical list by default.
+    // Note: some deployments don't have profiles.created_at; don't order by it.
     let query = auth.supabase
       .from('profiles')
       .select('id, name, email, role, deleted_at')
       .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(limit)
 
     if (q) {
-      // Search by email/name (case-insensitive)
-      query = auth.supabase
-        .from('profiles')
-        .select('id, name, email, role, deleted_at')
-        .is('deleted_at', null)
-        .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
-        .order('created_at', { ascending: false })
-        .limit(limit)
+      // Optional server-side filtering by email/name (case-insensitive)
+      query = query.or(`email.ilike.%${q}%,name.ilike.%${q}%`)
     }
+
+    query = query
+      .order('name', { ascending: true, nullsFirst: false })
+      .order('email', { ascending: true, nullsFirst: false })
+      .range(from, to)
 
     const { data, error } = await query
     if (error) {
       return NextResponse.json({ error: 'query_failed', details: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true, profiles: data ?? [] })
+    return NextResponse.json({ ok: true, profiles: data ?? [], page, limit, nextPage: (data?.length ?? 0) === limit ? page + 1 : null })
   } catch (err: any) {
     return NextResponse.json(
       { error: 'unexpected_error', details: String(err?.message ?? err) },
