@@ -874,7 +874,7 @@ export default function IntranetPage() {
             </div>
             <div className="text-sm opacity-70 truncate">
               {activeChannel?.announcements_only
-                ? 'Aankondigingen: admin start topics; iedereen kan reageren.'
+                ? 'Bedrijfsupdates: admin start topics; iedereen kan reageren.'
                 : 'Chat: iedereen kan een topic starten.'}
             </div>
           </div>
