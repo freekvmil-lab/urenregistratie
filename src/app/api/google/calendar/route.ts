@@ -127,32 +127,62 @@ export async function GET(req: Request) {
       }
     }
 
-     /* =========================
+    /* =========================
        4️⃣ Agenda ophalen
-       Default: 1 dag terug, 3 dagen vooruit
-       Optioneel via query: ?daysBack=1&daysAhead=14
-     ========================= */
-     const url = new URL(req.url)
-     const daysBackRaw = url.searchParams.get('daysBack')
-     const daysAheadRaw = url.searchParams.get('daysAhead')
+       - Primary (recommended): ?timeMin=<iso>&timeMax=<iso>
+       - Fallback: ?daysBack=1&daysAhead=14
+    ========================= */
+    const url = new URL(req.url)
 
-     const clampInt = (value: string | null, fallback: number, min: number, max: number) => {
+    const clampInt = (value: string | null, fallback: number, min: number, max: number) => {
       if (value === null || value === undefined || value === '') return fallback
       const n = Number.parseInt(value, 10)
       if (!Number.isFinite(n)) return fallback
       return Math.min(max, Math.max(min, n))
-     }
+    }
 
-     const daysBack = clampInt(daysBackRaw, 1, 0, 31)
-     const daysAhead = clampInt(daysAheadRaw, 3, 0, 90)
+    const parseDate = (value: string | null) => {
+      if (!value) return null
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return null
+      return d
+    }
 
-     const start = new Date()
-     start.setDate(start.getDate() - daysBack)
-     start.setHours(0, 0, 0, 0)
+    const timeMin = parseDate(url.searchParams.get('timeMin'))
+    const timeMax = parseDate(url.searchParams.get('timeMax'))
 
-     const end = new Date()
-     end.setDate(end.getDate() + daysAhead)
-     end.setHours(23, 59, 59, 999)
+    // Clamp range so one request can't pull a huge calendar.
+    const MAX_RANGE_DAYS = 120
+
+    let start: Date
+    let end: Date
+
+    if (timeMin && timeMax) {
+      start = timeMin
+      end = timeMax
+
+      if (end.getTime() < start.getTime()) {
+        return NextResponse.json({ error: 'invalid_range' }, { status: 400 })
+      }
+
+      const maxEnd = new Date(start)
+      maxEnd.setDate(maxEnd.getDate() + MAX_RANGE_DAYS)
+      if (end.getTime() > maxEnd.getTime()) end = maxEnd
+    } else {
+      // Backward-compatible window defaults.
+      const daysBackRaw = url.searchParams.get('daysBack')
+      const daysAheadRaw = url.searchParams.get('daysAhead')
+      const daysBack = clampInt(daysBackRaw, 1, 0, 31)
+      const daysAhead = clampInt(daysAheadRaw, 3, 0, 90)
+
+      start = new Date()
+      start.setDate(start.getDate() - daysBack)
+      start.setHours(0, 0, 0, 0)
+
+      end = new Date()
+      end.setDate(end.getDate() + daysAhead)
+      end.setHours(23, 59, 59, 999)
+    }
 
     // Fetch list of calendars for the user, then fetch events from each calendar
     const listCalendars = async (accessToken: string) => {
