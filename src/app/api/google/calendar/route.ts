@@ -127,18 +127,32 @@ export async function GET(req: Request) {
       }
     }
 
-    /* =========================
+     /* =========================
        4️⃣ Agenda ophalen
-       (gisteren, vandaag, morgen)
-    ========================= */
-    const start = new Date()
-    start.setDate(start.getDate() - 1)
-    start.setHours(0, 0, 0, 0)
+       Default: 1 dag terug, 3 dagen vooruit
+       Optioneel via query: ?daysBack=1&daysAhead=14
+     ========================= */
+     const url = new URL(req.url)
+     const daysBackRaw = url.searchParams.get('daysBack')
+     const daysAheadRaw = url.searchParams.get('daysAhead')
 
-    // window: 1 day back, up to 3 days ahead
-    const end = new Date()
-    end.setDate(end.getDate() + 3)
-    end.setHours(23, 59, 59, 999)
+     const clampInt = (value: string | null, fallback: number, min: number, max: number) => {
+      if (value === null || value === undefined || value === '') return fallback
+      const n = Number.parseInt(value, 10)
+      if (!Number.isFinite(n)) return fallback
+      return Math.min(max, Math.max(min, n))
+     }
+
+     const daysBack = clampInt(daysBackRaw, 1, 0, 31)
+     const daysAhead = clampInt(daysAheadRaw, 3, 0, 90)
+
+     const start = new Date()
+     start.setDate(start.getDate() - daysBack)
+     start.setHours(0, 0, 0, 0)
+
+     const end = new Date()
+     end.setDate(end.getDate() + daysAhead)
+     end.setHours(23, 59, 59, 999)
 
     // Fetch list of calendars for the user, then fetch events from each calendar
     const listCalendars = async (accessToken: string) => {
