@@ -11,6 +11,12 @@ type Target = {
   role: string
 }
 
+type TargetGroup = {
+  id: string
+  name: string
+  user_ids: string[]
+}
+
 type ScheduleRow = {
   id: string
   name: string | null
@@ -42,6 +48,13 @@ export default function AdminPushPage() {
   const [targets, setTargets] = useState<Target[]>([])
   const [targetsLoading, setTargetsLoading] = useState(false)
 
+  const [groups, setGroups] = useState<TargetGroup[]>([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [groupName, setGroupName] = useState('')
+  const [groupBusy, setGroupBusy] = useState(false)
+  const [groupMsg, setGroupMsg] = useState<string | null>(null)
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Record<string, boolean>>({})
+
   const [sendMode, setSendMode] = useState<'all' | 'users'>('all')
   const [selectedUserIds, setSelectedUserIds] = useState<Record<string, boolean>>({})
   const [sendTitle, setSendTitle] = useState('Vortexx')
@@ -70,6 +83,11 @@ export default function AdminPushPage() {
     [selectedUserIds]
   )
 
+  const selectedGroupIdList = useMemo(
+    () => Object.entries(selectedGroupIds).filter(([, v]) => v).map(([k]) => k),
+    [selectedGroupIds]
+  )
+
   const loadTargets = async () => {
     setTargetsLoading(true)
     try {
@@ -88,6 +106,27 @@ export default function AdminPushPage() {
       setTargets((json?.targets ?? []) as Target[])
     } finally {
       setTargetsLoading(false)
+    }
+  }
+
+  const loadGroups = async () => {
+    setGroupsLoading(true)
+    try {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const token = sessionRes.session?.access_token
+      if (!token) {
+        setGroups([])
+        return
+      }
+
+      const res = await fetch('/api/admin/push/groups', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.details || json?.error || 'Groepen laden mislukt')
+      setGroups((json?.groups ?? []) as TargetGroup[])
+    } finally {
+      setGroupsLoading(false)
     }
   }
 
@@ -119,9 +158,123 @@ export default function AdminPushPage() {
   useEffect(() => {
     if (allowed) {
       loadTargets()
+      loadGroups()
       loadSchedules()
     }
   }, [allowed])
+
+  const saveGroup = async () => {
+    setGroupMsg(null)
+    setGroupBusy(true)
+    try {
+      const name = groupName.trim()
+      if (!name) {
+        setGroupMsg('Geef een groepsnaam op')
+        return
+      }
+      if (selectedIds.length === 0) {
+        setGroupMsg('Selecteer eerst werknemers')
+        return
+      }
+
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const token = sessionRes.session?.access_token
+      if (!token) {
+        setGroupMsg('Niet ingelogd')
+        return
+      }
+
+      const res = await fetch('/api/admin/push/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name, userIds: selectedIds }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setGroupMsg(String(json?.details || json?.error || 'Groep opslaan mislukt'))
+        return
+      }
+
+      setGroupName('')
+      setGroupMsg('Groep opgeslagen')
+      await loadGroups()
+    } catch (e: any) {
+      setGroupMsg(e?.message || 'Groep opslaan mislukt')
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  const applyGroupToSelection = (g: TargetGroup) => {
+    setSelectedUserIds((prev) => {
+      const next = { ...prev }
+      for (const uid of g.user_ids ?? []) next[String(uid)] = true
+      return next
+    })
+  }
+
+  const overwriteGroupWithSelection = async (g: TargetGroup) => {
+    setGroupMsg(null)
+    setGroupBusy(true)
+    try {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const token = sessionRes.session?.access_token
+      if (!token) return
+
+      const res = await fetch(`/api/admin/push/groups/${encodeURIComponent(g.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userIds: selectedIds }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(String(json?.details || json?.error || 'Groep bijwerken mislukt'))
+      setGroupMsg('Groep bijgewerkt')
+      await loadGroups()
+    } catch (e: any) {
+      setGroupMsg(e?.message || 'Groep bijwerken mislukt')
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  const deleteGroup = async (g: TargetGroup) => {
+    const ok = confirm(`Groep verwijderen: ${g.name}?`)
+    if (!ok) return
+
+    setGroupMsg(null)
+    setGroupBusy(true)
+    try {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const token = sessionRes.session?.access_token
+      if (!token) return
+
+      const res = await fetch(`/api/admin/push/groups/${encodeURIComponent(g.id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(String(json?.details || json?.error || 'Groep verwijderen mislukt'))
+
+      setSelectedGroupIds((p) => {
+        const next = { ...p }
+        delete next[g.id]
+        return next
+      })
+      setGroupMsg('Groep verwijderd')
+      await loadGroups()
+    } catch (e: any) {
+      setGroupMsg(e?.message || 'Groep verwijderen mislukt')
+    } finally {
+      setGroupBusy(false)
+    }
+  }
 
   const sendNow = async () => {
     setSendResult(null)
@@ -143,6 +296,7 @@ export default function AdminPushPage() {
         body: JSON.stringify({
           target: sendMode,
           userIds: sendMode === 'users' ? selectedIds : undefined,
+          groupIds: sendMode === 'users' ? selectedGroupIdList : undefined,
           title: sendTitle,
           body: sendBody,
           url: sendUrl,
@@ -191,6 +345,7 @@ export default function AdminPushPage() {
           url: newUrl,
           target: newTarget,
           userIds: newTarget === 'users' ? selectedIds : undefined,
+          groupIds: newTarget === 'users' ? selectedGroupIdList : undefined,
           repeatMinutes,
           nextRunAt,
         }),
@@ -282,14 +437,97 @@ export default function AdminPushPage() {
       <section className="rounded-lg border border-orange-200/60 dark:border-orange-500/30 bg-white/60 dark:bg-gray-900/40 p-4 space-y-3">
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="text-sm text-gray-700 dark:text-gray-200">
-            Werknemers: {targetsLoading ? 'laden…' : String(targets.length)}
+            Werknemers: {targetsLoading ? 'laden…' : String(targets.length)} · Groepen: {groupsLoading ? 'laden…' : String(groups.length)}
           </div>
           <button
-            onClick={loadTargets}
+            onClick={() => {
+              loadTargets()
+              loadGroups()
+            }}
             className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
           >
             Vernieuwen
           </button>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="rounded border border-black/10 bg-white/50 dark:bg-gray-900/30 p-3 space-y-2">
+            <div className="font-semibold text-sm">Groepen</div>
+
+            {groups.length === 0 ? (
+              <div className="text-sm text-gray-600 dark:text-gray-300">Nog geen groepen.</div>
+            ) : (
+              <div className="max-h-48 overflow-auto space-y-1">
+                {groups.map((g) => (
+                  <div key={g.id} className="flex items-center gap-2 justify-between">
+                    <label className="flex items-center gap-2 text-sm min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedGroupIds[g.id])}
+                        onChange={(e) => setSelectedGroupIds((p) => ({ ...p, [g.id]: e.target.checked }))}
+                      />
+                      <span className="truncate">{g.name}</span>
+                      <span className="text-xs text-gray-500">({(g.user_ids ?? []).length})</span>
+                    </label>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => applyGroupToSelection(g)}
+                        className="px-2 py-1 rounded border border-black/15 bg-white/60 hover:bg-white/80 text-xs"
+                        title="Voeg leden toe aan selectie"
+                      >
+                        Gebruik
+                      </button>
+                      <button
+                        onClick={() => overwriteGroupWithSelection(g)}
+                        disabled={groupBusy}
+                        className="px-2 py-1 rounded border border-black/15 bg-white/60 hover:bg-white/80 text-xs disabled:opacity-50"
+                        title="Overschrijf groep met huidige selectie"
+                      >
+                        Update
+                      </button>
+                      <button
+                        onClick={() => deleteGroup(g)}
+                        disabled={groupBusy}
+                        className="px-2 py-1 rounded border border-black/15 bg-white/60 hover:bg-white/80 text-xs disabled:opacity-50"
+                        title="Verwijder groep"
+                      >
+                        X
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-black/10 space-y-2">
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                Tip: selecteer werknemers en klik “Opslaan”. Daarna kun je de groep aanvinken bij versturen/schedule.
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Nieuwe groepsnaam"
+                  className="flex-1 px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+                />
+                <button
+                  onClick={saveGroup}
+                  disabled={groupBusy}
+                  className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
+                >
+                  Opslaan
+                </button>
+              </div>
+              {groupMsg ? <div className="text-sm text-gray-800 dark:text-gray-200">{groupMsg}</div> : null}
+            </div>
+          </div>
+
+          <div className="rounded border border-black/10 bg-white/50 dark:bg-gray-900/30 p-3 space-y-1">
+            <div className="font-semibold text-sm">Selectie</div>
+            <div className="text-xs text-gray-600 dark:text-gray-300">
+              Geselecteerde werknemers: {selectedIds.length} · Geselecteerde groepen: {selectedGroupIdList.length}
+            </div>
+          </div>
         </div>
 
         {tab === 'send' ? (

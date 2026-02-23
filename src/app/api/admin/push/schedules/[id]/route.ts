@@ -11,6 +11,7 @@ type PatchBody = {
   url?: string
   target?: 'all' | 'users'
   userIds?: string[]
+  groupIds?: string[]
   repeatMinutes?: number | null
   nextRunAt?: string | null
 }
@@ -62,8 +63,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (body.target) {
       const target = body.target === 'users' ? 'users' : 'all'
       const userIds = Array.isArray(body.userIds) ? body.userIds.map(String).filter(Boolean) : []
+      const groupIds = Array.isArray(body.groupIds) ? body.groupIds.map(String).filter(Boolean) : []
       patch.target_all = target === 'all'
       patch.target_user_ids = target === 'users' ? userIds : null
+      patch.target_group_ids = target === 'users' ? groupIds : null
     }
 
     if (Object.keys(patch).length === 0) {

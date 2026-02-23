@@ -11,6 +11,7 @@ type CreateBody = {
   url?: string
   target: 'all' | 'users'
   userIds?: string[]
+  groupIds?: string[]
   repeatMinutes?: number | null
   nextRunAt?: string | null
 }
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await auth.supabase
       .from('push_schedules')
-      .select('id, name, enabled, title, body, url, target_all, target_user_ids, repeat_minutes, next_run_at, last_run_at, created_at, updated_at')
+      .select('id, name, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, next_run_at, last_run_at, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     const url = String(body?.url ?? '/').trim() || '/'
     const target = body?.target === 'users' ? 'users' : 'all'
     const userIds = Array.isArray(body?.userIds) ? body.userIds.map(String).filter(Boolean) : []
+    const groupIds = Array.isArray(body?.groupIds) ? body.groupIds.map(String).filter(Boolean) : []
 
     if (!title || !message) {
       return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
@@ -80,6 +82,7 @@ export async function POST(req: Request) {
       url,
       target_all: target === 'all',
       target_user_ids: target === 'users' ? userIds : null,
+      target_group_ids: target === 'users' ? groupIds : null,
       repeat_minutes: repeatMinutes,
       next_run_at: nextRunAt ?? new Date().toISOString(),
       created_by: auth.callerId,

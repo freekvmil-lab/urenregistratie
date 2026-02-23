@@ -7,6 +7,7 @@ export const runtime = 'nodejs'
 type Body = {
   target: 'all' | 'users'
   userIds?: string[]
+  groupIds?: string[]
   title: string
   body: string
   url?: string
@@ -46,24 +47,39 @@ export async function POST(req: Request) {
     const url = String(body?.url ?? '/').trim() || '/'
     const target = body?.target === 'users' ? 'users' : 'all'
     const userIds = Array.isArray(body?.userIds) ? body.userIds.map(String).filter(Boolean) : []
+    const groupIds = Array.isArray(body?.groupIds) ? body.groupIds.map(String).filter(Boolean) : []
 
     if (!title || !message) {
       return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
     }
 
-    if (target === 'users' && userIds.length === 0) {
-      return NextResponse.json({ error: 'missing_userIds' }, { status: 400 })
+    if (target === 'users' && userIds.length === 0 && groupIds.length === 0) {
+      return NextResponse.json({ error: 'missing_targets' }, { status: 400 })
     }
 
     webpush.setVapidDetails(subject, vapidPublicKey, vapidPrivateKey)
 
-    let subsQuery = auth.supabase
-      .from('push_subscriptions')
-      .select('user_id, endpoint, subscription')
+    let resolvedUserIds = userIds
+    if (target === 'users' && groupIds.length > 0) {
+      const { data: groups, error: gErr } = await auth.supabase
+        .from('push_target_groups')
+        .select('id, user_ids')
+        .in('id', groupIds)
 
-    if (target === 'users') {
-      subsQuery = subsQuery.in('user_id', userIds)
+      if (gErr) {
+        return NextResponse.json({ error: 'groups_query_failed', details: gErr.message }, { status: 400 })
+      }
+
+      const fromGroups = (groups ?? [])
+        .flatMap((g: any) => (Array.isArray(g.user_ids) ? g.user_ids : []))
+        .map(String)
+        .filter(Boolean)
+
+      resolvedUserIds = Array.from(new Set([...resolvedUserIds, ...fromGroups]))
     }
+
+    let subsQuery = auth.supabase.from('push_subscriptions').select('user_id, endpoint, subscription')
+    if (target === 'users') subsQuery = subsQuery.in('user_id', resolvedUserIds)
 
     const { data: rows, error } = await subsQuery
     if (error) {

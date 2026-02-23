@@ -55,7 +55,7 @@ export async function GET(req: Request) {
 
     const { data: schedules, error: schedErr } = await supabase
       .from('push_schedules')
-      .select('id, enabled, title, body, url, target_all, target_user_ids, repeat_minutes, next_run_at')
+      .select('id, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, next_run_at')
       .eq('enabled', true)
       .lte('next_run_at', now.toISOString())
       .order('next_run_at', { ascending: true })
@@ -82,6 +82,7 @@ export async function GET(req: Request) {
       const url = String(s.url ?? '/').trim() || '/'
       const targetAll = Boolean(s.target_all)
       const targetUserIds = Array.isArray(s.target_user_ids) ? (s.target_user_ids as any[]).map(String).filter(Boolean) : []
+      const targetGroupIds = Array.isArray(s.target_group_ids) ? (s.target_group_ids as any[]).map(String).filter(Boolean) : []
       const repeatMinutes = s.repeat_minutes === null || s.repeat_minutes === undefined ? null : Number(s.repeat_minutes)
 
       if (!title || !message) {
@@ -94,11 +95,31 @@ export async function GET(req: Request) {
         .select('user_id, endpoint, subscription')
 
       if (!targetAll) {
-        if (targetUserIds.length === 0) {
+        let resolvedUserIds = targetUserIds
+
+        if (targetGroupIds.length > 0) {
+          const { data: groups, error: gErr } = await supabase
+            .from('push_target_groups')
+            .select('id, user_ids')
+            .in('id', targetGroupIds)
+
+          if (gErr) {
+            return NextResponse.json({ error: 'groups_query_failed', details: gErr.message }, { status: 400 })
+          }
+
+          const fromGroups = (groups ?? [])
+            .flatMap((g: any) => (Array.isArray(g.user_ids) ? g.user_ids : []))
+            .map(String)
+            .filter(Boolean)
+
+          resolvedUserIds = Array.from(new Set([...resolvedUserIds, ...fromGroups]))
+        }
+
+        if (resolvedUserIds.length === 0) {
           await supabase.from('push_schedules').update({ enabled: false, last_run_at: now.toISOString() }).eq('id', scheduleId)
           continue
         }
-        subsQuery = subsQuery.in('user_id', targetUserIds)
+        subsQuery = subsQuery.in('user_id', resolvedUserIds)
       }
 
       const { data: subs, error: subErr } = await subsQuery
