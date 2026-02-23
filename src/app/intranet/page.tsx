@@ -1077,36 +1077,44 @@ export default function IntranetPage() {
   )
 
   const pillBtn =
-    'text-sm px-3 py-1.5 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
-    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'text-sm px-3 py-1.5 rounded-xl border border-black/20 dark:border-white/15 ' +
+    'text-black dark:text-white bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 ' +
+    'shadow-sm hover:shadow transition ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/25 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   const pillBtnSm =
-    'text-xs px-2 py-1 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
-    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'text-xs px-2 py-1 rounded-xl border border-black/20 dark:border-white/15 ' +
+    'text-black dark:text-white bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 ' +
+    'shadow-sm hover:shadow transition ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/25 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   const pillBtnIcon =
-    'text-sm px-2 py-1 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
-    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'text-sm px-2 py-1 rounded-xl border border-black/20 dark:border-white/15 ' +
+    'text-black dark:text-white bg-white/40 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 ' +
+    'shadow-sm hover:shadow transition ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/25 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   const pillBtnPrimary =
-    'text-sm px-3 py-2 rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition-colors disabled:opacity-50 ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'text-sm px-3 py-2 rounded-xl bg-orange-600 text-white hover:bg-orange-700 active:bg-orange-800 ' +
+    'shadow-sm hover:shadow transition disabled:opacity-50 disabled:pointer-events-none ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/70 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   const pillBtnDanger =
-    'text-sm px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50 ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 focus-visible:ring-offset-2 ' +
+    'text-sm px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 ' +
+    'dark:border-red-500/30 dark:text-red-200 dark:hover:bg-red-500/10 ' +
+    'shadow-sm hover:shadow transition disabled:opacity-50 disabled:pointer-events-none ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   const pillBtnSuccess =
-    'text-sm px-3 py-2 rounded-xl border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50 ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/60 focus-visible:ring-offset-2 ' +
+    'text-sm px-3 py-2 rounded-xl border border-green-200 text-green-700 hover:bg-green-50 ' +
+    'dark:border-green-500/30 dark:text-green-200 dark:hover:bg-green-500/10 ' +
+    'shadow-sm hover:shadow transition disabled:opacity-50 disabled:pointer-events-none ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/70 focus-visible:ring-offset-2 ' +
     'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
 
   return (
