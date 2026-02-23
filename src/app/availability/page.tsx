@@ -268,7 +268,7 @@ export default function AvailabilityPage() {
   }
 
   return (
-    <main className="px-4 py-4 sm:p-6 space-y-6">
+    <main className="px-4 py-4 sm:p-6 space-y-6 md:max-w-6xl md:mx-auto">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Beschikbaarheid</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -276,115 +276,123 @@ export default function AvailabilityPage() {
         </p>
       </header>
 
-      <section className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMonth((m) => addMonths(m, -1))}
-              className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
-              aria-label="Vorige maand"
-            >
-              ←
-            </button>
-            <div className="font-semibold text-gray-900 dark:text-gray-100 capitalize">{monthLabel(month)}</div>
-            <button
-              onClick={() => setMonth((m) => addMonths(m, 1))}
-              className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
-              aria-label="Volgende maand"
-            >
-              →
-            </button>
+      <div className="space-y-6 md:space-y-0 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:gap-6 md:items-start">
+        <section className="border border-orange-200/60 dark:border-orange-500/30 rounded-lg p-4 bg-white/60 dark:bg-gray-900/40 space-y-3 md:p-5 lg:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMonth((m) => addMonths(m, -1))}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+                aria-label="Vorige maand"
+              >
+                ←
+              </button>
+              <div className="font-semibold text-gray-900 dark:text-gray-100 capitalize">{monthLabel(month)}</div>
+              <button
+                onClick={() => setMonth((m) => addMonths(m, 1))}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+                aria-label="Volgende maand"
+              >
+                →
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setMonth(startOfMonth(new Date()))}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+              >
+                Vandaag
+              </button>
+              <button
+                onClick={clearMonth}
+                disabled={loading}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
+              >
+                Maak maand beschikbaar
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setMonth(startOfMonth(new Date()))}
-              className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
-            >
-              Vandaag
-            </button>
-            <button
-              onClick={clearMonth}
-              disabled={loading}
-              className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
-            >
-              Maak maand beschikbaar
-            </button>
-          </div>
-        </div>
+          {error && <div className="text-sm text-red-600">{error}</div>}
+          {message && <div className="text-sm text-orange-700 dark:text-orange-300">{message}</div>}
 
-        {error && <div className="text-sm text-red-600">{error}</div>}
-        {message && <div className="text-sm text-orange-700 dark:text-orange-300">{message}</div>}
-
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-xs text-gray-600 dark:text-gray-300">
-          {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => (
-            <div key={d} className="text-center font-semibold">{d}</div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-          {gridDates.map((d) => {
-            const dayYmd = ymd(d)
-            const inMonth = d.getMonth() === month.getMonth()
-            const isUnavailable = unavailableByDate.has(dayYmd)
-            const busy = Boolean(savingDay[dayYmd])
-
-            const base =
-              'aspect-square rounded-lg border flex items-start justify-end p-1.5 sm:p-2 text-xs sm:text-sm select-none transition-colors '
-
-            const cls =
-              base +
-              (inMonth
-                ? isUnavailable
-                  ? 'bg-red-600 text-white border-red-700'
-                  : 'bg-green-600 text-white border-green-700'
-                : 'bg-gray-200/60 dark:bg-gray-800/60 text-gray-500 border-gray-300/60 dark:border-gray-700/60 opacity-50') +
-              (busy ? ' opacity-70' : '')
-
-            return (
-              <button
-                key={dayYmd}
-                type="button"
-                disabled={!inMonth || busy || loading}
-                onClick={() => toggleUnavailable(dayYmd)}
-                className={cls}
-                title={inMonth ? (isUnavailable ? 'Niet beschikbaar (klik om beschikbaar te maken)' : 'Beschikbaar (klik om niet beschikbaar te maken)') : ''}
-              >
-                {d.getDate()}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-3">
-          <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-green-600" /> Beschikbaar</span>
-          <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-red-600" /> Niet beschikbaar</span>
-          <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-gray-300 dark:bg-gray-700" /> Buiten maand</span>
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Niet beschikbaar (deze maand)</h2>
-        {loading && !unavailableRows.length ? (
-          <p>Loading…</p>
-        ) : !unavailableRows.length ? (
-          <p className="text-sm text-gray-600 dark:text-gray-300">Geen rood gemarkeerde dagen.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {unavailableRows.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => toggleUnavailable(r.date)}
-                disabled={Boolean(savingDay[r.date]) || loading}
-                className="px-2 py-1 rounded bg-red-600 text-white text-sm disabled:opacity-50"
-                title="Klik om weer beschikbaar te maken"
-              >
-                {r.date}
-              </button>
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-xs text-gray-600 dark:text-gray-300">
+            {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => (
+              <div key={d} className="text-center font-semibold">{d}</div>
             ))}
           </div>
-        )}
-      </section>
+
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {gridDates.map((d) => {
+              const dayYmd = ymd(d)
+              const inMonth = d.getMonth() === month.getMonth()
+              const isUnavailable = unavailableByDate.has(dayYmd)
+              const busy = Boolean(savingDay[dayYmd])
+
+              const base =
+                'aspect-square rounded-lg border flex items-start justify-end p-1.5 sm:p-2 text-xs sm:text-sm select-none transition-colors '
+
+              const cls =
+                base +
+                (inMonth
+                  ? isUnavailable
+                    ? 'bg-red-600 text-white border-red-700'
+                    : 'bg-green-600 text-white border-green-700'
+                  : 'bg-gray-200/60 dark:bg-gray-800/60 text-gray-500 border-gray-300/60 dark:border-gray-700/60 opacity-50') +
+                (busy ? ' opacity-70' : '')
+
+              return (
+                <button
+                  key={dayYmd}
+                  type="button"
+                  disabled={!inMonth || busy || loading}
+                  onClick={() => toggleUnavailable(dayYmd)}
+                  className={cls}
+                  title={
+                    inMonth
+                      ? isUnavailable
+                        ? 'Niet beschikbaar (klik om beschikbaar te maken)'
+                        : 'Beschikbaar (klik om niet beschikbaar te maken)'
+                      : ''
+                  }
+                >
+                  {d.getDate()}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-3">
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-green-600" /> Beschikbaar</span>
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-red-600" /> Niet beschikbaar</span>
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 rounded bg-gray-300 dark:bg-gray-700" /> Buiten maand</span>
+          </div>
+        </section>
+
+        <section className="space-y-2 md:sticky md:top-20">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Niet beschikbaar (deze maand)</h2>
+          {loading && !unavailableRows.length ? (
+            <p>Loading…</p>
+          ) : !unavailableRows.length ? (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Geen rood gemarkeerde dagen.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {unavailableRows.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => toggleUnavailable(r.date)}
+                  disabled={Boolean(savingDay[r.date]) || loading}
+                  className="px-2 py-1 rounded bg-red-600 text-white text-sm disabled:opacity-50"
+                  title="Klik om weer beschikbaar te maken"
+                >
+                  {r.date}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   )
 }
