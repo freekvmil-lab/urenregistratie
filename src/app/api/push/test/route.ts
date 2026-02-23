@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import webpush, { type PushSubscription } from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 
+export const runtime = 'nodejs'
+
 type Body = {
   subscription: PushSubscription
   title?: string

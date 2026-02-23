@@ -181,7 +181,12 @@ export default function NotificationsSettingsPage() {
 
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(json?.error || 'Test push mislukt')
+        const details = json?.details
+        const parts = [json?.error || 'Test push mislukt']
+        if (details?.statusCode) parts.push(`statusCode=${details.statusCode}`)
+        if (details?.message) parts.push(String(details.message))
+        if (details?.body) parts.push(String(details.body))
+        throw new Error(parts.join(' — '))
       }
 
       setStatus('Test push verstuurd. (Kijk ook naar je notificaties/lockscreen)')
