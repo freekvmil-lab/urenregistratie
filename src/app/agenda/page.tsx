@@ -356,12 +356,12 @@ export default function AgendaPage() {
   }, [viewMode, anchorDate])
 
   return (
-    <div className="min-h-[calc(100dvh-72px)] bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-[calc(100dvh-72px)]">
       <div className="max-w-6xl mx-auto p-3 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">Agenda</h1>
-            <div className="text-sm text-slate-600 dark:text-slate-400">Maand / week overzicht (Google Agenda)</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Maand / week overzicht (Google Agenda)</div>
           </div>
 
           {!loadingUser && userId && (
@@ -372,18 +372,18 @@ export default function AgendaPage() {
         </div>
 
         {!userId && !loadingUser && (
-          <div className="mt-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm p-4">
+          <div className="mt-4 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900/60 shadow-sm p-4">
             <div className="font-semibold">Niet ingelogd</div>
-            <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               <Link href="/login" className="underline">Log in</Link> om je agenda te zien.
             </div>
           </div>
         )}
 
-        <div className="mt-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 shadow-sm backdrop-blur p-3 sm:p-4">
+        <div className="mt-4 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm backdrop-blur p-3 sm:p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900">
+              <div className="inline-flex rounded-xl border border-gray-200/80 dark:border-gray-800 overflow-hidden bg-gray-50 dark:bg-gray-900">
                 <button
                   type="button"
                   onClick={() => setViewMode('month')}
@@ -391,7 +391,7 @@ export default function AgendaPage() {
                     'px-3 py-2 text-sm ' +
                     (viewMode === 'month'
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5')
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5')
                   }
                 >
                   Maand
@@ -400,10 +400,10 @@ export default function AgendaPage() {
                   type="button"
                   onClick={() => setViewMode('week')}
                   className={
-                    'px-3 py-2 text-sm border-l border-slate-200/80 dark:border-slate-800 ' +
+                    'px-3 py-2 text-sm border-l border-gray-200/80 dark:border-gray-800 ' +
                     (viewMode === 'week'
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5')
+                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5')
                   }
                 >
                   Week
@@ -413,7 +413,7 @@ export default function AgendaPage() {
               <button
                 type="button"
                 onClick={() => setAnchorDate(new Date())}
-                className="text-sm px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
               >
                 Vandaag
               </button>
@@ -426,7 +426,7 @@ export default function AgendaPage() {
                   setSelectedDayKey(null)
                   setAnchorDate((d) => (viewMode === 'week' ? addDays(d, -7) : addMonths(d, -1)))
                 }}
-                className="text-sm px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
                 aria-label="Vorige"
                 title="Vorige"
               >
@@ -441,7 +441,7 @@ export default function AgendaPage() {
                   setSelectedDayKey(null)
                   setAnchorDate((d) => (viewMode === 'week' ? addDays(d, 7) : addMonths(d, 1)))
                 }}
-                className="text-sm px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
                 aria-label="Volgende"
                 title="Volgende"
               >
@@ -460,14 +460,14 @@ export default function AgendaPage() {
 
         <div className="mt-4">
           {loading ? (
-            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 shadow-sm p-4">
-              <div className="text-sm text-slate-600 dark:text-slate-400">Agenda laden…</div>
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm p-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">Agenda laden…</div>
             </div>
           ) : viewMode === 'month' ? (
-            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 shadow-sm overflow-hidden">
-              <div className="grid grid-cols-7 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80">
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm overflow-hidden">
+              <div className="grid grid-cols-7 border-b border-gray-200/80 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80">
                 {WEEKDAYS_NL.map((d) => (
-                  <div key={d} className="px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <div key={d} className="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
                     {d}
                   </div>
                 ))}
@@ -489,7 +489,7 @@ export default function AgendaPage() {
                       type="button"
                       onClick={() => setSelectedDayKey(key)}
                       className={
-                        'min-h-[112px] sm:min-h-[128px] text-left px-2 sm:px-3 py-2 border-r border-b border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/70 dark:hover:bg-white/5 transition ' +
+                        'min-h-[112px] sm:min-h-[128px] text-left px-2 sm:px-3 py-2 border-r border-b border-gray-200/80 dark:border-gray-800 hover:bg-gray-100/70 dark:hover:bg-white/5 transition ' +
                         (!inMonth ? 'opacity-50 ' : '') +
                         (isToday ? 'bg-orange-50/60 dark:bg-orange-500/10 ' : '')
                       }
@@ -500,12 +500,12 @@ export default function AgendaPage() {
                             'text-xs font-semibold rounded px-2 py-1 ' +
                             (isToday
                               ? 'bg-orange-600 text-white'
-                              : 'bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-slate-100')
+                              : 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-100')
                           }
                         >
                           {day.getDate()}
                         </div>
-                        {items.length > 0 && <div className="text-[10px] text-slate-500 dark:text-slate-400">{items.length}</div>}
+                        {items.length > 0 && <div className="text-[10px] text-gray-500 dark:text-gray-400">{items.length}</div>}
                       </div>
 
                       <div className="mt-2 space-y-1">
@@ -518,16 +518,16 @@ export default function AgendaPage() {
                                 'rounded-lg px-2 py-1 text-[11px] border truncate ' +
                                 (it.isAllDay
                                   ? 'bg-orange-50 text-orange-900 border-orange-200/80 dark:bg-orange-500/10 dark:text-orange-100 dark:border-orange-500/30'
-                                  : 'bg-white/70 dark:bg-slate-950/20 border-slate-200/80 dark:border-slate-800')
+                                  : 'bg-white/70 dark:bg-black/20 border-gray-200/80 dark:border-gray-800')
                               }
                               title={it.event.title}
                             >
-                              <span className="text-slate-600 dark:text-slate-400 mr-1">{label}</span>
+                              <span className="text-gray-600 dark:text-gray-400 mr-1">{label}</span>
                               <span className="font-semibold">{it.event.title || '(zonder titel)'}</span>
                             </div>
                           )
                         })}
-                        {extra > 0 && <div className="text-[11px] text-slate-600 dark:text-slate-400">+{extra} meer</div>}
+                        {extra > 0 && <div className="text-[11px] text-gray-600 dark:text-gray-400">+{extra} meer</div>}
                       </div>
                     </button>
                   )
@@ -535,8 +535,8 @@ export default function AgendaPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 shadow-sm overflow-hidden">
-              <div className="grid grid-cols-7 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80">
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm overflow-hidden">
+              <div className="grid grid-cols-7 border-b border-gray-200/80 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80">
                 {weekDays.map((d) => {
                   const key = toDateKey(d)
                   const isToday = isSameDay(d, today)
@@ -546,11 +546,11 @@ export default function AgendaPage() {
                       type="button"
                       onClick={() => setSelectedDayKey(key)}
                       className={
-                        'px-2 sm:px-3 py-2 text-left hover:bg-slate-100/70 dark:hover:bg-white/5 border-r border-slate-200/80 dark:border-slate-800 last:border-r-0 ' +
+                        'px-2 sm:px-3 py-2 text-left hover:bg-gray-100/70 dark:hover:bg-white/5 border-r border-gray-200/80 dark:border-gray-800 last:border-r-0 ' +
                         (isToday ? 'bg-orange-50/60 dark:bg-orange-500/10' : '')
                       }
                     >
-                      <div className="text-xs text-slate-600 dark:text-slate-400">{WEEKDAYS_NL[(d.getDay() + 6) % 7]}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{WEEKDAYS_NL[(d.getDay() + 6) % 7]}</div>
                       <div className="text-sm font-semibold">
                         {d.getDate()}/{pad2(d.getMonth() + 1)}
                       </div>
@@ -565,10 +565,10 @@ export default function AgendaPage() {
                   const items = dayBuckets.get(key) ?? []
 
                   return (
-                    <div key={key} className="border-r border-slate-200/80 dark:border-slate-800 last:border-r-0">
+                    <div key={key} className="border-r border-gray-200/80 dark:border-gray-800 last:border-r-0">
                       <div className="p-3">
                         {items.length === 0 ? (
-                          <div className="text-xs text-slate-500 dark:text-slate-400">Geen events</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Geen events</div>
                         ) : (
                           <div className="space-y-2">
                             {items.map((it, idx) => (
@@ -578,16 +578,16 @@ export default function AgendaPage() {
                                   'rounded-xl border px-3 py-2 ' +
                                   (it.isAllDay
                                     ? 'bg-orange-50 text-orange-900 border-orange-200/80 dark:bg-orange-500/10 dark:text-orange-100 dark:border-orange-500/30'
-                                    : 'bg-white/60 dark:bg-slate-950/20 border-slate-200/80 dark:border-slate-800')
+                                    : 'bg-white/60 dark:bg-black/20 border-gray-200/80 dark:border-gray-800')
                                 }
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
-                                    <div className="text-xs text-slate-600 dark:text-slate-400">{formatTimeRange(it)}</div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">{formatTimeRange(it)}</div>
                                     <div className="text-sm font-semibold truncate">{it.event.title || '(zonder titel)'}</div>
-                                    {it.event.location && <div className="text-xs text-slate-600 dark:text-slate-400 truncate mt-1">{it.event.location}</div>}
+                                    {it.event.location && <div className="text-xs text-gray-600 dark:text-gray-400 truncate mt-1">{it.event.location}</div>}
                                   </div>
-                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 shrink-0">{String(it.event.source ?? 'google')}</div>
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">{String(it.event.source ?? 'google')}</div>
                                 </div>
                               </div>
                             ))}
@@ -605,10 +605,10 @@ export default function AgendaPage() {
         {selectedDayKey && (
           <div className="fixed inset-0 z-50">
             <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedDayKey(null)} />
-            <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl">
-              <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl">
+              <div className="p-4 border-b border-gray-200/80 dark:border-gray-800 flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Dag</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Dag</div>
                   <div className="font-semibold capitalize">
                     {new Date(selectedDayKey + 'T00:00:00').toLocaleDateString('nl-NL', {
                       weekday: 'long',
@@ -621,7 +621,7 @@ export default function AgendaPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedDayKey(null)}
-                  className="text-sm px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-white/5"
+                  className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-white/5"
                 >
                   Sluiten
                 </button>
@@ -629,7 +629,7 @@ export default function AgendaPage() {
 
               <div className="p-4 max-h-[70dvh] overflow-auto">
                 {(dayBuckets.get(selectedDayKey) ?? []).length === 0 ? (
-                  <div className="text-sm text-slate-600 dark:text-slate-400">Geen events op deze dag.</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Geen events op deze dag.</div>
                 ) : (
                   <div className="space-y-2">
                     {(dayBuckets.get(selectedDayKey) ?? []).map((it, idx) => (
@@ -639,12 +639,12 @@ export default function AgendaPage() {
                           'rounded-xl border px-3 py-3 ' +
                           (it.isAllDay
                             ? 'bg-orange-50 text-orange-900 border-orange-200/80 dark:bg-orange-500/10 dark:text-orange-100 dark:border-orange-500/30'
-                            : 'bg-white/60 dark:bg-slate-950/20 border-slate-200/80 dark:border-slate-800')
+                            : 'bg-white/60 dark:bg-black/20 border-gray-200/80 dark:border-gray-800')
                         }
                       >
-                        <div className="text-xs text-slate-600 dark:text-slate-400">{formatTimeRange(it)}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">{formatTimeRange(it)}</div>
                         <div className="text-sm font-semibold mt-1">{it.event.title || '(zonder titel)'}</div>
-                        {it.event.location && <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{it.event.location}</div>}
+                        {it.event.location && <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{it.event.location}</div>}
                       </div>
                     ))}
                   </div>
