@@ -12,6 +12,7 @@ create table if not exists public.push_schedules (
 
   target_all boolean not null default true,
   target_user_ids uuid[] null,
+  target_group_ids uuid[] null,
 
   -- If repeat_minutes is null: one-off schedule (runs once and disables)
   repeat_minutes integer null,
