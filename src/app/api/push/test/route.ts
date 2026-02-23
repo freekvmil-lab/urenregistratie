@@ -29,8 +29,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
   }
 
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || process.env.NEXT_PUBLIC_VAPID_PRIVATE_KEY
   const subject = process.env.VAPID_SUBJECT || 'mailto:admin@vortexx.local'
 
   if (!vapidPublicKey || !vapidPrivateKey) {

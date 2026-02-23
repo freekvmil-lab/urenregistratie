@@ -16,6 +16,7 @@ export default function NotificationsSettingsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(null)
 
   const supported = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -32,6 +33,29 @@ export default function NotificationsSettingsPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => loadUser())
     return () => subscription.unsubscribe()
   }, [loadUser])
+
+  useEffect(() => {
+    if (!supported) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/push/vapid-public', { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json?.error || 'VAPID public key ophalen mislukt')
+        if (!cancelled) setVapidPublicKey(json?.publicKey || null)
+      } catch (e: any) {
+        if (!cancelled) {
+          setVapidPublicKey(null)
+          setStatus(e?.message || 'VAPID public key ophalen mislukt')
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [supported])
 
   const getRegistration = async () => {
     const reg = await navigator.serviceWorker.register('/sw.js')
@@ -81,9 +105,8 @@ export default function NotificationsSettingsPage() {
         return
       }
 
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidPublicKey) {
-        setStatus('VAPID public key ontbreekt. Zet NEXT_PUBLIC_VAPID_PUBLIC_KEY in .env.local.')
+        setStatus('VAPID public key ontbreekt op de server. Check je environment (Vercel/.env.local).')
         return
       }
 
