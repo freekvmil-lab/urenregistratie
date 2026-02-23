@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import webpush, { type PushSubscription } from 'web-push'
 import { createClient } from '@supabase/supabase-js'
+import { p256 } from '@noble/curves/nist.js'
 
 export const runtime = 'nodejs'
 
@@ -17,6 +18,19 @@ const decodeJwtPayload = (jwt: string): Record<string, any> | null => {
     return null
   }
 }
+
+const base64UrlToBytes = (s: string) => {
+  const base64 = s.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+  return new Uint8Array(Buffer.from(padded, 'base64'))
+}
+
+const bytesToBase64Url = (bytes: Uint8Array) =>
+  Buffer.from(bytes)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
 
 type Body = {
   subscription: PushSubscription
@@ -87,6 +101,37 @@ export async function POST(req: Request) {
     )
   }
 
+  // Verify keypair match to avoid confusing push-provider errors like "BadJwtToken".
+  try {
+    const privBytes = base64UrlToBytes(vapidPrivateKey)
+    if (privBytes.length !== 32) {
+      return NextResponse.json(
+        {
+          error: `VAPID private key heeft ${privBytes.length} bytes (verwacht 32). Check VAPID_PRIVATE_KEY.`,
+        },
+        { status: 500 }
+      )
+    }
+    const derivedPublic = bytesToBase64Url(p256.getPublicKey(privBytes, false))
+    if (derivedPublic !== vapidPublicKey) {
+      return NextResponse.json(
+        {
+          error: 'VAPID public/private key mismatch. Regenerate keys of zet beide env vars uit hetzelfde keypair, redeploy, en resubscribe op je telefoon.',
+          details: {
+            configuredPublicPrefix: vapidPublicKey.slice(0, 12),
+            derivedPublicPrefix: derivedPublic.slice(0, 12),
+          },
+        },
+        { status: 500 }
+      )
+    }
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || 'VAPID keypair check mislukt' },
+      { status: 500 }
+    )
+  }
+
   let body: Body
   try {
     body = (await req.json()) as Body
@@ -106,6 +151,14 @@ export async function POST(req: Request) {
     url: body.url || '/'
   })
 
+  const endpointOrigin = (() => {
+    try {
+      return new URL(body.subscription.endpoint).origin
+    } catch {
+      return null
+    }
+  })()
+
   try {
     await webpush.sendNotification(body.subscription, payload)
     return NextResponse.json({ ok: true })
@@ -115,6 +168,9 @@ export async function POST(req: Request) {
       {
         error: 'Push versturen mislukt',
         details: {
+          endpointOrigin,
+          vapidSubject: subject,
+          vapidPublicPrefix: vapidPublicKey.slice(0, 12),
           message: err?.message,
           statusCode: err?.statusCode,
           body: err?.body,
