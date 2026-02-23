@@ -4,6 +4,20 @@ import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
+const decodeJwtPayload = (jwt: string): Record<string, any> | null => {
+  const parts = jwt.split('.')
+  if (parts.length < 2) return null
+  const base64Url = parts[1]
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+  try {
+    const json = Buffer.from(padded, 'base64').toString('utf8')
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
 type Body = {
   subscription: PushSubscription
   title?: string
@@ -14,6 +28,7 @@ type Body = {
 export async function POST(req: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.json({ error: 'Supabase env ontbreekt' }, { status: 500 })
@@ -25,10 +40,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseAnonKey)
   const { data: userRes, error: userErr } = await supabase.auth.getUser(token)
   if (userErr || !userRes.user) {
-    return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+    const payload = decodeJwtPayload(token)
+    const tokenIss = typeof payload?.iss === 'string' ? payload.iss : null
+    const expectedIss = `${supabaseUrl.replace(/\/+$/, '')}/auth/v1`
+
+    const hints: string[] = []
+    if (tokenIss && tokenIss !== expectedIss) {
+      hints.push(
+        `Je login-token is uitgegeven door ${tokenIss}, maar de server staat ingesteld op ${expectedIss}. Check je Vercel env vars en redeploy.`
+      )
+    } else {
+      hints.push('Check of je Vercel env vars (NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY) exact dezelfde Supabase project gebruiken als je app.')
+      hints.push('Als je net env vars aangepast hebt op Vercel: redeploy zodat client en server dezelfde waarden gebruiken.')
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Niet ingelogd (badjwttoken)'
+        ,
+        details: {
+          supabaseUrl,
+          expectedIss,
+          tokenIss,
+          message: userErr?.message,
+          hints,
+        },
+      },
+      { status: 403 }
+    )
   }
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
