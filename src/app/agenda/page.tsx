@@ -388,7 +388,7 @@ export default function AgendaPage() {
                   type="button"
                   onClick={() => setViewMode('month')}
                   className={
-                    'px-3 py-2 text-sm ' +
+                    'px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 ' +
                     (viewMode === 'month'
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
                       : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5')
@@ -400,7 +400,7 @@ export default function AgendaPage() {
                   type="button"
                   onClick={() => setViewMode('week')}
                   className={
-                    'px-3 py-2 text-sm border-l border-gray-200/80 dark:border-gray-800 ' +
+                    'px-3 py-2 text-sm border-l border-gray-200/80 dark:border-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 ' +
                     (viewMode === 'week'
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
                       : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5')
@@ -413,7 +413,7 @@ export default function AgendaPage() {
               <button
                 type="button"
                 onClick={() => setAnchorDate(new Date())}
-                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
               >
                 Vandaag
               </button>
@@ -426,7 +426,7 @@ export default function AgendaPage() {
                   setSelectedDayKey(null)
                   setAnchorDate((d) => (viewMode === 'week' ? addDays(d, -7) : addMonths(d, -1)))
                 }}
-                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
                 aria-label="Vorige"
                 title="Vorige"
               >
@@ -441,7 +441,7 @@ export default function AgendaPage() {
                   setSelectedDayKey(null)
                   setAnchorDate((d) => (viewMode === 'week' ? addDays(d, 7) : addMonths(d, 1)))
                 }}
-                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5"
+                className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
                 aria-label="Volgende"
                 title="Volgende"
               >
@@ -621,7 +621,7 @@ export default function AgendaPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedDayKey(null)}
-                  className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-white/5"
+                  className="text-sm px-3 py-2 rounded-xl border border-gray-200/80 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
                 >
                   Sluiten
                 </button>

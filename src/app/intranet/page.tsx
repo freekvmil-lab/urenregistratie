@@ -1076,6 +1076,39 @@ export default function IntranetPage() {
     !activeChannel?.announcements_only || isAdmin
   )
 
+  const pillBtn =
+    'text-sm px-3 py-1.5 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
+    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
+  const pillBtnSm =
+    'text-xs px-2 py-1 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
+    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
+  const pillBtnIcon =
+    'text-sm px-2 py-1 rounded-xl border border-orange-200/60 dark:border-orange-500/30 ' +
+    'bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-white/5 transition-colors ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
+  const pillBtnPrimary =
+    'text-sm px-3 py-2 rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition-colors disabled:opacity-50 ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
+  const pillBtnDanger =
+    'text-sm px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50 ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
+  const pillBtnSuccess =
+    'text-sm px-3 py-2 rounded-xl border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50 ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900'
+
   return (
     <div className="h-[calc(100dvh-56px)] sm:h-[calc(100dvh-72px)] flex bg-white dark:bg-black/30 text-gray-900 dark:text-gray-100">
       {/* Channels sidebar */}
@@ -1086,7 +1119,7 @@ export default function IntranetPage() {
             {isAdmin && (
               <button
                 onClick={openCreateChannel}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtnIcon}
               >
                 +
               </button>
@@ -1138,7 +1171,7 @@ export default function IntranetPage() {
                 setNewThreadOpen(true)
               }}
               disabled={!canStartThread}
-              className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+              className={pillBtnIcon + ' disabled:opacity-50'}
               title={
                 !activeChannelId
                   ? 'Selecteer eerst een kanaal'
@@ -1226,7 +1259,7 @@ export default function IntranetPage() {
             <div className="lg:hidden mb-2 flex items-center gap-2">
               <button
                 onClick={() => setMobileNavOpen(true)}
-                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Kanalen / threads
               </button>
@@ -1249,13 +1282,13 @@ export default function IntranetPage() {
                   loadMembers()
                   loadProfilesAlphabetical()
                 }}
-                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Leden
               </button>
               <button
                 onClick={openEditChannel}
-                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Instellingen
               </button>
@@ -1277,7 +1310,7 @@ export default function IntranetPage() {
               <button
                 type="button"
                 onClick={reconnect}
-                className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Herconnect
               </button>
@@ -1352,7 +1385,7 @@ export default function IntranetPage() {
                     {userId && selectedThread.author_id === userId && editingMessageId !== selectedThread.id && (
                       <button
                         onClick={() => startEdit(selectedThread)}
-                        className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                        className={pillBtnSm}
                       >
                         Bewerk
                       </button>
@@ -1373,13 +1406,13 @@ export default function IntranetPage() {
                       <button
                         onClick={() => saveEdit(selectedThread.id)}
                         disabled={savingEditId === selectedThread.id || !editingDraft.trim()}
-                        className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                        className={pillBtnPrimary}
                       >
                         {savingEditId === selectedThread.id ? 'Opslaan…' : 'Opslaan'}
                       </button>
                       <button
                         onClick={cancelEdit}
-                        className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                        className={pillBtn}
                       >
                         Annuleer
                       </button>
@@ -1426,7 +1459,7 @@ export default function IntranetPage() {
                                         setReplyingTo(r.id)
                                         setTimeout(() => replyTextareaRef.current?.focus(), 0)
                                       }}
-                                      className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                      className={pillBtnSm}
                                     >
                                       Reageer
                                     </button>
@@ -1438,7 +1471,7 @@ export default function IntranetPage() {
                                         e.stopPropagation()
                                         startEdit(r)
                                       }}
-                                      className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                      className={pillBtnSm}
                                     >
                                       Bewerk
                                     </button>
@@ -1471,13 +1504,13 @@ export default function IntranetPage() {
                                     <button
                                       onClick={() => saveEdit(r.id)}
                                       disabled={savingEditId === r.id || !editingDraft.trim()}
-                                      className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                                      className={pillBtnPrimary}
                                     >
                                       {savingEditId === r.id ? 'Opslaan…' : 'Opslaan'}
                                     </button>
                                     <button
                                       onClick={cancelEdit}
-                                      className="text-sm px-3 py-2 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                                      className={pillBtn}
                                     >
                                       Annuleer
                                     </button>
@@ -1524,7 +1557,7 @@ export default function IntranetPage() {
                         </div>
                         <button
                           onClick={() => setReplyingTo(null)}
-                          className="text-xs px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                          className={pillBtnSm}
                         >
                           Annuleer
                         </button>
@@ -1551,13 +1584,13 @@ export default function IntranetPage() {
                       <button
                         onClick={() => sendReply(selectedThread.id)}
                         disabled={sendingReplyId === selectedThread.id || !(replyDrafts[selectedThread.id] ?? '').trim()}
-                        className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                        className={pillBtnPrimary}
                       >
                         {sendingReplyId === selectedThread.id ? 'Versturen…' : 'Verstuur'}
                       </button>
                       <button
                         onClick={() => setSelectedThreadId(null)}
-                        className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                        className={pillBtn}
                       >
                         Sluit thread
                       </button>
@@ -1584,7 +1617,7 @@ export default function IntranetPage() {
                   loadMembers()
                   loadProfilesAlphabetical()
                 }}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Beheren
               </button>
@@ -1630,7 +1663,7 @@ export default function IntranetPage() {
               <div className="font-bold truncate">Intranet</div>
               <button
                 onClick={() => setMobileNavOpen(false)}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Sluiten
               </button>
@@ -1683,7 +1716,7 @@ export default function IntranetPage() {
                       setNewThreadOpen(true)
                     }}
                     disabled={!canStartThread}
-                    className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5 disabled:opacity-50"
+                    className={pillBtnIcon + ' disabled:opacity-50'}
                     title={!activeChannelId ? 'Selecteer eerst een kanaal' : !userId ? 'Log in om een thread te starten' : 'Nieuwe thread'}
                   >
                     +
@@ -1771,7 +1804,7 @@ export default function IntranetPage() {
               </div>
               <button
                 onClick={() => setChannelModalOpen(false)}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Sluiten
               </button>
@@ -1812,14 +1845,14 @@ export default function IntranetPage() {
                 <button
                   onClick={saveChannel}
                   disabled={channelSaving || !channelName.trim()}
-                  className="flex-1 bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                  className={'flex-1 ' + pillBtnPrimary}
                 >
                   {channelSaving ? 'Opslaan…' : 'Opslaan'}
                 </button>
                 {channelModalMode === 'edit' && (
                   <button
                     onClick={deleteChannel}
-                    className="px-3 py-2 rounded border border-red-200 text-red-700 hover:bg-red-50"
+                    className={pillBtnDanger}
                   >
                     Verwijderen
                   </button>
@@ -1848,7 +1881,7 @@ export default function IntranetPage() {
                   setNewThreadOpen(false)
                   setNewPost('')
                 }}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Sluiten
               </button>
@@ -1875,7 +1908,7 @@ export default function IntranetPage() {
                         if (ok) setNewThreadOpen(false)
                       }}
                       disabled={posting || !newPost.trim()}
-                      className="bg-orange-600 text-white px-3 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+                      className={pillBtnPrimary}
                     >
                       {posting ? 'Plaatsen…' : 'Plaatsen'}
                     </button>
@@ -1896,7 +1929,7 @@ export default function IntranetPage() {
               <div className="font-bold truncate">Leden beheren {activeChannel ? `(#${activeChannel.name})` : ''}</div>
               <button
                 onClick={() => setMembersOpen(false)}
-                className="text-sm px-2 py-1 rounded border border-orange-200/60 dark:border-orange-500/30 hover:bg-orange-50 dark:hover:bg-white/5"
+                className={pillBtn}
               >
                 Sluiten
               </button>
@@ -1923,7 +1956,7 @@ export default function IntranetPage() {
                           <button
                             onClick={() => setMember(m.member_id, false)}
                             disabled={memberMutating === m.member_id}
-                            className="text-sm px-2 py-1 rounded border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            className={pillBtnDanger}
                           >
                             Verwijder
                           </button>
@@ -1967,7 +2000,7 @@ export default function IntranetPage() {
                       setProfilePickId('')
                     }}
                     disabled={!profilePickId || memberMutating === profilePickId}
-                    className="text-sm px-3 py-2 rounded border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-50"
+                    className={pillBtnSuccess}
                   >
                     {memberMutating === profilePickId ? 'Toevoegen…' : 'Toevoegen'}
                   </button>
