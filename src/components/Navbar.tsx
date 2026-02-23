@@ -58,28 +58,28 @@ export default function Navbar() {
   const linkClass = (href: string) => {
     const active = pathname === href
     return (
-      'text-sm px-2 py-1 rounded border transition-colors whitespace-nowrap ' +
+      'text-sm px-3 py-1.5 rounded-xl border transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-500 ' +
       (active
-        ? 'bg-black/10 border-black/30 text-black'
-        : 'border-transparent text-black hover:bg-black/10 hover:border-black/20')
+        ? 'bg-black text-white border-black/70 shadow-sm'
+        : 'bg-white/20 border-black/15 text-black hover:bg-white/30 hover:border-black/25')
     )
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-orange-500 backdrop-blur border-b border-black/20">
-      <div className="px-3 py-2 sm:px-6 sm:py-3">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="font-semibold text-black mr-2 shrink-0">
+    <nav className="sticky top-0 z-50 bg-orange-500/95 backdrop-blur border-b border-black/20">
+      <div className="px-3 py-2.5 sm:px-6 sm:py-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="font-semibold text-black mr-2 shrink-0 tracking-tight">
             Vortexx
           </Link>
 
           <div className="ml-auto flex items-center gap-3 min-w-0">
             {userEmail ? (
-              <span className="text-xs text-black/80 truncate max-w-[140px] sm:max-w-[220px]">
+              <span className="text-xs text-black/80 truncate max-w-[140px] sm:max-w-[240px]">
                 {userEmail}
               </span>
             ) : (
-              <Link href="/login" className={linkClass('/login')}>
+              <Link href="/login" className={linkClass('/login')} aria-current={pathname === '/login' ? 'page' : undefined}>
                 Inloggen
               </Link>
             )}
@@ -90,7 +90,7 @@ export default function Navbar() {
                   await supabase.auth.signOut()
                   window.location.href = '/login'
                 }}
-                className="text-sm underline text-black shrink-0"
+                className="text-sm px-3 py-1.5 rounded-xl border border-black/15 bg-white/10 hover:bg-white/20 text-black shrink-0 transition-colors"
               >
                 Uitloggen
               </button>
@@ -98,12 +98,17 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="mt-2 sm:mt-0 -mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
-          <div className="inline-flex gap-1 items-center whitespace-nowrap">
+        <div className="mt-2 sm:mt-3 -mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
+          <div className="inline-flex gap-2 items-center whitespace-nowrap pb-1">
             {links
               .filter((l) => !l.adminOnly || isAdmin)
               .map((l) => (
-                <Link key={l.href} href={l.href} className={linkClass(l.href)}>
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={linkClass(l.href)}
+                  aria-current={pathname === l.href ? 'page' : undefined}
+                >
                   {l.label}
                 </Link>
               ))}
