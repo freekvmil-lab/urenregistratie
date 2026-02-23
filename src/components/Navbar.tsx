@@ -58,10 +58,12 @@ export default function Navbar() {
   const linkClass = (href: string) => {
     const active = pathname === href
     return (
-      'text-sm px-3 py-1.5 rounded-xl border transition-colors whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-500 ' +
+      'text-sm px-3 py-1.5 rounded-full border transition-all whitespace-nowrap select-none ' +
+      'ring-1 ring-inset ring-black/5 ' +
+      'focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-500 ' +
       (active
         ? 'bg-black text-white border-black/70 shadow-sm'
-        : 'bg-white/20 border-black/15 text-black hover:bg-white/30 hover:border-black/25')
+        : 'bg-white/10 border-black/15 text-black hover:bg-white/20 hover:border-black/25 hover:shadow-sm')
     )
   }
 
@@ -90,7 +92,7 @@ export default function Navbar() {
                   await supabase.auth.signOut()
                   window.location.href = '/login'
                 }}
-                className="text-sm px-3 py-1.5 rounded-xl border border-black/15 bg-white/10 hover:bg-white/20 text-black shrink-0 transition-colors"
+                className="text-sm px-3 py-1.5 rounded-full border border-black/15 bg-white/10 hover:bg-white/20 hover:shadow-sm text-black shrink-0 transition-all ring-1 ring-inset ring-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/60 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-500"
               >
                 Uitloggen
               </button>
