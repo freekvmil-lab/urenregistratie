@@ -92,7 +92,14 @@ export async function POST(req: Request) {
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || process.env.NEXT_PUBLIC_VAPID_PRIVATE_KEY
-  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@vortexx.local'
+  const requestOrigin = (() => {
+    try {
+      return new URL(req.url).origin
+    } catch {
+      return null
+    }
+  })()
+  const subject = process.env.VAPID_SUBJECT || requestOrigin || 'mailto:admin@example.com'
 
   if (!vapidPublicKey || !vapidPrivateKey) {
     return NextResponse.json(
