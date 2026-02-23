@@ -57,10 +57,13 @@ export async function POST(req: Request) {
       hints.push('Als je net env vars aangepast hebt op Vercel: redeploy zodat client en server dezelfde waarden gebruiken.')
     }
 
+    const errorText = tokenIss
+      ? `Niet ingelogd (badjwttoken) — tokenIss=${tokenIss} — expectedIss=${expectedIss}`
+      : `Niet ingelogd (badjwttoken) — expectedIss=${expectedIss}`
+
     return NextResponse.json(
       {
-        error: 'Niet ingelogd (badjwttoken)'
-        ,
+        error: errorText,
         details: {
           supabaseUrl,
           expectedIss,
