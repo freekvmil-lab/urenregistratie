@@ -44,6 +44,7 @@ export default function Navbar() {
       { href: '/agenda', label: 'Agenda', adminOnly: false },
       { href: '/intranet', label: 'Intranet', adminOnly: false },
       { href: '/availability', label: 'Beschikbaarheid', adminOnly: false },
+      { href: '/settings/notifications', label: 'Notificaties', adminOnly: false },
     ]
     const adminLinks = [
       { href: '/admin', label: 'Admin', adminOnly: true },
