@@ -13,6 +13,8 @@ type PatchBody = {
   userIds?: string[]
   groupIds?: string[]
   repeatMinutes?: number | null
+  repeatUnit?: 'once' | 'minutes' | 'weeks' | 'months'
+  repeatEvery?: number | null
   nextRunAt?: string | null
 }
 
@@ -46,11 +48,35 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (typeof body.body === 'string') patch.body = body.body.trim()
     if (typeof body.url === 'string') patch.url = body.url.trim() || '/'
 
-    if (body.repeatMinutes === null) patch.repeat_minutes = null
-    else if (body.repeatMinutes !== undefined) {
-      const n = Number(body.repeatMinutes)
-      if (!Number.isFinite(n) || n < 1) return NextResponse.json({ error: 'invalid_repeatMinutes' }, { status: 400 })
-      patch.repeat_minutes = n
+    if (body.repeatUnit) {
+      if (body.repeatUnit === 'once') {
+        patch.repeat_minutes = null
+        patch.repeat_weeks = null
+        patch.repeat_months = null
+      } else {
+        const n = body.repeatEvery === null || body.repeatEvery === undefined ? NaN : Number(body.repeatEvery)
+        if (!Number.isFinite(n) || n < 1) return NextResponse.json({ error: 'invalid_repeatEvery' }, { status: 400 })
+
+        patch.repeat_minutes = null
+        patch.repeat_weeks = null
+        patch.repeat_months = null
+
+        if (body.repeatUnit === 'minutes') patch.repeat_minutes = n
+        else if (body.repeatUnit === 'weeks') patch.repeat_weeks = n
+        else if (body.repeatUnit === 'months') patch.repeat_months = n
+        else return NextResponse.json({ error: 'invalid_repeatUnit' }, { status: 400 })
+      }
+    } else {
+      // Backward compatibility
+      if (body.repeatMinutes === null) {
+        patch.repeat_minutes = null
+      } else if (body.repeatMinutes !== undefined) {
+        const n = Number(body.repeatMinutes)
+        if (!Number.isFinite(n) || n < 1) return NextResponse.json({ error: 'invalid_repeatMinutes' }, { status: 400 })
+        patch.repeat_minutes = n
+        patch.repeat_weeks = null
+        patch.repeat_months = null
+      }
     }
 
     if (body.nextRunAt === null) patch.next_run_at = new Date().toISOString()

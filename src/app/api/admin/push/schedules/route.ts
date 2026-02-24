@@ -13,6 +13,8 @@ type CreateBody = {
   userIds?: string[]
   groupIds?: string[]
   repeatMinutes?: number | null
+  repeatUnit?: 'once' | 'minutes' | 'weeks' | 'months'
+  repeatEvery?: number | null
   nextRunAt?: string | null
 }
 
@@ -23,7 +25,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await auth.supabase
       .from('push_schedules')
-      .select('id, name, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, next_run_at, last_run_at, created_at, updated_at')
+      .select('id, name, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, repeat_weeks, repeat_months, next_run_at, last_run_at, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -62,9 +64,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
     }
 
-    const repeatMinutes = body?.repeatMinutes === null || body?.repeatMinutes === undefined ? null : Number(body.repeatMinutes)
-    if (repeatMinutes !== null && (!Number.isFinite(repeatMinutes) || repeatMinutes < 1)) {
-      return NextResponse.json({ error: 'invalid_repeatMinutes' }, { status: 400 })
+    let repeat_minutes: number | null = null
+    let repeat_weeks: number | null = null
+    let repeat_months: number | null = null
+
+    const repeatUnit = body?.repeatUnit
+    const repeatEvery = body?.repeatEvery
+
+    if (repeatUnit) {
+      if (repeatUnit === 'once') {
+        // keep all null
+      } else {
+        const n = repeatEvery === null || repeatEvery === undefined ? NaN : Number(repeatEvery)
+        if (!Number.isFinite(n) || n < 1) {
+          return NextResponse.json({ error: 'invalid_repeatEvery' }, { status: 400 })
+        }
+
+        if (repeatUnit === 'minutes') repeat_minutes = n
+        else if (repeatUnit === 'weeks') repeat_weeks = n
+        else if (repeatUnit === 'months') repeat_months = n
+        else return NextResponse.json({ error: 'invalid_repeatUnit' }, { status: 400 })
+      }
+    } else {
+      // Backward compatibility
+      const repeatMinutes = body?.repeatMinutes === null || body?.repeatMinutes === undefined ? null : Number(body.repeatMinutes)
+      if (repeatMinutes !== null && (!Number.isFinite(repeatMinutes) || repeatMinutes < 1)) {
+        return NextResponse.json({ error: 'invalid_repeatMinutes' }, { status: 400 })
+      }
+      repeat_minutes = repeatMinutes
     }
 
     let nextRunAt = body?.nextRunAt ? String(body.nextRunAt) : null
@@ -83,7 +110,9 @@ export async function POST(req: Request) {
       target_all: target === 'all',
       target_user_ids: target === 'users' ? userIds : null,
       target_group_ids: target === 'users' ? groupIds : null,
-      repeat_minutes: repeatMinutes,
+      repeat_minutes,
+      repeat_weeks,
+      repeat_months,
       next_run_at: nextRunAt ?? new Date().toISOString(),
       created_by: auth.callerId,
     }

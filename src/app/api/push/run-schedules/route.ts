@@ -31,6 +31,24 @@ const chunk = <T,>(arr: T[], size: number) => {
   return out
 }
 
+const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000)
+const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86_400_000)
+const addMonths = (d: Date, months: number) => {
+  const next = new Date(d.getTime())
+  next.setUTCMonth(next.getUTCMonth() + months)
+  return next
+}
+
+const bumpUntilFuture = (base: Date, now: Date, bump: (d: Date) => Date) => {
+  let next = bump(base)
+  let guard = 0
+  while (next.getTime() <= now.getTime() && guard < 500) {
+    next = bump(next)
+    guard += 1
+  }
+  return next
+}
+
 export async function GET(req: Request) {
   try {
     const gate = requireCronSecret(req)
@@ -55,7 +73,7 @@ export async function GET(req: Request) {
 
     const { data: schedules, error: schedErr } = await supabase
       .from('push_schedules')
-      .select('id, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, next_run_at')
+      .select('id, enabled, title, body, url, target_all, target_user_ids, target_group_ids, repeat_minutes, repeat_weeks, repeat_months, next_run_at')
       .eq('enabled', true)
       .lte('next_run_at', now.toISOString())
       .order('next_run_at', { ascending: true })
@@ -84,6 +102,11 @@ export async function GET(req: Request) {
       const targetUserIds = Array.isArray(s.target_user_ids) ? (s.target_user_ids as any[]).map(String).filter(Boolean) : []
       const targetGroupIds = Array.isArray(s.target_group_ids) ? (s.target_group_ids as any[]).map(String).filter(Boolean) : []
       const repeatMinutes = s.repeat_minutes === null || s.repeat_minutes === undefined ? null : Number(s.repeat_minutes)
+      const repeatWeeks = s.repeat_weeks === null || s.repeat_weeks === undefined ? null : Number(s.repeat_weeks)
+      const repeatMonths = s.repeat_months === null || s.repeat_months === undefined ? null : Number(s.repeat_months)
+
+      const baseDueAt = new Date(String(s.next_run_at))
+      const dueAt = Number.isNaN(baseDueAt.getTime()) ? now : baseDueAt
 
       if (!title || !message) {
         await supabase.from('push_schedules').update({ enabled: false, last_run_at: now.toISOString() }).eq('id', scheduleId)
@@ -159,8 +182,23 @@ export async function GET(req: Request) {
       }
 
       const next: any = { last_run_at: now.toISOString() }
-      if (repeatMinutes && Number.isFinite(repeatMinutes) && repeatMinutes > 0) {
-        next.next_run_at = new Date(now.getTime() + repeatMinutes * 60_000).toISOString()
+
+      const hasMinutes = repeatMinutes !== null && Number.isFinite(repeatMinutes) && repeatMinutes > 0
+      const hasWeeks = repeatWeeks !== null && Number.isFinite(repeatWeeks) && repeatWeeks > 0
+      const hasMonths = repeatMonths !== null && Number.isFinite(repeatMonths) && repeatMonths > 0
+
+      if (hasMinutes) {
+        const n = repeatMinutes as number
+        next.next_run_at = bumpUntilFuture(dueAt, now, (d) => addMinutes(d, n)).toISOString()
+        next.enabled = true
+      } else if (hasWeeks) {
+        const n = repeatWeeks as number
+        next.next_run_at = bumpUntilFuture(dueAt, now, (d) => addDays(d, n * 7)).toISOString()
+        next.enabled = true
+      } else if (hasMonths) {
+        const n = repeatMonths as number
+        next.next_run_at = bumpUntilFuture(dueAt, now, (d) => addMonths(d, n)).toISOString()
+        next.enabled = true
       } else {
         next.enabled = false
       }

@@ -14,8 +14,10 @@ create table if not exists public.push_schedules (
   target_user_ids uuid[] null,
   target_group_ids uuid[] null,
 
-  -- If repeat_minutes is null: one-off schedule (runs once and disables)
+  -- If all repeat_* are null: one-off schedule (runs once and disables)
   repeat_minutes integer null,
+  repeat_weeks integer null,
+  repeat_months integer null,
 
   next_run_at timestamptz not null default now(),
   last_run_at timestamptz null,
@@ -24,6 +26,32 @@ create table if not exists public.push_schedules (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- If the table existed already, ensure newer columns are present.
+alter table public.push_schedules
+  add column if not exists repeat_weeks integer null;
+
+alter table public.push_schedules
+  add column if not exists repeat_months integer null;
+
+-- Optional: at most one repeat_* column can be set.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'push_schedules_one_repeat'
+  ) then
+    alter table public.push_schedules
+      add constraint push_schedules_one_repeat
+      check (
+        (case when repeat_minutes is null then 0 else 1 end)
+        + (case when repeat_weeks is null then 0 else 1 end)
+        + (case when repeat_months is null then 0 else 1 end)
+        <= 1
+      );
+  end if;
+end $$;
 
 create index if not exists push_schedules_next_run
   on public.push_schedules (enabled, next_run_at);

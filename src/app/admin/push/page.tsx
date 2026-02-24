@@ -27,6 +27,8 @@ type ScheduleRow = {
   target_all: boolean
   target_user_ids: string[] | null
   repeat_minutes: number | null
+  repeat_weeks?: number | null
+  repeat_months?: number | null
   next_run_at: string
   last_run_at: string | null
   created_at: string
@@ -70,7 +72,7 @@ export default function AdminPushPage() {
   const [newName, setNewName] = useState('')
   const [newEnabled, setNewEnabled] = useState(true)
   const [newTarget, setNewTarget] = useState<'all' | 'users'>('all')
-  const [newRepeat, setNewRepeat] = useState<string>('60')
+  const [newRepeat, setNewRepeat] = useState<string>('m:60')
   const [newNextRun, setNewNextRun] = useState<string>('')
   const [newTitle, setNewTitle] = useState('Vortexx')
   const [newBody, setNewBody] = useState('')
@@ -328,7 +330,22 @@ export default function AdminPushPage() {
         return
       }
 
-      const repeatMinutes = newRepeat === 'once' ? null : Number(newRepeat)
+      let repeatUnit: 'once' | 'minutes' | 'weeks' | 'months' = 'once'
+      let repeatEvery: number | null = null
+
+      if (newRepeat === 'once') {
+        repeatUnit = 'once'
+      } else if (newRepeat.startsWith('m:')) {
+        repeatUnit = 'minutes'
+        repeatEvery = Number(newRepeat.slice(2))
+      } else if (newRepeat.startsWith('w:')) {
+        repeatUnit = 'weeks'
+        repeatEvery = Number(newRepeat.slice(2))
+      } else if (newRepeat.startsWith('mo:')) {
+        repeatUnit = 'months'
+        repeatEvery = Number(newRepeat.slice(3))
+      }
+
       const nextRunAt = newNextRun ? new Date(newNextRun).toISOString() : null
 
       const res = await fetch('/api/admin/push/schedules', {
@@ -346,7 +363,8 @@ export default function AdminPushPage() {
           target: newTarget,
           userIds: newTarget === 'users' ? selectedIds : undefined,
           groupIds: newTarget === 'users' ? selectedGroupIdList : undefined,
-          repeatMinutes,
+          repeatUnit,
+          repeatEvery,
           nextRunAt,
         }),
       })
@@ -614,10 +632,12 @@ export default function AdminPushPage() {
                     className="px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
                   >
                     <option value="once">Eenmalig</option>
-                    <option value="15">Elke 15 min</option>
-                    <option value="30">Elke 30 min</option>
-                    <option value="60">Elk uur</option>
-                    <option value="1440">Elke dag</option>
+                    <option value="m:15">Elke 15 min</option>
+                    <option value="m:30">Elke 30 min</option>
+                    <option value="m:60">Elk uur</option>
+                    <option value="m:1440">Elke dag</option>
+                    <option value="w:1">Elke week</option>
+                    <option value="mo:1">Elke maand</option>
                   </select>
 
                   <label className="text-sm ml-2">Doelgroep</label>
@@ -718,7 +738,16 @@ export default function AdminPushPage() {
 
                         <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 space-y-1">
                           <div>Doelgroep: {s.target_all ? 'Iedereen' : `Geselecteerd (${(s.target_user_ids ?? []).length})`}</div>
-                          <div>Herhaling: {s.repeat_minutes ? `${s.repeat_minutes} min` : 'eenmalig'}</div>
+                          <div>
+                            Herhaling:{' '}
+                            {s.repeat_minutes
+                              ? `${s.repeat_minutes} min`
+                              : s.repeat_weeks
+                                ? `elke ${s.repeat_weeks} week`
+                                : s.repeat_months
+                                  ? `elke ${s.repeat_months} maand`
+                                  : 'eenmalig'}
+                          </div>
                           <div>Volgende: {fmt(s.next_run_at)}</div>
                           <div>Laatst: {fmt(s.last_run_at)}</div>
                         </div>
