@@ -362,6 +362,13 @@ export default function AdminDashboard() {
     })
   }
 
+  const sameStartEnd = (e: { start_time: string | null; end_time: string | null }) => {
+    if (!e?.start_time || !e?.end_time) return false
+    const s = new Date(e.start_time).getTime()
+    const en = new Date(e.end_time).getTime()
+    return Number.isFinite(s) && Number.isFinite(en) && s === en
+  }
+
 
   const calculateHours = (e: TimeEntry) => {
     const h = hoursBetween(e.start_time, e.end_time)
@@ -829,7 +836,16 @@ export default function AdminDashboard() {
                         <tr key={e.id}>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
-                          <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
+                          <td className="border p-2 text-gray-900 dark:text-gray-100">
+                            <div className="space-y-1">
+                              <div>{formatTime(e.start_time)}</div>
+                              {sameStartEnd(e) && (
+                                <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                                  Let op!! Begin tijd en eind tijd zijn hetzelfde
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
                             <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
                           <td className="border p-2 text-gray-900 dark:text-gray-100">
@@ -900,7 +916,16 @@ export default function AdminDashboard() {
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{e.name}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatDate(e.date)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{String(iso.week).padStart(2, '0')}</td>
-                      <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.start_time)}</td>
+                      <td className="border p-2 text-gray-900 dark:text-gray-100">
+                        <div className="space-y-1">
+                          <div>{formatTime(e.start_time)}</div>
+                          {sameStartEnd(e) && (
+                            <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                              Let op!! Begin tijd en eind tijd zijn hetzelfde
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{formatTime(e.end_time)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">{calculateHours(e)}</td>
                       <td className="border p-2 text-gray-900 dark:text-gray-100">
