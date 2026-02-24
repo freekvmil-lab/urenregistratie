@@ -97,6 +97,13 @@ const hours = (s: string, e: string | null) => {
   return diffMs / 3600000
 }
 
+const sameStartEnd = (e: { start_time: string; end_time: string | null }) => {
+  if (!e?.end_time) return false
+  const s = new Date(e.start_time).getTime()
+  const en = new Date(e.end_time).getTime()
+  return Number.isFinite(s) && Number.isFinite(en) && s === en
+}
+
 const needsDetails = (e: Entry) => {
   if (e.manual) return false
   // Only nudge after the shift is stopped
@@ -580,6 +587,32 @@ export default function MyOverview({ userId }: { userId?: string }) {
     fetchEntries()
   }
 
+  const deleteEntry = async () => {
+    if (!editing) return
+    if (editing.approved === true) {
+      setEditError('Deze entry is al goedgekeurd en kan niet meer worden verwijderd.')
+      return
+    }
+
+    const ok = confirm('Weet je zeker dat je deze entry wilt verwijderen?')
+    if (!ok) return
+
+    setEditError(null)
+
+    const { error } = await supabase
+      .from('time_entries')
+      .delete()
+      .eq('id', editing.id)
+
+    if (error) {
+      setEditError(error.message || 'Verwijderen mislukt')
+      return
+    }
+
+    setEditing(null)
+    fetchEntries()
+  }
+
   const saveManual = async () => {
     if (!userId) return
     setManualError(null)
@@ -916,6 +949,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
                     )}
                   </div>
 
+                  {sameStartEnd(e) && (
+                    <div className="text-xs">
+                      <span className="inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2 py-0.5 font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                        Let op!! Begin tijd en eind tijd zijn hetzelfde
+                      </span>
+                    </div>
+                  )}
+
                   {/* KLUS INFO */}
                   <div className="text-xs text-gray-800 dark:text-gray-300 flex flex-wrap gap-2">
                     {displayClientName(e) && (
@@ -1087,6 +1128,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
+              {editing.approved !== true && (
+                <button
+                  onClick={deleteEntry}
+                  className="px-3 py-1 rounded border border-red-500/60 text-red-200 hover:bg-red-500/10"
+                >
+                  Verwijder
+                </button>
+              )}
               <button onClick={saveEdit} className="px-3 py-1 bg-black text-white rounded">Opslaan</button>
             </div>
           </div>
