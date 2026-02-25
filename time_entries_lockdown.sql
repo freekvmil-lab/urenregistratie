@@ -18,10 +18,12 @@ alter table public.time_entries enable row level security;
 
 -- Drop & recreate policies to be deterministic
 
+-- Admins can read all entries
 drop policy if exists time_entries_admin_all on public.time_entries;
-create policy time_entries_admin_all
+drop policy if exists time_entries_admin_select_all on public.time_entries;
+create policy time_entries_admin_select_all
 on public.time_entries
-for all
+for select
 to authenticated
 using (
   exists (
@@ -31,6 +33,40 @@ using (
       and p.role = 'admin'
       and p.deleted_at is null
   )
+);
+
+-- Admins can insert entries but only as pending
+drop policy if exists time_entries_admin_insert_pending on public.time_entries;
+create policy time_entries_admin_insert_pending
+on public.time_entries
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.deleted_at is null
+  )
+  and coalesce(approved, false) = false
+);
+
+-- Admins can update entries only while pending (approved=false)
+drop policy if exists time_entries_admin_update_pending on public.time_entries;
+create policy time_entries_admin_update_pending
+on public.time_entries
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.deleted_at is null
+  )
+  and coalesce(approved, false) = false
 )
 with check (
   exists (
@@ -40,6 +76,23 @@ with check (
       and p.role = 'admin'
       and p.deleted_at is null
   )
+);
+
+-- Admins can delete entries only while pending (approved=false)
+drop policy if exists time_entries_admin_delete_pending on public.time_entries;
+create policy time_entries_admin_delete_pending
+on public.time_entries
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.deleted_at is null
+  )
+  and coalesce(approved, false) = false
 );
 
 -- Employees can read their own entries

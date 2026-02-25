@@ -112,6 +112,22 @@ const hoursBetween = (start: string | null, end: string | null) => {
   return diffMs / 3600000
 }
 
+const toTimeInput = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+    : ''
+
+const toLocalISOStartEnd = (date: string, startTime: string, endTime: string) => {
+  const [sh, sm] = startTime.split(':').map(Number)
+  const [eh, em] = endTime.split(':').map(Number)
+  const start = new Date(date)
+  start.setHours(sh, sm, 0, 0)
+  const end = new Date(date)
+  end.setHours(eh, em, 0, 0)
+  if (end.getTime() < start.getTime()) end.setDate(end.getDate() + 1)
+  return { start: start.toISOString(), end: end.toISOString() }
+}
+
 const formatHours = (h: number) => (Math.round(h * 100) / 100).toFixed(2)
 
 const needsDetails = (e: TimeEntry) => {
@@ -139,6 +155,18 @@ export default function AdminDashboard() {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [selectedUser, setSelectedUser] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+
+  const [editing, setEditing] = useState<TimeEntry | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editStart, setEditStart] = useState('')
+  const [editEnd, setEditEnd] = useState('')
+  const [editClientId, setEditClientId] = useState<string>('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editKilometers, setEditKilometers] = useState<number | ''>('')
+  const [editParkingPaid, setEditParkingPaid] = useState(false)
+  const [editParkingCost, setEditParkingCost] = useState<number | ''>('')
+  const [editBreakMinutes, setEditBreakMinutes] = useState(0)
+  const [editBusy, setEditBusy] = useState(false)
 
   const [exportClientOpen, setExportClientOpen] = useState(false)
   const [exportClientId, setExportClientId] = useState<string>('')
@@ -240,6 +268,71 @@ export default function AdminDashboard() {
     fetchEntries()
     fetchClients()
   }, [])
+
+  const openEdit = (e: TimeEntry) => {
+    setEditError(null)
+    setEditing(e)
+    setEditStart(toTimeInput(e.start_time))
+    setEditEnd(toTimeInput(e.end_time))
+    setEditClientId(String(e.client_id ?? '') || '')
+    setEditLocation(String(e.location ?? '') || '')
+    setEditKilometers(e.kilometers ?? '')
+    setEditParkingPaid(Boolean(e.parking_paid))
+    setEditParkingCost(e.parking_cost ?? '')
+    setEditBreakMinutes(Math.max(0, Number(e.break_minutes ?? 0) || 0))
+  }
+
+  const saveEdit = async () => {
+    if (!editing) return
+    if (editing.approved) {
+      setEditError('Deze entry is al goedgekeurd en kan niet meer worden gewijzigd.')
+      return
+    }
+
+    if (!editStart || !editEnd) {
+      setEditError('Vul start en stop tijd in')
+      return
+    }
+
+    setEditBusy(true)
+    setEditError(null)
+    try {
+      const { start, end } = toLocalISOStartEnd(editing.date, editStart, editEnd)
+
+      const payload: any = {
+        start_time: start,
+        end_time: end,
+        client_id: editClientId ? editClientId : null,
+        location: editLocation || null,
+        kilometers: editKilometers === '' ? null : editKilometers,
+        parking_paid: Boolean(editParkingPaid),
+        parking_cost: editParkingPaid ? (editParkingCost === '' ? null : editParkingCost) : null,
+        break_minutes: Math.max(0, Math.round(Number(editBreakMinutes) || 0)),
+        edited: true,
+        approved: false,
+        approved_at: null,
+        approved_by: null,
+      }
+
+      // If client_id cleared, also clear legacy text client to prevent confusion
+      if (!payload.client_id) payload.client = null
+
+      const { error } = await supabase
+        .from('time_entries')
+        .update(payload)
+        .eq('id', editing.id)
+
+      if (error) {
+        setEditError(error.message || 'Opslaan mislukt')
+        return
+      }
+
+      setEditing(null)
+      await fetchEntries()
+    } finally {
+      setEditBusy(false)
+    }
+  }
 
   /* =======================
      ACTIONS
@@ -873,12 +966,23 @@ export default function AdminDashboard() {
                                 </button>
                               )}
 
-                              <button
-                                onClick={() => deleteEntry(e.id)}
-                                className="bg-red-600 text-white px-2 py-1 rounded"
-                              >
-                                Verwijderen
-                              </button>
+                              {!e.approved && (
+                                <button
+                                  onClick={() => openEdit(e)}
+                                  className="bg-black hover:bg-gray-900 text-white px-2 py-1 rounded"
+                                >
+                                  Wijzig
+                                </button>
+                              )}
+
+                              {!e.approved && (
+                                <button
+                                  onClick={() => deleteEntry(e.id)}
+                                  className="bg-red-600 text-white px-2 py-1 rounded"
+                                >
+                                  Verwijderen
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -953,12 +1057,23 @@ export default function AdminDashboard() {
                             </button>
                           )}
 
-                          <button
-                            onClick={() => deleteEntry(e.id)}
-                            className="bg-red-600 text-white px-2 py-1 rounded"
-                          >
-                            Verwijderen
-                          </button>
+                          {!e.approved && (
+                            <button
+                              onClick={() => openEdit(e)}
+                              className="bg-black hover:bg-gray-900 text-white px-2 py-1 rounded"
+                            >
+                              Wijzig
+                            </button>
+                          )}
+
+                          {!e.approved && (
+                            <button
+                              onClick={() => deleteEntry(e.id)}
+                              className="bg-red-600 text-white px-2 py-1 rounded"
+                            >
+                              Verwijderen
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -968,6 +1083,110 @@ export default function AdminDashboard() {
             </table>
           </div>
         )}
+
+      {editing && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+            <h3 className="font-semibold">Bewerk uren</h3>
+            <div className="space-y-2">
+              <div className="text-xs text-gray-300">
+                {editing.name} · {editing.date}
+              </div>
+
+              <input
+                type="time"
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+                className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+              />
+              <input
+                type="time"
+                value={editEnd}
+                onChange={(e) => setEditEnd(e.target.value)}
+                className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+              />
+
+              <div>
+                <div className="text-xs text-gray-300 mb-1">Pauze (uur)</div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  value={String((editBreakMinutes ?? 0) / 60)}
+                  onChange={(e) => {
+                    const h = e.target.value === '' ? 0 : Number(e.target.value)
+                    const minutes = Number.isFinite(h) ? Math.max(0, Math.round(h * 60)) : 0
+                    setEditBreakMinutes(minutes)
+                  }}
+                  className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+                />
+              </div>
+
+              <select
+                value={editClientId}
+                onChange={(e) => setEditClientId(e.target.value)}
+                className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+              >
+                <option value="">Selecteer opdrachtgever…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                placeholder="Locatie"
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+              />
+
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Kilometers"
+                  value={editKilometers === '' ? '' : editKilometers}
+                  onChange={(e) => setEditKilometers(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-1/2 rounded bg-gray-800 border-gray-700 text-white p-2"
+                />
+                <label className="flex items-center gap-2 text-sm text-gray-200">
+                  <input
+                    type="checkbox"
+                    checked={editParkingPaid}
+                    onChange={(e) => setEditParkingPaid(e.target.checked)}
+                  />
+                  Parkeren
+                </label>
+              </div>
+
+              {editParkingPaid && (
+                <input
+                  type="number"
+                  placeholder="Parkeerkosten"
+                  value={editParkingCost === '' ? '' : editParkingCost}
+                  onChange={(e) => setEditParkingCost(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full rounded bg-gray-800 border-gray-700 text-white p-2"
+                />
+              )}
+
+              {editError && <div className="text-sm text-red-300">{editError}</div>}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditing(null)} className="px-3 py-1">Annuleren</button>
+              <button
+                onClick={saveEdit}
+                disabled={editBusy}
+                className="px-3 py-1 bg-black text-white rounded disabled:opacity-50"
+              >
+                {editBusy ? 'Opslaan…' : 'Opslaan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-6 mb-6 items-end">
           <div>
