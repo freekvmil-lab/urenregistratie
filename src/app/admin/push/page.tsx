@@ -715,15 +715,6 @@ export default function AdminPushPage() {
           <div className="text-sm text-gray-700 dark:text-gray-200">
             Werknemers: {targetsLoading ? 'laden…' : String(targets.length)} · Groepen: {groupsLoading ? 'laden…' : String(groups.length)}
           </div>
-          <button
-            onClick={() => {
-              loadTargets()
-              loadGroups()
-            }}
-            className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
-          >
-            Vernieuwen
-          </button>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-3">
@@ -752,7 +743,12 @@ export default function AdminPushPage() {
                           <input
                             type="checkbox"
                             checked={Boolean(selectedGroupIds[g.id])}
-                            onChange={(e) => setSelectedGroupIds((p) => ({ ...p, [g.id]: e.target.checked }))}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setSelectedGroupIds((p) => ({ ...p, [g.id]: checked }))
+                              setRecipientView('selected')
+                              setRecipientSearch('')
+                            }}
                           />
                           <span className="text-sm truncate" title={`${g.name} (${(g.user_ids ?? []).length})`}>{g.name}</span>
                         </label>
@@ -827,13 +823,6 @@ export default function AdminPushPage() {
                   placeholder="Zoek ontvanger…"
                   className="px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40 text-sm"
                 />
-                <button
-                  onClick={() => setExcludedUserIds({})}
-                  className="px-3 py-2 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm"
-                  title="Verwijder alle uitzonderingen"
-                >
-                  Reset
-                </button>
               </div>
             </div>
 
