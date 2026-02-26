@@ -42,8 +42,8 @@ export default function Navbar() {
     const base = [
       { href: '/', label: 'Uren', adminOnly: false },
       { href: '/agenda', label: 'Agenda', adminOnly: false },
-      { href: '/intranet', label: 'Intranet', adminOnly: false },
       { href: '/availability', label: 'Beschikbaarheid', adminOnly: false },
+      { href: '/intranet', label: 'Intranet', adminOnly: false },
       { href: '/settings/notifications', label: 'Notificaties', adminOnly: false },
     ]
     const adminLinks = [

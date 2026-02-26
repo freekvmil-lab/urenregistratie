@@ -366,7 +366,7 @@ export default function AgendaPage() {
 
           {!loadingUser && userId && (
             <div className="shrink-0">
-              <GoogleAgendaButton userId={userId} />
+              <GoogleAgendaButton userId={userId} variant="subtle" />
             </div>
           )}
         </div>
@@ -467,7 +467,7 @@ export default function AgendaPage() {
             <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm overflow-hidden">
               <div className="grid grid-cols-7 border-b border-gray-200/80 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80">
                 {WEEKDAYS_NL.map((d) => (
-                  <div key={d} className="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                  <div key={d} className="px-2 sm:px-3 py-2 text-[11px] sm:text-xs font-semibold text-gray-600 dark:text-gray-400">
                     {d}
                   </div>
                 ))}
@@ -482,6 +482,17 @@ export default function AgendaPage() {
                   const maxShow = 3
                   const shown = items.slice(0, maxShow)
                   const extra = Math.max(0, items.length - maxShow)
+                  const dotMax = 5
+                  const dots = items.slice(0, dotMax)
+                  const dotsExtra = Math.max(0, items.length - dotMax)
+                  const first = items[0]
+                  const firstLabel = first
+                    ? (first.isAllDay
+                      ? 'Hele dag'
+                      : first.startsAt
+                        ? first.startsAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                        : '…')
+                    : null
 
                   return (
                     <button
@@ -489,7 +500,7 @@ export default function AgendaPage() {
                       type="button"
                       onClick={() => setSelectedDayKey(key)}
                       className={
-                        'min-h-[112px] sm:min-h-[128px] text-left px-2 sm:px-3 py-2 border-r border-b border-gray-200/80 dark:border-gray-800 hover:bg-gray-100/70 dark:hover:bg-white/5 transition ' +
+                        'min-h-[72px] sm:min-h-[128px] text-left px-2 sm:px-3 py-2 border-r border-b border-gray-200/80 dark:border-gray-800 hover:bg-gray-100/70 dark:hover:bg-white/5 transition ' +
                         (!inMonth ? 'opacity-50 ' : '') +
                         (isToday ? 'bg-orange-50/60 dark:bg-orange-500/10 ' : '')
                       }
@@ -508,9 +519,48 @@ export default function AgendaPage() {
                         {items.length > 0 && <div className="text-[10px] text-gray-500 dark:text-gray-400">{items.length}</div>}
                       </div>
 
-                      <div className="mt-2 space-y-1">
+                      {/* Mobile: compact dots (tap day for details) */}
+                      <div className="mt-2 sm:hidden">
+                        {items.length === 0 ? (
+                          <div className="text-[11px] text-gray-400 dark:text-gray-500">—</div>
+                        ) : (
+                          <div className="space-y-1" aria-label={`${items.length} afspraken`}>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {dots.map((it, idx) => (
+                                <span
+                                  key={key + '-dot-' + idx}
+                                  className={
+                                    'inline-block w-2.5 h-2.5 rounded-full border ' +
+                                    (it.isAllDay
+                                      ? 'bg-orange-500 border-orange-400/60'
+                                      : 'bg-slate-500 border-slate-400/60 dark:bg-slate-400 dark:border-slate-300/40')
+                                  }
+                                  title={it.event.title}
+                                />
+                              ))}
+                              {dotsExtra > 0 ? (
+                                <span className="text-[11px] text-gray-600 dark:text-gray-400">+{dotsExtra}</span>
+                              ) : null}
+                            </div>
+
+                            {first ? (
+                              <div className="text-[11px] leading-snug text-gray-700 dark:text-gray-300 truncate">
+                                <span className="text-gray-500 dark:text-gray-400 mr-1">{firstLabel}</span>
+                                <span className="font-semibold">{first.event.title || '(zonder titel)'}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Desktop/tablet: show event chips */}
+                      <div className="mt-2 space-y-1 hidden sm:block">
                         {shown.map((it, idx) => {
-                          const label = it.isAllDay ? 'Hele dag' : (it.startsAt ? it.startsAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '…')
+                          const label = it.isAllDay
+                            ? 'Hele dag'
+                            : it.startsAt
+                              ? it.startsAt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                              : '…'
                           return (
                             <div
                               key={key + '-' + idx}
@@ -536,7 +586,49 @@ export default function AgendaPage() {
             </div>
           ) : (
             <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 shadow-sm overflow-hidden">
-              <div className="grid grid-cols-7 border-b border-gray-200/80 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80">
+              {/* Mobile: clear list by day */}
+              <div className="sm:hidden p-3 space-y-3">
+                {weekDays.map((d) => {
+                  const key = toDateKey(d)
+                  const items = dayBuckets.get(key) ?? []
+                  const weekday = WEEKDAYS_NL[(d.getDay() + 6) % 7]
+                  const extra = Math.max(0, items.length - 3)
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedDayKey(key)}
+                      className="w-full text-left rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white/60 dark:bg-gray-900/30 p-3 hover:bg-gray-100/70 dark:hover:bg-white/5 transition"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">{weekday}</div>
+                          <div className="text-sm font-semibold">{d.getDate()}/{pad2(d.getMonth() + 1)}</div>
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 shrink-0">{items.length} afspraken</div>
+                      </div>
+
+                      {items.length === 0 ? (
+                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">Geen events</div>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          {items.slice(0, 3).map((it, idx) => (
+                            <div key={key + '-m-' + idx} className="text-sm">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 mr-2">{formatTimeRange(it)}</span>
+                              <span className="font-semibold">{it.event.title || '(zonder titel)'}</span>
+                            </div>
+                          ))}
+                          {extra > 0 ? <div className="text-xs text-gray-600 dark:text-gray-400">+{extra} meer</div> : null}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Desktop/tablet: 7-column grid */}
+              <div className="hidden sm:grid grid-cols-7 border-b border-gray-200/80 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80">
                 {weekDays.map((d) => {
                   const key = toDateKey(d)
                   const isToday = isSameDay(d, today)
@@ -559,7 +651,7 @@ export default function AgendaPage() {
                 })}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-7">
+              <div className="hidden sm:grid grid-cols-1 lg:grid-cols-7">
                 {weekDays.map((d) => {
                   const key = toDateKey(d)
                   const items = dayBuckets.get(key) ?? []
