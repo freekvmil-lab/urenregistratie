@@ -26,6 +26,7 @@ type ScheduleRow = {
   url: string
   target_all: boolean
   target_user_ids: string[] | null
+  target_group_ids?: string[] | null
   repeat_minutes: number | null
   repeat_weeks?: number | null
   repeat_months?: number | null
@@ -52,13 +53,19 @@ export default function AdminPushPage() {
 
   const [groups, setGroups] = useState<TargetGroup[]>([])
   const [groupsLoading, setGroupsLoading] = useState(false)
-  const [groupName, setGroupName] = useState('')
   const [groupBusy, setGroupBusy] = useState(false)
   const [groupMsg, setGroupMsg] = useState<string | null>(null)
   const [selectedGroupIds, setSelectedGroupIds] = useState<Record<string, boolean>>({})
   const [excludedUserIds, setExcludedUserIds] = useState<Record<string, boolean>>({})
   const [recipientSearch, setRecipientSearch] = useState('')
+  const [recipientView, setRecipientView] = useState<'selected' | 'all'>('selected')
   const [groupSearch, setGroupSearch] = useState('')
+
+  const [groupModalOpen, setGroupModalOpen] = useState(false)
+  const [groupEditing, setGroupEditing] = useState<TargetGroup | null>(null)
+  const [groupFormName, setGroupFormName] = useState('')
+  const [groupFormSelectedUserIds, setGroupFormSelectedUserIds] = useState<Record<string, boolean>>({})
+  const [groupFormSearch, setGroupFormSearch] = useState('')
 
   const [sendMode, setSendMode] = useState<'all' | 'users'>('all')
   const [selectedUserIds, setSelectedUserIds] = useState<Record<string, boolean>>({})
@@ -69,6 +76,16 @@ export default function AdminPushPage() {
   const [schedules, setSchedules] = useState<ScheduleRow[]>([])
   const [schedulesLoading, setSchedulesLoading] = useState(false)
   const [schedError, setSchedError] = useState<string | null>(null)
+
+  const [editingSchedule, setEditingSchedule] = useState<ScheduleRow | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEnabled, setEditEnabled] = useState(true)
+  const [editTarget, setEditTarget] = useState<'all' | 'users'>('all')
+  const [editRepeat, setEditRepeat] = useState<string>('once')
+  const [editNextRun, setEditNextRun] = useState<string>('')
+  const [editBody, setEditBody] = useState('')
+  const [editBusy, setEditBusy] = useState(false)
+  const [editMsg, setEditMsg] = useState<string | null>(null)
 
   const [newName, setNewName] = useState('')
   const [newEnabled, setNewEnabled] = useState(true)
@@ -104,7 +121,29 @@ export default function AdminPushPage() {
     return Array.from(new Set(ids))
   }, [groups, selectedGroupIdList])
 
-  const modeForRecipients = tab === 'send' ? sendMode : newTarget
+  const modeForRecipients = tab === 'send' ? sendMode : (editingSchedule ? editTarget : newTarget)
+
+  const toDatetimeLocal = (iso: string | null | undefined) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  const recordFromIds = (ids: string[] | null | undefined) => {
+    const rec: Record<string, boolean> = {}
+    for (const id of Array.isArray(ids) ? ids : []) {
+      const k = String(id)
+      if (k) rec[k] = true
+    }
+    return rec
+  }
+
+  const groupFormSelectedIds = useMemo(
+    () => Object.entries(groupFormSelectedUserIds).filter(([, v]) => v).map(([k]) => k),
+    [groupFormSelectedUserIds]
+  )
 
   const resolvedRecipientIds = useMemo(() => {
     let base: string[]
@@ -138,6 +177,34 @@ export default function AdminPushPage() {
     if (!q) return rows
     return rows.filter((r) => (r.label + ' ' + (r.email ?? '') + ' ' + r.id).toLowerCase().includes(q))
   }, [resolvedRecipientIds, targetsById, recipientSearch])
+
+  const resolvedRecipientSet = useMemo(() => new Set(resolvedRecipientIds), [resolvedRecipientIds])
+  const selectedDirectSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  const selectedGroupSet = useMemo(() => new Set(selectedGroupMemberIds), [selectedGroupMemberIds])
+  const excludedSet = useMemo(() => new Set(excludedIdList), [excludedIdList])
+
+  const allTargetRows = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase()
+    const rows = targets
+      .map((t) => ({
+        id: String(t.id),
+        label: t.name || t.email || String(t.id),
+        email: t.email || null,
+      }))
+      .filter((r) => Boolean(r.id))
+
+    const filtered = !q
+      ? rows
+      : rows.filter((r) => (r.label + ' ' + (r.email ?? '') + ' ' + r.id).toLowerCase().includes(q))
+
+    return filtered.map((r) => {
+      const included = resolvedRecipientSet.has(r.id)
+      const excluded = excludedSet.has(r.id)
+      const sourceDirect = selectedDirectSet.has(r.id)
+      const sourceGroup = selectedGroupSet.has(r.id)
+      return { ...r, included, excluded, sourceDirect, sourceGroup }
+    })
+  }, [targets, recipientSearch, resolvedRecipientSet, excludedSet, selectedDirectSet, selectedGroupSet])
 
   const loadTargets = async () => {
     setTargetsLoading(true)
@@ -214,17 +281,40 @@ export default function AdminPushPage() {
     }
   }, [allowed])
 
-  const saveGroup = async () => {
+  const openCreateGroup = () => {
+    setGroupMsg(null)
+    setGroupEditing(null)
+    setGroupFormName('')
+    setGroupFormSelectedUserIds({})
+    setGroupFormSearch('')
+    setGroupModalOpen(true)
+  }
+
+  const openEditGroup = (g: TargetGroup) => {
+    setGroupMsg(null)
+    setGroupEditing(g)
+    setGroupFormName(g.name)
+    setGroupFormSelectedUserIds(recordFromIds(g.user_ids))
+    setGroupFormSearch('')
+    setGroupModalOpen(true)
+  }
+
+  const closeGroupModal = () => {
+    setGroupModalOpen(false)
+    setGroupEditing(null)
+  }
+
+  const saveGroupModal = async () => {
     setGroupMsg(null)
     setGroupBusy(true)
     try {
-      const name = groupName.trim()
+      const name = groupFormName.trim()
       if (!name) {
         setGroupMsg('Geef een groepsnaam op')
         return
       }
-      if (selectedIds.length === 0) {
-        setGroupMsg('Selecteer eerst werknemers')
+      if (groupFormSelectedIds.length === 0) {
+        setGroupMsg('Selecteer minstens 1 werknemer')
         return
       }
 
@@ -235,13 +325,20 @@ export default function AdminPushPage() {
         return
       }
 
-      const res = await fetch('/api/admin/push/groups', {
-        method: 'POST',
+      const url = groupEditing
+        ? `/api/admin/push/groups/${encodeURIComponent(groupEditing.id)}`
+        : '/api/admin/push/groups'
+
+      const res = await fetch(url, {
+        method: groupEditing ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, userIds: selectedIds }),
+        body: JSON.stringify({
+          name,
+          userIds: groupFormSelectedIds,
+        }),
       })
 
       const json = await res.json().catch(() => ({}))
@@ -250,68 +347,14 @@ export default function AdminPushPage() {
         return
       }
 
-      setGroupName('')
-      setGroupMsg('Groep opgeslagen')
+      setGroupMsg(groupEditing ? 'Groep aangepast' : 'Groep opgeslagen')
       await loadGroups()
+      closeGroupModal()
     } catch (e: any) {
       setGroupMsg(e?.message || 'Groep opslaan mislukt')
     } finally {
       setGroupBusy(false)
     }
-  }
-
-  const renameGroup = async (g: TargetGroup) => {
-    const name = prompt('Nieuwe groepsnaam', g.name)
-    if (name === null) return
-    const trimmed = name.trim()
-    if (!trimmed) {
-      setGroupMsg('Groepsnaam mag niet leeg zijn')
-      return
-    }
-
-    setGroupMsg(null)
-    setGroupBusy(true)
-    try {
-      const { data: sessionRes } = await supabase.auth.getSession()
-      const token = sessionRes.session?.access_token
-      if (!token) return
-
-      const res = await fetch(`/api/admin/push/groups/${encodeURIComponent(g.id)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: trimmed }),
-      })
-
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(String(json?.details || json?.error || 'Groep hernoemen mislukt'))
-
-      setGroupMsg('Groep hernoemd')
-      await loadGroups()
-    } catch (e: any) {
-      setGroupMsg(e?.message || 'Groep hernoemen mislukt')
-    } finally {
-      setGroupBusy(false)
-    }
-  }
-
-  const applyGroupToSelection = (g: TargetGroup) => {
-    setSelectedUserIds((prev) => {
-      const next = { ...prev }
-      for (const uid of g.user_ids ?? []) next[String(uid)] = true
-      return next
-    })
-  }
-
-  const replaceSelectionWithGroup = (g: TargetGroup) => {
-    setSelectedUserIds(() => {
-      const next: Record<string, boolean> = {}
-      for (const uid of g.user_ids ?? []) next[String(uid)] = true
-      return next
-    })
-    setExcludedUserIds({})
   }
 
   const toggleRecipient = (id: string, include: boolean) => {
@@ -334,33 +377,6 @@ export default function AdminPushPage() {
       // if it is directly selected, unselect it; if it comes from group(s), exclude it
       if (isDirect) setSelectedUserIds((p) => ({ ...p, [userId]: false }))
       if (isFromGroup || !isDirect) setExcludedUserIds((p) => ({ ...p, [userId]: true }))
-    }
-  }
-
-  const overwriteGroupWithSelection = async (g: TargetGroup) => {
-    setGroupMsg(null)
-    setGroupBusy(true)
-    try {
-      const { data: sessionRes } = await supabase.auth.getSession()
-      const token = sessionRes.session?.access_token
-      if (!token) return
-
-      const res = await fetch(`/api/admin/push/groups/${encodeURIComponent(g.id)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ userIds: selectedIds }),
-      })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(String(json?.details || json?.error || 'Groep bijwerken mislukt'))
-      setGroupMsg('Groep bijgewerkt')
-      await loadGroups()
-    } catch (e: any) {
-      setGroupMsg(e?.message || 'Groep bijwerken mislukt')
-    } finally {
-      setGroupBusy(false)
     }
   }
 
@@ -415,8 +431,16 @@ export default function AdminPushPage() {
         },
         body: JSON.stringify({
           target: sendMode === 'all' && excludedIdList.length === 0 ? 'all' : 'users',
-          userIds: sendMode === 'all' && excludedIdList.length === 0 ? undefined : resolvedRecipientIds,
-          groupIds: undefined,
+          userIds:
+            sendMode === 'all' && excludedIdList.length === 0
+              ? undefined
+              : excludedIdList.length > 0
+                ? resolvedRecipientIds
+                : selectedIds,
+          groupIds:
+            sendMode === 'all' || excludedIdList.length > 0
+              ? undefined
+              : selectedGroupIdList,
           title: 'Vortexx',
           body: sendBody,
           url: '/',
@@ -479,8 +503,16 @@ export default function AdminPushPage() {
           body: newBody,
           url: '/',
           target: newTarget === 'all' && excludedIdList.length === 0 ? 'all' : 'users',
-          userIds: newTarget === 'all' && excludedIdList.length === 0 ? undefined : resolvedRecipientIds,
-          groupIds: newTarget === 'all' || excludedIdList.length > 0 ? undefined : selectedGroupIdList,
+          userIds:
+            newTarget === 'all' && excludedIdList.length === 0
+              ? undefined
+              : excludedIdList.length > 0
+                ? resolvedRecipientIds
+                : selectedIds,
+          groupIds:
+            newTarget === 'all' || excludedIdList.length > 0
+              ? undefined
+              : selectedGroupIdList,
           repeatUnit,
           repeatEvery,
           nextRunAt,
@@ -537,6 +569,115 @@ export default function AdminPushPage() {
     await loadSchedules()
   }
 
+  const openEditSchedule = (s: ScheduleRow) => {
+    setEditMsg(null)
+    setEditingSchedule(s)
+    setEditName(String(s.name ?? ''))
+    setEditEnabled(Boolean(s.enabled))
+    setEditTarget(s.target_all ? 'all' : 'users')
+
+    const repeat = s.repeat_minutes
+      ? `m:${s.repeat_minutes}`
+      : s.repeat_weeks
+        ? `w:${s.repeat_weeks}`
+        : s.repeat_months
+          ? `mo:${s.repeat_months}`
+          : 'once'
+    setEditRepeat(repeat)
+
+    setEditNextRun(toDatetimeLocal(s.next_run_at))
+    setEditBody(String(s.body ?? ''))
+
+    setSelectedUserIds(recordFromIds(s.target_user_ids))
+    setSelectedGroupIds(recordFromIds((s as any).target_group_ids))
+    setExcludedUserIds({})
+    setRecipientView('selected')
+  }
+
+  const closeEditSchedule = () => {
+    setEditingSchedule(null)
+    setEditMsg(null)
+    setEditBusy(false)
+  }
+
+  const saveScheduleEdits = async () => {
+    if (!editingSchedule) return
+    setEditMsg(null)
+    setEditBusy(true)
+    try {
+      const { data: sessionRes } = await supabase.auth.getSession()
+      const token = sessionRes.session?.access_token
+      if (!token) {
+        setEditMsg('Niet ingelogd')
+        return
+      }
+
+      let repeatUnit: 'once' | 'minutes' | 'weeks' | 'months' = 'once'
+      let repeatEvery: number | null = null
+
+      if (editRepeat === 'once') {
+        repeatUnit = 'once'
+      } else if (editRepeat.startsWith('m:')) {
+        repeatUnit = 'minutes'
+        repeatEvery = Number(editRepeat.slice(2))
+      } else if (editRepeat.startsWith('w:')) {
+        repeatUnit = 'weeks'
+        repeatEvery = Number(editRepeat.slice(2))
+      } else if (editRepeat.startsWith('mo:')) {
+        repeatUnit = 'months'
+        repeatEvery = Number(editRepeat.slice(3))
+      }
+
+      const nextRunAt = editNextRun ? new Date(editNextRun).toISOString() : undefined
+
+      const payload: any = {
+        name: editName.trim() ? editName.trim() : null,
+        enabled: editEnabled,
+        title: 'Vortexx',
+        url: '/',
+        body: editBody,
+        repeatUnit,
+        repeatEvery,
+        nextRunAt,
+      }
+
+      if (editTarget === 'all' && excludedIdList.length === 0) {
+        payload.target = 'all'
+        payload.userIds = undefined
+        payload.groupIds = undefined
+      } else {
+        payload.target = 'users'
+        if (excludedIdList.length > 0 || editTarget === 'all') {
+          payload.userIds = resolvedRecipientIds
+          payload.groupIds = []
+        } else {
+          payload.userIds = selectedIds
+          payload.groupIds = selectedGroupIdList
+        }
+      }
+
+      const res = await fetch(`/api/admin/push/schedules/${encodeURIComponent(editingSchedule.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(String(json?.details || json?.error || 'Schedule bijwerken mislukt'))
+
+      setEditMsg('Opgeslagen')
+      await loadSchedules()
+      closeEditSchedule()
+    } catch (e: any) {
+      setEditMsg(e?.message || 'Schedule bijwerken mislukt')
+    } finally {
+      setEditBusy(false)
+    }
+  }
+
   if (allowed === null) return <main className="px-4 py-4 sm:p-6"><p>Controleren…</p></main>
   if (!allowed) return <main className="px-4 py-4 sm:p-6"><p>Geen toegang</p></main>
 
@@ -590,19 +731,28 @@ export default function AdminPushPage() {
           <div className="rounded border border-black/10 bg-white/50 dark:bg-gray-900/30 p-3 space-y-2 lg:col-span-1">
             <div className="flex items-center justify-between gap-2">
               <div className="font-semibold text-sm">Groepen</div>
-              <input
-                value={groupSearch}
-                onChange={(e) => setGroupSearch(e.target.value)}
-                placeholder="Zoek groep…"
-                className="px-2 py-1 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40 text-sm w-40"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  value={groupSearch}
+                  onChange={(e) => setGroupSearch(e.target.value)}
+                  placeholder="Zoek…"
+                  className="px-2 py-1 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40 text-sm w-28"
+                />
+                <button
+                  onClick={openCreateGroup}
+                  className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm dark:bg-white/5"
+                  title="Nieuwe groep maken"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
             <div className="pt-1">
               {groups.length === 0 ? (
                 <div className="text-sm text-gray-600 dark:text-gray-300">Nog geen groepen.</div>
               ) : (
-                <div className="max-h-56 overflow-auto space-y-2">
+                <div className="max-h-56 overflow-auto rounded border border-black/10 bg-white/60 dark:bg-gray-950/20">
                   {groups
                     .filter((g) => {
                       const q = groupSearch.trim().toLowerCase()
@@ -610,58 +760,41 @@ export default function AdminPushPage() {
                       return (g.name + ' ' + g.id).toLowerCase().includes(q)
                     })
                     .map((g) => (
-                      <div key={g.id} className="rounded border border-black/10 bg-white/60 dark:bg-gray-950/20 p-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <label className="flex items-center gap-2 text-sm min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(selectedGroupIds[g.id])}
-                              onChange={(e) => setSelectedGroupIds((p) => ({ ...p, [g.id]: e.target.checked }))}
-                            />
-                            <span className="truncate font-medium">{g.name}</span>
-                          </label>
-                          <span className="text-xs px-2 py-0.5 rounded-full border border-black/10 bg-white/70 dark:bg-white/5">
-                            {(g.user_ids ?? []).length}
-                          </span>
-                        </div>
+                      <div key={g.id} className="flex items-center justify-between gap-2 px-2 py-2 border-b last:border-b-0 border-black/5 dark:border-white/5">
+                        <label className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedGroupIds[g.id])}
+                            onChange={(e) => setSelectedGroupIds((p) => ({ ...p, [g.id]: e.target.checked }))}
+                          />
+                          <span className="text-sm truncate" title={`${g.name} (${(g.user_ids ?? []).length})`}>{g.name}</span>
+                        </label>
 
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => replaceSelectionWithGroup(g)}
-                            className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-xs"
-                            title="Vervang selectie met deze groep"
-                          >
-                            Vervang
-                          </button>
-                          <button
-                            onClick={() => applyGroupToSelection(g)}
-                            className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-xs"
-                            title="Voeg leden toe aan selectie"
-                          >
-                            Voeg toe
-                          </button>
-                          <button
-                            onClick={() => renameGroup(g)}
+                            onClick={() => openEditGroup(g)}
                             disabled={groupBusy}
-                            className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-xs disabled:opacity-50"
+                            className="p-1 rounded border border-black/10 bg-white/70 hover:bg-white/90 text-gray-800 disabled:opacity-50 dark:bg-white/5 dark:text-gray-100"
+                            title="Aanpassen"
                           >
-                            Hernoem
-                          </button>
-                          <button
-                            onClick={() => overwriteGroupWithSelection(g)}
-                            disabled={groupBusy}
-                            className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-xs disabled:opacity-50"
-                            title="Overschrijf groep met huidige selectie"
-                          >
-                            Update leden
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Z" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M14.06 6.19l3.75 3.75 1.69-1.69a1.5 1.5 0 0 0 0-2.12l-1.63-1.63a1.5 1.5 0 0 0-2.12 0l-1.69 1.69Z" stroke="currentColor" strokeWidth="1.8" />
+                            </svg>
                           </button>
                           <button
                             onClick={() => deleteGroup(g)}
                             disabled={groupBusy}
-                            className="px-2 py-1 rounded border border-red-400/40 text-red-700 bg-white/70 hover:bg-red-50 text-xs disabled:opacity-50 dark:bg-white/5 dark:text-red-200"
-                            title="Verwijder groep"
+                            className="p-1 rounded border border-red-400/30 bg-white/70 hover:bg-red-50 text-red-700 disabled:opacity-50 dark:bg-white/5 dark:text-red-200"
+                            title="Verwijderen"
                           >
-                            Verwijder
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 7h12" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M8 7l1 14h6l1-14" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M10 11v6" stroke="currentColor" strokeWidth="1.8" />
+                              <path d="M14 11v6" stroke="currentColor" strokeWidth="1.8" />
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -670,32 +803,36 @@ export default function AdminPushPage() {
               )}
             </div>
 
-            <div className="pt-2 border-t border-black/10 space-y-2">
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                Selecteer werknemers (of gebruik groepen) en klik “Opslaan” om een groep te maken.
-              </div>
-              <div className="flex gap-2">
-                <input
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Nieuwe groepsnaam"
-                  className="flex-1 px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
-                />
-                <button
-                  onClick={saveGroup}
-                  disabled={groupBusy}
-                  className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
-                >
-                  Opslaan
-                </button>
-              </div>
-              {groupMsg ? <div className="text-sm text-gray-800 dark:text-gray-200">{groupMsg}</div> : null}
-            </div>
+            {groupMsg ? <div className="pt-2 border-t border-black/10 text-sm text-gray-800 dark:text-gray-200">{groupMsg}</div> : null}
           </div>
 
           <div className="rounded border border-black/10 bg-white/50 dark:bg-gray-900/30 p-3 space-y-2 lg:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="font-semibold text-sm">Ontvangers</div>
+              <div className="flex items-center gap-2">
+                <div className="font-semibold text-sm">Ontvangers</div>
+                <div className="inline-flex rounded border border-black/10 overflow-hidden">
+                  <button
+                    onClick={() => setRecipientView('selected')}
+                    className={
+                      'px-2 py-1 text-xs ' +
+                      (recipientView === 'selected' ? 'bg-black text-white' : 'bg-white/70 hover:bg-white/90 dark:bg-white/5')
+                    }
+                    title="Laat alleen geselecteerden zien"
+                  >
+                    Geselecteerd
+                  </button>
+                  <button
+                    onClick={() => setRecipientView('all')}
+                    className={
+                      'px-2 py-1 text-xs border-l border-black/10 ' +
+                      (recipientView === 'all' ? 'bg-black text-white' : 'bg-white/70 hover:bg-white/90 dark:bg-white/5')
+                    }
+                    title="Kies uit alle werknemers"
+                  >
+                    Alle werknemers
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-2 items-center">
                 <input
                   value={recipientSearch}
@@ -719,26 +856,70 @@ export default function AdminPushPage() {
             </div>
 
             <div className="max-h-72 overflow-auto rounded border border-black/10 bg-white/60 dark:bg-gray-950/20 p-2">
-              {resolvedRecipientRows.length === 0 ? (
-                <div className="text-sm text-gray-600 dark:text-gray-300">Geen ontvangers.</div>
-              ) : (
-                <div className="space-y-1">
-                  {resolvedRecipientRows.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5">
-                      <div className="min-w-0">
-                        <div className="text-sm truncate">{r.label}</div>
-                        {r.email ? <div className="text-xs text-gray-500 truncate">{r.email}</div> : null}
+              {recipientView === 'selected' ? (
+                resolvedRecipientRows.length === 0 ? (
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Geen ontvangers.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {resolvedRecipientRows.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5">
+                        <div className="min-w-0">
+                          <div className="text-sm truncate">{r.label}</div>
+                          {r.email ? <div className="text-xs text-gray-500 truncate">{r.email}</div> : null}
+                        </div>
+                        <button
+                          onClick={() => toggleRecipient(r.id, false)}
+                          className="px-2 py-1 rounded border border-red-400/40 text-red-700 bg-white/70 hover:bg-red-50 text-xs dark:bg-white/5 dark:text-red-200"
+                          title="Deselecteer"
+                        >
+                          Deselecteer
+                        </button>
                       </div>
-                      <button
-                        onClick={() => toggleRecipient(r.id, false)}
-                        className="px-2 py-1 rounded border border-red-400/40 text-red-700 bg-white/70 hover:bg-red-50 text-xs dark:bg-white/5 dark:text-red-200"
-                        title="Deselecteer"
-                      >
-                        Deselecteer
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                allTargetRows.length === 0 ? (
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Geen werknemers.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {allTargetRows.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5">
+                        <div className="min-w-0">
+                          <div className="text-sm truncate flex items-center gap-2">
+                            <span className="truncate">{r.label}</span>
+                            {r.excluded ? (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded border border-red-400/40 text-red-700 dark:text-red-200">uitgesloten</span>
+                            ) : r.included ? (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded border border-green-500/30 text-green-700 dark:text-green-200">geselecteerd</span>
+                            ) : null}
+                            {modeForRecipients === 'users' && r.included && r.sourceGroup && !r.sourceDirect ? (
+                              <span className="text-[11px] px-1.5 py-0.5 rounded border border-black/10 text-gray-600 dark:text-gray-300">via groep</span>
+                            ) : null}
+                          </div>
+                          {r.email ? <div className="text-xs text-gray-500 truncate">{r.email}</div> : null}
+                        </div>
+                        {r.included ? (
+                          <button
+                            onClick={() => toggleRecipient(r.id, false)}
+                            className="px-2 py-1 rounded border border-red-400/40 text-red-700 bg-white/70 hover:bg-red-50 text-xs dark:bg-white/5 dark:text-red-200"
+                            title="Deselecteer"
+                          >
+                            Deselecteer
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleRecipient(r.id, true)}
+                            className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-xs dark:bg-white/5"
+                            title="Selecteer"
+                          >
+                            Selecteer
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
 
@@ -765,20 +946,8 @@ export default function AdminPushPage() {
             </div>
 
             {sendMode === 'users' ? (
-              <div className="max-h-56 overflow-auto rounded border border-black/10 bg-white/50 dark:bg-gray-900/30 p-2">
-                {targets.map((t) => (
-                  <label key={t.id} className="flex items-center gap-2 py-1 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedUserIds[t.id])}
-                      onChange={(e) => setSelectedUserIds((p) => ({ ...p, [t.id]: e.target.checked }))}
-                    />
-                    <span className="truncate">
-                      {t.name || t.email || t.id}
-                      {t.email ? <span className="text-gray-500"> ({t.email})</span> : null}
-                    </span>
-                  </label>
-                ))}
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                Tip: gebruik het “Ontvangers” paneel hierboven om werknemers te selecteren (en evt. uitzonderingen te maken).
               </div>
             ) : null}
 
@@ -906,6 +1075,12 @@ export default function AdminPushPage() {
                           </div>
                           <div className="flex gap-2">
                             <button
+                              onClick={() => openEditSchedule(s)}
+                              className="px-2 py-1 rounded border border-black/15 bg-white/60 hover:bg-white/80 text-sm"
+                            >
+                              Wijzig
+                            </button>
+                            <button
                               onClick={() => toggleSchedule(s.id, s.enabled)}
                               className="px-2 py-1 rounded border border-black/15 bg-white/60 hover:bg-white/80 text-sm"
                             >
@@ -918,6 +1093,10 @@ export default function AdminPushPage() {
                               Verwijder
                             </button>
                           </div>
+                        </div>
+
+                        <div className="mt-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words rounded border border-black/10 bg-white/60 dark:bg-gray-950/20 p-2 max-h-32 overflow-auto">
+                          {s.body}
                         </div>
 
                         <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 space-y-1">
@@ -948,6 +1127,183 @@ export default function AdminPushPage() {
           </div>
         )}
       </section>
+
+      {editingSchedule ? (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-lg border border-black/10 bg-white dark:bg-gray-900 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold">Schedule wijzigen</div>
+              <button onClick={closeEditSchedule} className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm dark:bg-white/5">
+                Sluiten
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-200">Naam (optioneel)</label>
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <label className="text-sm text-gray-700 dark:text-gray-200">Actief</label>
+                <input type="checkbox" checked={editEnabled} onChange={(e) => setEditEnabled(e.target.checked)} />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center">
+              <label className="text-sm">Herhaling</label>
+              <select
+                value={editRepeat}
+                onChange={(e) => setEditRepeat(e.target.value)}
+                className="px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+              >
+                <option value="once">Eenmalig</option>
+                <option value="m:15">Elke 15 min</option>
+                <option value="m:30">Elke 30 min</option>
+                <option value="m:60">Elk uur</option>
+                <option value="m:1440">Elke dag</option>
+                <option value="w:1">Elke week</option>
+                <option value="mo:1">Elke maand</option>
+              </select>
+
+              <label className="text-sm ml-2">Doelgroep</label>
+              <select
+                value={editTarget}
+                onChange={(e) => setEditTarget(e.target.value === 'users' ? 'users' : 'all')}
+                className="px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+              >
+                <option value="all">Iedereen</option>
+                <option value="users">Geselecteerd</option>
+              </select>
+            </div>
+
+            <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-200">Volgende run</label>
+                <input
+                  type="datetime-local"
+                  value={editNextRun}
+                  onChange={(e) => setEditNextRun(e.target.value)}
+                  className="w-full px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+                />
+              </div>
+              <button
+                onClick={() => setEditNextRun(toDatetimeLocal(new Date().toISOString()))}
+                className="px-3 py-2 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm dark:bg-white/5"
+                title="Zet volgende run op nu"
+              >
+                Nu
+              </button>
+            </div>
+
+            <div className="text-xs text-gray-600 dark:text-gray-300">
+              Ontvangers: {resolvedRecipientIds.length}
+              {excludedIdList.length > 0 ? ` · Uitzonderingen: ${excludedIdList.length}` : ''}
+              {editTarget === 'users' ? ' · Tip: pas ontvangers aan via het “Ontvangers” paneel.' : ''}
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-700 dark:text-gray-200">Bericht</label>
+              <textarea
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                rows={5}
+                className="w-full px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center justify-between">
+              <button
+                onClick={saveScheduleEdits}
+                disabled={editBusy || !editBody.trim()}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
+              >
+                {editBusy ? 'Opslaan…' : 'Opslaan'}
+              </button>
+              {editMsg ? <div className="text-sm text-gray-800 dark:text-gray-200">{editMsg}</div> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {groupModalOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-lg border border-black/10 bg-white dark:bg-gray-900 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold">{groupEditing ? 'Groep aanpassen' : 'Groep maken'}</div>
+              <button
+                onClick={closeGroupModal}
+                className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm dark:bg-white/5"
+              >
+                Sluiten
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-2 items-end">
+              <div>
+                <label className="text-sm text-gray-700 dark:text-gray-200">Groepsnaam</label>
+                <input
+                  value={groupFormName}
+                  onChange={(e) => setGroupFormName(e.target.value)}
+                  placeholder="Bijv. Team A"
+                  className="w-full px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-gray-600 dark:text-gray-300">Geselecteerd: {groupFormSelectedIds.length}</div>
+                <input
+                  value={groupFormSearch}
+                  onChange={(e) => setGroupFormSearch(e.target.value)}
+                  placeholder="Zoek werknemer…"
+                  className="px-3 py-2 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-80 overflow-auto rounded border border-black/10 bg-white/60 dark:bg-gray-950/20 p-2">
+              {targets
+                .filter((t) => {
+                  const q = groupFormSearch.trim().toLowerCase()
+                  if (!q) return true
+                  const label = `${t.name ?? ''} ${t.email ?? ''} ${t.id}`.toLowerCase()
+                  return label.includes(q)
+                })
+                .map((t) => (
+                  <label key={t.id} className="flex items-center gap-2 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(groupFormSelectedUserIds[String(t.id)])}
+                      onChange={(e) =>
+                        setGroupFormSelectedUserIds((p) => ({
+                          ...p,
+                          [String(t.id)]: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span className="truncate">
+                      {t.name || t.email || t.id}
+                      {t.email ? <span className="text-gray-500"> ({t.email})</span> : null}
+                    </span>
+                  </label>
+                ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center justify-between">
+              <button
+                onClick={saveGroupModal}
+                disabled={groupBusy}
+                className="px-3 py-2 rounded border border-orange-500/60 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 disabled:opacity-50"
+              >
+                {groupBusy ? 'Opslaan…' : 'Opslaan'}
+              </button>
+              {groupMsg ? <div className="text-sm text-gray-800 dark:text-gray-200">{groupMsg}</div> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }
