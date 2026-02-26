@@ -59,7 +59,6 @@ export default function AdminPushPage() {
   const [excludedUserIds, setExcludedUserIds] = useState<Record<string, boolean>>({})
   const [recipientSearch, setRecipientSearch] = useState('')
   const [recipientView, setRecipientView] = useState<'selected' | 'all'>('selected')
-  const [groupSearch, setGroupSearch] = useState('')
 
   const [groupModalOpen, setGroupModalOpen] = useState(false)
   const [groupEditing, setGroupEditing] = useState<TargetGroup | null>(null)
@@ -732,12 +731,6 @@ export default function AdminPushPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="font-semibold text-sm">Groepen</div>
               <div className="flex items-center gap-2">
-                <input
-                  value={groupSearch}
-                  onChange={(e) => setGroupSearch(e.target.value)}
-                  placeholder="Zoek…"
-                  className="px-2 py-1 rounded border border-black/15 bg-white/70 dark:bg-gray-900/40 text-sm w-28"
-                />
                 <button
                   onClick={openCreateGroup}
                   className="px-2 py-1 rounded border border-black/15 bg-white/70 hover:bg-white/90 text-sm dark:bg-white/5"
@@ -753,13 +746,7 @@ export default function AdminPushPage() {
                 <div className="text-sm text-gray-600 dark:text-gray-300">Nog geen groepen.</div>
               ) : (
                 <div className="max-h-56 overflow-auto rounded border border-black/10 bg-white/60 dark:bg-gray-950/20">
-                  {groups
-                    .filter((g) => {
-                      const q = groupSearch.trim().toLowerCase()
-                      if (!q) return true
-                      return (g.name + ' ' + g.id).toLowerCase().includes(q)
-                    })
-                    .map((g) => (
+                  {groups.map((g) => (
                       <div key={g.id} className="flex items-center justify-between gap-2 px-2 py-2 border-b last:border-b-0 border-black/5 dark:border-white/5">
                         <label className="flex items-center gap-2 min-w-0">
                           <input
