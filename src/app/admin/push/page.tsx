@@ -738,7 +738,13 @@ export default function AdminPushPage() {
               ) : (
                 <div className="max-h-56 overflow-auto rounded border border-black/10 bg-white/60 dark:bg-gray-950/20">
                   {groups.map((g) => (
-                      <div key={g.id} className="flex items-center justify-between gap-2 px-2 py-2 border-b last:border-b-0 border-black/5 dark:border-white/5">
+                      <div
+                        key={g.id}
+                        className={
+                          'flex items-center justify-between gap-2 px-2 py-2 border-b last:border-b-0 border-black/5 dark:border-white/5 ' +
+                          (selectedGroupIds[g.id] ? 'bg-orange-50/70 dark:bg-orange-500/10' : '')
+                        }
+                      >
                         <label className="flex items-center gap-2 min-w-0">
                           <input
                             type="checkbox"
@@ -748,9 +754,25 @@ export default function AdminPushPage() {
                               setSelectedGroupIds((p) => ({ ...p, [g.id]: checked }))
                               setRecipientView('selected')
                               setRecipientSearch('')
+
+                              if (checked) {
+                                if (tab === 'send') setSendMode('users')
+                                else if (editingSchedule) setEditTarget('users')
+                                else setNewTarget('users')
+                              }
                             }}
                           />
-                          <span className="text-sm truncate" title={`${g.name} (${(g.user_ids ?? []).length})`}>{g.name}</span>
+                          <span
+                            className={
+                              'text-sm truncate ' +
+                              (selectedGroupIds[g.id]
+                                ? 'font-semibold text-gray-900 dark:text-white'
+                                : 'text-gray-800 dark:text-gray-100')
+                            }
+                            title={`${g.name} (${(g.user_ids ?? []).length})`}
+                          >
+                            {g.name}
+                          </span>
                         </label>
 
                         <div className="flex items-center gap-1 shrink-0">
