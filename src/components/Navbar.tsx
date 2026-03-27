@@ -53,6 +53,7 @@ export default function Navbar() {
       { href: '/admin/push', label: 'Push', adminOnly: true },
       { href: '/admin/export', label: 'Export', adminOnly: true },
       { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
+      { href: '/admin/sub-contractor-assignments', label: 'Sub-Contractor', adminOnly: true },
     ]
     return [...base, ...adminLinks]
   }, [])

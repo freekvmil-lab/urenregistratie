@@ -7,7 +7,7 @@ interface Profile {
   id: string
   name: string | null
   email: string | null
-  role: 'admin' | 'employee'
+  role: 'admin' | 'employee' | 'sub-contractor'
   hourly_rate?: number | null
   home_address?: string | null
   break_enabled?: boolean | null
@@ -58,7 +58,7 @@ export default function UserManagement() {
 
   const [createEmail, setCreateEmail] = useState('')
   const [createName, setCreateName] = useState('')
-  const [createRole, setCreateRole] = useState<'admin' | 'employee'>('employee')
+  const [createRole, setCreateRole] = useState<'admin' | 'employee' | 'sub-contractor'>('employee')
   const [createHourlyRate, setCreateHourlyRate] = useState('')
   const [createHomeAddress, setCreateHomeAddress] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
@@ -542,7 +542,7 @@ export default function UserManagement() {
     }
   }
 
-  const updateRole = async (userId: string, role: 'admin' | 'employee') => {
+  const updateRole = async (userId: string, role: 'admin' | 'employee' | 'sub-contractor') => {
     setSaving(userId)
 
     const { error } = await supabase
@@ -679,10 +679,11 @@ export default function UserManagement() {
             <label className="block text-sm mb-1 text-gray-700 dark:text-gray-200">Rol</label>
             <select
               value={createRole}
-              onChange={(e) => setCreateRole(e.target.value as 'admin' | 'employee')}
+              onChange={(e) => setCreateRole(e.target.value as 'admin' | 'employee' | 'sub-contractor')}
               className="w-full border rounded px-2 py-1 bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
             >
               <option value="employee">Werknemer</option>
+              <option value="sub-contractor">Sub-Contractor</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -920,12 +921,13 @@ export default function UserManagement() {
                   onChange={(e) =>
                     updateRole(
                       u.id,
-                      e.target.value as 'admin' | 'employee'
+                      e.target.value as 'admin' | 'employee' | 'sub-contractor'
                     )
                   }
                   className="border rounded px-2 py-1 bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                 >
                   <option value="employee">Werknemer</option>
+                  <option value="sub-contractor">Sub-Contractor</option>
                   <option value="admin">Admin</option>
                 </select>
               </td>

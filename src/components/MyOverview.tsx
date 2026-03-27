@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import AddHoursModal from '@/components/ManualHoursEntry'
 
 /* =======================
    TYPES
@@ -144,6 +145,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   /* ===== EDIT ===== */
   const [editing, setEditing] = useState<Entry | null>(null)
+  const [showAddHoursModal, setShowAddHoursModal] = useState(false)
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [manual, setManual] = useState(false)
@@ -812,7 +814,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   return (
     <div className="mt-6 space-y-6 text-gray-900 dark:text-gray-100">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <button
           onClick={() =>
             setCurrentWeek(
@@ -827,6 +829,13 @@ export default function MyOverview({ userId }: { userId?: string }) {
         <strong className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-gray-100">
           Week {isoWeekNumber}
         </strong>
+
+        <button
+          onClick={() => setShowAddHoursModal(true)}
+          className="px-3 py-1 rounded border border-orange-200/70 hover:border-orange-300 hover:bg-orange-50 dark:border-orange-500/30 dark:hover:bg-orange-500/10 text-sm font-medium"
+        >
+          + Uren Toevoegen
+        </button>
 
         <button
           onClick={() =>
@@ -1258,6 +1267,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
           </div>
         </div>
       )}
+
+      <AddHoursModal
+        isOpen={showAddHoursModal}
+        onClose={() => setShowAddHoursModal(false)}
+        onSuccess={() => {
+          fetchEntries()
+        }}
+      />
     </div>
   )
 }

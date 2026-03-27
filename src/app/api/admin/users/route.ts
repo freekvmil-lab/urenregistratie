@@ -69,7 +69,7 @@ const requireAdmin = async (req: Request) => {
 type CreateBody = {
   email: string
   name?: string | null
-  role?: 'admin' | 'employee'
+  role?: 'admin' | 'employee' | 'sub-contractor'
   hourly_rate?: number | null
   home_address?: string | null
 }
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as CreateBody
     const email = String(body?.email ?? '').trim().toLowerCase()
     const name = body?.name === undefined ? null : String(body?.name ?? '').trim() || null
-    const role = body?.role === 'admin' ? 'admin' : 'employee'
+    const role = body?.role === 'admin' || body?.role === 'sub-contractor' ? body.role : 'employee'
     const hourly_rate = body?.hourly_rate === null || body?.hourly_rate === undefined ? null : Number(body.hourly_rate)
     const home_address = body?.home_address === undefined ? null : String(body?.home_address ?? '').trim() || null
 
