@@ -938,18 +938,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
         </strong>
 
         <button
-          onClick={() => {
-            const ev = new CustomEvent('openManual', {
-              detail: { date: defaultManualDateForWeek },
-            })
-            window.dispatchEvent(ev)
-          }}
-          className="px-3 py-1 rounded border border-orange-200/70 hover:border-orange-300 hover:bg-orange-50 dark:border-orange-500/30 dark:hover:bg-orange-500/10 text-sm font-medium"
-        >
-          + Uren Toevoegen
-        </button>
-
-        <button
           onClick={() =>
             setCurrentWeek(
               new Date(currentWeek.setDate(currentWeek.getDate() + 7))

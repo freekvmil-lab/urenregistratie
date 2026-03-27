@@ -9,6 +9,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [employeeLinksCollapsed, setEmployeeLinksCollapsed] = useState(true)
 
   useEffect(() => {
     const load = async () => {
@@ -38,24 +39,25 @@ export default function Navbar() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const links = useMemo(() => {
-    const base = [
+  const employeeLinks = useMemo(() => {
+    return [
       { href: '/', label: 'Uren', adminOnly: false },
       { href: '/agenda', label: 'Agenda', adminOnly: false },
       { href: '/availability', label: 'Beschikbaarheid', adminOnly: false },
       { href: '/intranet', label: 'Intranet', adminOnly: false },
       { href: '/settings/notifications', label: 'Notificaties', adminOnly: false },
     ]
-    const adminLinks = [
-      { href: '/admin', label: 'Admin', adminOnly: true },
-      { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
+  }, [])
+
+  const adminLinks = useMemo(() => {
+    return [
+      { href: '/admin', label: 'Admin uren', adminOnly: true },
       { href: '/admin/availability', label: 'Beschikbaarheid', adminOnly: true },
+      { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
+      { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
       { href: '/admin/push', label: 'Push', adminOnly: true },
       { href: '/admin/export', label: 'Export', adminOnly: true },
-      { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
-      { href: '/admin/sub-contractor-assignments', label: 'Sub-Contractor', adminOnly: true },
     ]
-    return [...base, ...adminLinks]
   }, [])
 
   const linkClass = (href: string) => {
@@ -105,9 +107,8 @@ export default function Navbar() {
 
         <div className="mt-2 sm:mt-3 -mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
           <div className="inline-flex gap-2 items-center whitespace-nowrap pb-1">
-            {links
-              .filter((l) => !l.adminOnly || isAdmin)
-              .map((l) => (
+            {!isAdmin &&
+              employeeLinks.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
@@ -117,6 +118,44 @@ export default function Navbar() {
                   {l.label}
                 </Link>
               ))}
+
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => setEmployeeLinksCollapsed((v) => !v)}
+                  className="text-xs px-2 py-1 rounded-full border border-black/15 bg-white/10 hover:bg-white/20 text-black transition-all"
+                  aria-expanded={!employeeLinksCollapsed}
+                  aria-label="Werknemer links inklappen of uitklappen"
+                >
+                  {employeeLinksCollapsed ? 'Werknemer ▸' : 'Werknemer ▾'}
+                </button>
+
+                {!employeeLinksCollapsed &&
+                  employeeLinks.map((l) => (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      className={linkClass(l.href)}
+                      aria-current={pathname === l.href ? 'page' : undefined}
+                    >
+                      {l.label}
+                    </Link>
+                  ))}
+
+                <div className="h-6 w-px bg-black/30 mx-1" aria-hidden="true" />
+
+                {adminLinks.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={linkClass(l.href)}
+                    aria-current={pathname === l.href ? 'page' : undefined}
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </>
+            )}
           </div>
         </div>
       </div>
