@@ -128,6 +128,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   const [manualError, setManualError] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [canManageOthers, setCanManageOthers] = useState(false)
   const [homeAddress, setHomeAddress] = useState<string>('')
   const [breakEnabled, setBreakEnabled] = useState(false)
   const [defaultBreakMinutes, setDefaultBreakMinutes] = useState(0)
@@ -290,7 +291,9 @@ export default function MyOverview({ userId }: { userId?: string }) {
       error = res2.error
     }
 
-    setIsAdmin(profile?.role === 'admin')
+    const role = String(profile?.role ?? '')
+    setIsAdmin(role === 'admin')
+    setCanManageOthers(role === 'admin' || role === 'sub-contractor')
     setHomeAddress(String(profile?.home_address ?? '').trim())
     setBreakEnabled(Boolean(profile?.break_enabled))
     setDefaultBreakMinutes(Math.max(0, Number(profile?.default_break_minutes ?? 0) || 0))
@@ -831,11 +834,25 @@ export default function MyOverview({ userId }: { userId?: string }) {
         </strong>
 
         <button
-          onClick={() => setShowAddHoursModal(true)}
+          onClick={() => {
+            const ev = new CustomEvent('openManual', {
+              detail: { date: defaultManualDateForWeek },
+            })
+            window.dispatchEvent(ev)
+          }}
           className="px-3 py-1 rounded border border-orange-200/70 hover:border-orange-300 hover:bg-orange-50 dark:border-orange-500/30 dark:hover:bg-orange-500/10 text-sm font-medium"
         >
           + Uren Toevoegen
         </button>
+
+        {canManageOthers && (
+          <button
+            onClick={() => setShowAddHoursModal(true)}
+            className="px-3 py-1 rounded border border-blue-200/70 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:hover:bg-blue-500/10 text-sm font-medium"
+          >
+            + Uren werknemer
+          </button>
+        )}
 
         <button
           onClick={() =>
@@ -867,7 +884,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Voeg snel je uren toe, klik op agenda ophalen om je geplande diensten te zien.
             </div>
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4 flex justify-center gap-2">
               <button
                 onClick={() => {
                   const ev = new CustomEvent('openManual', {
@@ -879,6 +896,14 @@ export default function MyOverview({ userId }: { userId?: string }) {
               >
                 ➕ Uren toevoegen
               </button>
+              {canManageOthers && (
+                <button
+                  onClick={() => setShowAddHoursModal(true)}
+                  className="border border-blue-500/60 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-4 py-2 rounded"
+                >
+                  ➕ Uren werknemer
+                </button>
+              )}
             </div>
           </div>
         </div>

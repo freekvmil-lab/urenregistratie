@@ -27,9 +27,9 @@ export default function AddHoursModal({ isOpen, onClose, onSuccess }: AddHoursMo
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = async (): Promise<Profile | null> => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) return null
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -37,20 +37,28 @@ export default function AddHoursModal({ isOpen, onClose, onSuccess }: AddHoursMo
       .eq('id', user.id)
       .maybeSingle()
 
-    if (profile) {
-      setCurrentUser(profile as Profile)
-    }
+    if (!profile) return null
+
+    const current = profile as Profile
+    setCurrentUser(current)
+    return current
   }
 
   const fetchUsers = async () => {
     setLoading(true)
+    setMessage(null)
 
-    // Get current user first
-    await fetchCurrentUser()
+    // Fetch current user and use it directly to avoid stale state reads.
+    const profile = await fetchCurrentUser()
+    if (!profile) {
+      setUsers([])
+      setLoading(false)
+      return
+    }
 
     // For admins: show all employees and sub-contractors
     // For sub-contractors: show themselves and their assigned employees
-    const isAdmin = currentUser?.role === 'admin'
+    const isAdmin = profile.role === 'admin'
 
     let query = supabase
       .from('profiles')
@@ -58,15 +66,15 @@ export default function AddHoursModal({ isOpen, onClose, onSuccess }: AddHoursMo
       .is('deleted_at', null)
       .order('name')
 
-    if (!isAdmin && currentUser?.role === 'sub-contractor') {
+    if (!isAdmin && profile.role === 'sub-contractor') {
       // Sub-contractor: can only manage themselves and their assigned employees
       const { data: assignments } = await supabase
         .from('sub_contractor_assignments')
         .select('employee_id')
-        .eq('sub_contractor_id', currentUser.id)
+        .eq('sub_contractor_id', profile.id)
 
       const assignedIds = assignments?.map((a: any) => a.employee_id) ?? []
-      const allowedIds = [currentUser.id, ...assignedIds]
+      const allowedIds = [profile.id, ...assignedIds]
 
       if (allowedIds.length > 0) {
         query = query.in('id', allowedIds)
@@ -74,21 +82,21 @@ export default function AddHoursModal({ isOpen, onClose, onSuccess }: AddHoursMo
     }
 
     const { data } = await query
-    setUsers((data ?? []) as Profile[])
+    const rows = (data ?? []) as Profile[]
+    setUsers(rows)
+    if (selectedEmployeeId && !rows.some((u) => u.id === selectedEmployeeId)) {
+      setSelectedEmployeeId('')
+    }
     setLoading(false)
   }
 
   useEffect(() => {
     if (isOpen) {
-      fetchCurrentUser()
+      fetchUsers()
+    } else {
+      setMessage(null)
     }
   }, [isOpen])
-
-  useEffect(() => {
-    if (isOpen && currentUser) {
-      fetchUsers()
-    }
-  }, [isOpen, currentUser])
 
   const addManualHours = async () => {
     setMessage(null)

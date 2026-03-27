@@ -16,17 +16,7 @@ create table if not exists public.sub_contractor_assignments (
   created_by uuid null references public.profiles(id) on delete set null,
   
   -- Ensure a sub-contractor can only have one assignment per employee
-  unique(sub_contractor_id, employee_id),
-  
-  -- Ensure the sub_contractor_id actually has role 'sub-contractor'
-  check (
-    exists (
-      select 1 from public.profiles p
-      where p.id = sub_contractor_id
-        and p.role = 'sub-contractor'
-        and p.deleted_at is null
-    )
-  )
+  unique(sub_contractor_id, employee_id)
 );
 
 create index if not exists sub_contractor_assignments_sub_contractor_idx 
@@ -79,26 +69,28 @@ on public.time_entries
 for select
 to authenticated
 using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role = 'sub-contractor'
-      and p.deleted_at is null
+  (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.role = 'sub-contractor'
+        and p.deleted_at is null
+    )
+    and exists (
+      select 1 from public.sub_contractor_assignments sca
+      where sca.sub_contractor_id = auth.uid()
+        and sca.employee_id = user_id
+    )
   )
-  and exists (
-    select 1 from public.sub_contractor_assignments sca
-    where sca.sub_contractor_id = auth.uid()
-      and sca.employee_id = user_id
-  )
-)
-or (
-  -- Sub-contractors can also read their own entries
-  user_id = auth.uid()
-  and exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role = 'sub-contractor'
-      and p.deleted_at is null
+  or (
+    -- Sub-contractors can also read their own entries
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.role = 'sub-contractor'
+        and p.deleted_at is null
+    )
   )
 );
 
