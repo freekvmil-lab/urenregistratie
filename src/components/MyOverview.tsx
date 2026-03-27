@@ -850,7 +850,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             onClick={() => setShowAddHoursModal(true)}
             className="px-3 py-1 rounded border border-blue-200/70 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:hover:bg-blue-500/10 text-sm font-medium"
           >
-            + Uren werknemer
+            ➕👷 Uren toevoegen werknemer
           </button>
         )}
 
@@ -901,7 +901,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
                   onClick={() => setShowAddHoursModal(true)}
                   className="border border-blue-500/60 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-4 py-2 rounded"
                 >
-                  ➕ Uren werknemer
+                  ➕👷 Uren toevoegen werknemer
                 </button>
               )}
             </div>
