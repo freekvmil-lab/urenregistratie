@@ -37,6 +37,8 @@ interface ClientRow {
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'needs_details'
 type ViewMode = 'list' | 'week'
+type SortBy = 'name' | 'date'
+type SortDir = 'asc' | 'desc'
 
 const toLocalYmd = (d: Date) => {
   const yyyy = d.getFullYear()
@@ -180,6 +182,8 @@ export default function AdminDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   // Week view: keep the selected week stable (Monday)
   const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
@@ -444,6 +448,43 @@ export default function AdminDashboard() {
           .toLowerCase()
         return hay.includes(q)
       })
+
+  const toggleSort = (key: SortBy) => {
+    if (sortBy === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortBy(key)
+    setSortDir('asc')
+  }
+
+  const compareEntries = (a: TimeEntry, b: TimeEntry) => {
+    const dateCmp = a.date.localeCompare(b.date)
+    const nameCmp = String(a.name ?? '').localeCompare(String(b.name ?? ''), 'nl', { sensitivity: 'base' })
+    const aStart = String(a.start_time ?? '')
+    const bStart = String(b.start_time ?? '')
+    const startCmp = aStart.localeCompare(bStart)
+
+    let primary = 0
+    let secondary = 0
+
+    if (sortBy === 'name') {
+      primary = nameCmp
+      secondary = dateCmp
+    } else {
+      primary = dateCmp
+      secondary = nameCmp
+    }
+
+    const direction = sortDir === 'asc' ? 1 : -1
+
+    if (primary !== 0) return primary * direction
+    if (secondary !== 0) return secondary * direction
+    if (startCmp !== 0) return startCmp * direction
+    return a.id - b.id
+  }
+
+  const sortedEntries = [...filteredEntries].sort(compareEntries)
   
   const formatDate = (date: string) => new Date(date).toLocaleDateString('nl-NL')
 
@@ -519,15 +560,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const weekEntries = [...filteredEntries].sort((a, b) => {
-    const byDate = a.date.localeCompare(b.date)
-    if (byDate !== 0) return byDate
-    const aStart = a.start_time ?? ''
-    const bStart = b.start_time ?? ''
-    const byStart = aStart.localeCompare(bStart)
-    if (byStart !== 0) return byStart
-    return String(a.id).localeCompare(String(b.id))
-  })
+  const weekEntries = sortedEntries
 
   const weekHours = weekEntries.reduce((sum, e) => sum + entryHours(e), 0)
   const weekPending = weekEntries.filter((e) => e.edited && !e.approved).length
@@ -861,6 +894,77 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-6 mb-6 items-end">
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Werknemer</label>
+            <select
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="all">Alle werknemers</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name ?? 'Onbekend'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {viewMode === 'list' ? (
+            <>
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="hidden lg:block" />
+              <div className="hidden lg:block" />
+            </>
+          )}
+
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="pending">Wacht op goedkeuring</option>
+              <option value="approved">Goedgekeurd</option>
+              <option value="needs_details">Missende details</option>
+              <option value="all">Alles</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-600 dark:text-gray-300">Zoeken</label>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="naam, datum, klant, locatie…"
+              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
+        </div>
+
         {loading ? (
           <p>Loading...</p>
         ) : filteredEntries.length === 0 ? (
@@ -911,8 +1015,18 @@ export default function AdminDashboard() {
                   <table className="w-full min-w-[980px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
                     <thead>
                       <tr className="bg-orange-50 dark:bg-orange-500/10">
-                        <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
-                        <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">
+                          <button type="button" onClick={() => toggleSort('name')} className="inline-flex items-center gap-1 hover:underline">
+                            Naam
+                            {sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+                          </button>
+                        </th>
+                        <th className="border p-2 text-gray-900 dark:text-gray-100">
+                          <button type="button" onClick={() => toggleSort('date')} className="inline-flex items-center gap-1 hover:underline">
+                            Datum
+                            {sortBy === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+                          </button>
+                        </th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
                         <th className="border p-2 text-gray-900 dark:text-gray-100">Uren</th>
@@ -998,8 +1112,18 @@ export default function AdminDashboard() {
             <table className="w-full min-w-[1100px] text-sm border-collapse border border-orange-200/60 dark:border-orange-500/30">
               <thead>
                   <tr className="bg-orange-50 dark:bg-orange-500/10">
-                  <th className="border p-2 text-gray-900 dark:text-gray-100">Naam</th>
-                  <th className="border p-2 text-gray-900 dark:text-gray-100">Datum</th>
+                  <th className="border p-2 text-gray-900 dark:text-gray-100">
+                    <button type="button" onClick={() => toggleSort('name')} className="inline-flex items-center gap-1 hover:underline">
+                      Naam
+                      {sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </button>
+                  </th>
+                  <th className="border p-2 text-gray-900 dark:text-gray-100">
+                    <button type="button" onClick={() => toggleSort('date')} className="inline-flex items-center gap-1 hover:underline">
+                      Datum
+                      {sortBy === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+                    </button>
+                  </th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Week</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Start</th>
                   <th className="border p-2 text-gray-900 dark:text-gray-100">Stop</th>
@@ -1013,7 +1137,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEntries.map((e) => {
+                {sortedEntries.map((e) => {
                   const iso = getIsoWeek(parseYmdToLocalDate(e.date))
                   return (
                     <tr key={e.id}>
@@ -1187,77 +1311,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-6 mb-6 items-end">
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Werknemer</label>
-            <select
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="all">Alle werknemers</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name ?? 'Onbekend'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {viewMode === 'list' ? (
-            <>
-              <div>
-                <label className="text-xs text-gray-600 dark:text-gray-300">Vanaf</label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-600 dark:text-gray-300">Tot</label>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="hidden lg:block" />
-              <div className="hidden lg:block" />
-            </>
-          )}
-
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="pending">Wacht op goedkeuring</option>
-              <option value="approved">Goedgekeurd</option>
-              <option value="needs_details">Missende details</option>
-              <option value="all">Alles</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600 dark:text-gray-300">Zoeken</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="naam, datum, klant, locatie…"
-              className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
 
         {exportClientOpen && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
