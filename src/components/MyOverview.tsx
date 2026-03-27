@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import AddHoursModal from '@/components/ManualHoursEntry'
 
 /* =======================
    TYPES
@@ -29,6 +28,12 @@ interface Entry {
 interface ClientRow {
   id: string
   name: string
+}
+
+interface EmployeeOption {
+  id: string
+  name: string | null
+  email: string | null
 }
 
 /* =======================
@@ -146,10 +151,15 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
   /* ===== EDIT ===== */
   const [editing, setEditing] = useState<Entry | null>(null)
-  const [showAddHoursModal, setShowAddHoursModal] = useState(false)
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [manual, setManual] = useState(false)
+  const [manualTargetUserId, setManualTargetUserId] = useState('')
+  const [showEmployeePicker, setShowEmployeePicker] = useState(false)
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([])
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
+  const [employeePickerLoading, setEmployeePickerLoading] = useState(false)
+  const [employeePickerError, setEmployeePickerError] = useState<string | null>(null)
   const [manualDate, setManualDate] = useState('')
   const [manualStart, setManualStart] = useState('')
   const [manualEnd, setManualEnd] = useState('')
@@ -297,6 +307,79 @@ export default function MyOverview({ userId }: { userId?: string }) {
     setHomeAddress(String(profile?.home_address ?? '').trim())
     setBreakEnabled(Boolean(profile?.break_enabled))
     setDefaultBreakMinutes(Math.max(0, Number(profile?.default_break_minutes ?? 0) || 0))
+  }
+
+  const loadEmployeeOptions = async () => {
+    setEmployeePickerLoading(true)
+    setEmployeePickerError(null)
+
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      const authUser = authData?.user
+      if (!authUser) {
+        setEmployeeOptions([])
+        setEmployeePickerError('Niet ingelogd.')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', authUser.id)
+        .maybeSingle()
+
+      const role = String((profile as any)?.role ?? '')
+
+      if (role === 'admin') {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, email, role')
+          .in('role', ['employee', 'sub-contractor'])
+          .is('deleted_at', null)
+          .order('name')
+
+        if (error) throw error
+        setEmployeeOptions((data ?? []) as EmployeeOption[])
+        return
+      }
+
+      if (role === 'sub-contractor') {
+        const { data: assignments, error: aErr } = await supabase
+          .from('sub_contractor_assignments')
+          .select('employee_id')
+          .eq('sub_contractor_id', authUser.id)
+
+        if (aErr) throw aErr
+
+        const ids = (assignments ?? [])
+          .map((a: any) => String(a.employee_id ?? ''))
+          .filter((id: string) => id)
+
+        if (ids.length === 0) {
+          setEmployeeOptions([])
+          return
+        }
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', ids)
+          .is('deleted_at', null)
+          .order('name')
+
+        if (error) throw error
+        setEmployeeOptions((data ?? []) as EmployeeOption[])
+        return
+      }
+
+      setEmployeeOptions([])
+      setEmployeePickerError('Je hebt geen rechten om uren voor werknemers toe te voegen.')
+    } catch (err: any) {
+      setEmployeeOptions([])
+      setEmployeePickerError(err?.message ?? 'Werknemers laden mislukt.')
+    } finally {
+      setEmployeePickerLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -631,7 +714,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
     const { start: manualStartIso, end: manualEndIso } = toLocalISOStartEnd(manualDate, manualStart, manualEnd)
 
     const manualPayload: any = {
-      user_id: userId,
+      user_id: manualTargetUserId || userId,
       date: manualDate,
       start_time: manualStartIso,
       end_time: manualEndIso,
@@ -679,6 +762,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
   useEffect(() => {
     const handler = (ev: any) => {
       const date = ev?.detail?.date ?? toLocalYmd(new Date())
+      setManualTargetUserId(userId ?? '')
       setManualDate(date)
       setManualError(null)
       setManualRoundTrip(true)
@@ -688,6 +772,26 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
     window.addEventListener('openManual', handler as EventListener)
     return () => window.removeEventListener('openManual', handler as EventListener)
+  }, [breakEnabled, defaultBreakMinutes])
+
+  useEffect(() => {
+    const handler = async (ev: any) => {
+      const date = ev?.detail?.date ?? toLocalYmd(new Date())
+
+      setSelectedEmployeeId('')
+      setEmployeePickerError(null)
+      setShowEmployeePicker(true)
+      await loadEmployeeOptions()
+
+      // Keep chosen date ready for the existing modal flow.
+      setManualDate(date)
+      setManualRoundTrip(true)
+      setManualBreakMinutes(breakEnabled ? defaultBreakMinutes : 0)
+      setManualError(null)
+    }
+
+    window.addEventListener('openManualForEmployee', handler as EventListener)
+    return () => window.removeEventListener('openManualForEmployee', handler as EventListener)
   }, [breakEnabled, defaultBreakMinutes])
 
   useEffect(() => {
@@ -845,15 +949,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
           + Uren Toevoegen
         </button>
 
-        {canManageOthers && (
-          <button
-            onClick={() => setShowAddHoursModal(true)}
-            className="px-3 py-1 rounded border border-blue-200/70 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:hover:bg-blue-500/10 text-sm font-medium"
-          >
-            ➕👷 Uren toevoegen werknemer
-          </button>
-        )}
-
         <button
           onClick={() =>
             setCurrentWeek(
@@ -884,7 +979,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Voeg snel je uren toe, klik op agenda ophalen om je geplande diensten te zien.
             </div>
-            <div className="mt-4 flex justify-center gap-2">
+            <div className="mt-4 flex justify-center">
               <button
                 onClick={() => {
                   const ev = new CustomEvent('openManual', {
@@ -896,14 +991,6 @@ export default function MyOverview({ userId }: { userId?: string }) {
               >
                 ➕ Uren toevoegen
               </button>
-              {canManageOthers && (
-                <button
-                  onClick={() => setShowAddHoursModal(true)}
-                  className="border border-blue-500/60 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-4 py-2 rounded"
-                >
-                  ➕👷 Uren toevoegen werknemer
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1180,6 +1267,11 @@ export default function MyOverview({ userId }: { userId?: string }) {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
           <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
             <h3 className="font-semibold">Nieuwe entry</h3>
+            {manualTargetUserId && manualTargetUserId !== userId && (
+              <div className="text-xs text-blue-200">
+                Uren toevoegen voor werknemer.
+              </div>
+            )}
             <div className="space-y-2">
               <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
               <input type="time" value={manualStart} onChange={(e) => setManualStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
@@ -1293,13 +1385,61 @@ export default function MyOverview({ userId }: { userId?: string }) {
         </div>
       )}
 
-      <AddHoursModal
-        isOpen={showAddHoursModal}
-        onClose={() => setShowAddHoursModal(false)}
-        onSuccess={() => {
-          fetchEntries()
-        }}
-      />
+      {showEmployeePicker && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+            <h3 className="font-semibold">Uren toevoegen werknemer</h3>
+
+            {employeePickerLoading ? (
+              <p className="text-sm text-gray-300">Werknemers laden…</p>
+            ) : (
+              <>
+                <select
+                  value={selectedEmployeeId}
+                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                  className="w-full rounded bg-gray-800 border border-gray-700 text-white p-2"
+                >
+                  <option value="">Selecteer werknemer…</option>
+                  {employeeOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.email || u.id}
+                    </option>
+                  ))}
+                </select>
+
+                {employeePickerError && (
+                  <div className="text-sm text-red-300">{employeePickerError}</div>
+                )}
+
+                {!employeePickerError && employeeOptions.length === 0 && (
+                  <div className="text-sm text-gray-300">Geen werknemers beschikbaar.</div>
+                )}
+              </>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowEmployeePicker(false)}
+                className="px-3 py-1"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={() => {
+                  if (!selectedEmployeeId) return
+                  setManualTargetUserId(selectedEmployeeId)
+                  setShowEmployeePicker(false)
+                  setManual(true)
+                }}
+                disabled={!selectedEmployeeId || employeePickerLoading}
+                className="px-3 py-1 bg-black text-white rounded disabled:opacity-50"
+              >
+                Verder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -11,14 +11,33 @@ import GoogleAgendaButton from '@/components/GoogleAgendaButton'
 
 export default function HomePage() {
   const [user, setUser] = useState<any>(null)
+  const [canManageOthers, setCanManageOthers] = useState(false)
   const [ready, setReady] = useState(false)
   const [showMonthOverview, setShowMonthOverview] = useState(false)
   const [showAgendaSuggestions, setShowAgendaSuggestions] = useState(false)
 
+  const fetchRoleAccess = async (userId: string | null | undefined) => {
+    if (!userId) {
+      setCanManageOthers(false)
+      return
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
+
+    const role = String((profile as any)?.role ?? '')
+    setCanManageOthers(role === 'admin' || role === 'sub-contractor')
+  }
+
   useEffect(() => {
     // 1️⃣ Check bestaande sessie
     supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
+      const nextUser = data.session?.user ?? null
+      setUser(nextUser)
+      fetchRoleAccess(nextUser?.id)
       setReady(true)
     })
 
@@ -26,7 +45,9 @@ export default function HomePage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const nextUser = session?.user ?? null
+      setUser(nextUser)
+      fetchRoleAccess(nextUser?.id)
       setReady(true)
     })
 
@@ -88,6 +109,20 @@ export default function HomePage() {
           >
             ➕ Uren toevoegen
           </button>
+
+          {canManageOthers && (
+            <button
+              onClick={() => {
+                const ev = new CustomEvent('openManualForEmployee', {
+                  detail: { date: todayLocalYmd() },
+                })
+                window.dispatchEvent(ev)
+              }}
+              className="border border-blue-500/60 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 px-3 py-1 rounded"
+            >
+              ➕👷 Uren toevoegen werknemer
+            </button>
+          )}
 
           <button
             onClick={() => setShowMonthOverview((v) => !v)}
