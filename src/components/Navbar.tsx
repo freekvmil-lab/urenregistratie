@@ -51,7 +51,7 @@ export default function Navbar() {
 
   const adminLinks = useMemo(() => {
     return [
-      { href: '/admin', label: 'Admin uren', adminOnly: true },
+      { href: '/admin', label: 'Uren', adminOnly: true },
       { href: '/admin/availability', label: 'Beschikbaarheid', adminOnly: true },
       { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
       { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
