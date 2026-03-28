@@ -18,7 +18,14 @@ const requireCronSecret = (req: Request) => {
   if (!secret) return { ok: true as const } // allow running without secret (optional)
 
   const url = new URL(req.url)
-  const provided = url.searchParams.get('secret') || req.headers.get('x-cron-secret')
+  const authHeader = req.headers.get('authorization') || ''
+  const bearer = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : null
+  const provided =
+    url.searchParams.get('secret') ||
+    req.headers.get('x-cron-secret') ||
+    bearer
   if (!provided || provided !== secret) {
     return { ok: false as const, res: NextResponse.json({ error: 'forbidden' }, { status: 403 }) }
   }
