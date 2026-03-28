@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const USER_MANAGEMENT_DRAFT_KEY = 'user-management-draft-v1'
+
 interface Profile {
   id: string
   name: string | null
@@ -82,6 +84,47 @@ export default function UserManagement() {
   const [intakeBusy, setIntakeBusy] = useState(false)
   const [intakeCreateBusy, setIntakeCreateBusy] = useState(false)
   const [intakeMessage, setIntakeMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(USER_MANAGEMENT_DRAFT_KEY)
+      if (!raw) return
+      const draft = JSON.parse(raw) as {
+        createEmail?: string
+        createName?: string
+        createRole?: 'admin' | 'employee' | 'sub-contractor'
+        createHourlyRate?: string
+        createHomeAddress?: string
+      }
+
+      if (typeof draft.createEmail === 'string') setCreateEmail(draft.createEmail)
+      if (typeof draft.createName === 'string') setCreateName(draft.createName)
+      if (draft.createRole === 'admin' || draft.createRole === 'employee' || draft.createRole === 'sub-contractor') {
+        setCreateRole(draft.createRole)
+      }
+      if (typeof draft.createHourlyRate === 'string') setCreateHourlyRate(draft.createHourlyRate)
+      if (typeof draft.createHomeAddress === 'string') setCreateHomeAddress(draft.createHomeAddress)
+    } catch {
+      // ignore corrupted draft
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        USER_MANAGEMENT_DRAFT_KEY,
+        JSON.stringify({
+          createEmail,
+          createName,
+          createRole,
+          createHourlyRate,
+          createHomeAddress,
+        })
+      )
+    } catch {
+      // ignore quota/privacy mode errors
+    }
+  }, [createEmail, createName, createRole, createHourlyRate, createHomeAddress])
 
   const openIntake = () => {
     setIntakeOpen(true)

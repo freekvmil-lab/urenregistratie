@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const CLIENT_MANAGEMENT_DRAFT_KEY = 'client-management-draft-v1'
+
 interface Client {
   id: string
   name: string
@@ -19,6 +21,46 @@ export default function ClientManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingNote, setEditingNote] = useState('')
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(CLIENT_MANAGEMENT_DRAFT_KEY)
+      if (!raw) return
+
+      const draft = JSON.parse(raw) as {
+        name?: string
+        note?: string
+        editingId?: string | null
+        editingName?: string
+        editingNote?: string
+      }
+
+      if (typeof draft.name === 'string') setName(draft.name)
+      if (typeof draft.note === 'string') setNote(draft.note)
+      if (typeof draft.editingId === 'string') setEditingId(draft.editingId)
+      if (typeof draft.editingName === 'string') setEditingName(draft.editingName)
+      if (typeof draft.editingNote === 'string') setEditingNote(draft.editingNote)
+    } catch {
+      // ignore corrupted draft
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        CLIENT_MANAGEMENT_DRAFT_KEY,
+        JSON.stringify({
+          name,
+          note,
+          editingId,
+          editingName,
+          editingNote,
+        })
+      )
+    } catch {
+      // ignore quota/privacy mode errors
+    }
+  }, [name, note, editingId, editingName, editingNote])
 
   const load = async () => {
     setLoading(true)
