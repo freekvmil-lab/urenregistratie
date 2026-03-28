@@ -44,10 +44,30 @@ export default function HomePage() {
     // 2️⃣ Luister naar auth changes (CRUCIAAL voor PWA/iOS)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const nextUser = session?.user ?? null
-      setUser(nextUser)
-      fetchRoleAccess(nextUser?.id)
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        fetchRoleAccess(null)
+        setReady(true)
+        return
+      }
+
+      const sessionUser = session?.user ?? null
+      if (sessionUser) {
+        setUser(sessionUser)
+        fetchRoleAccess(sessionUser.id)
+        setReady(true)
+        return
+      }
+
+      // On some tab restore/token refresh paths, session can be briefly null.
+      // Re-check current session before clearing UI state.
+      const { data } = await supabase.auth.getSession()
+      const nextUser = data.session?.user ?? null
+      if (nextUser) {
+        setUser(nextUser)
+        fetchRoleAccess(nextUser.id)
+      }
       setReady(true)
     })
 

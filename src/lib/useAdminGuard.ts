@@ -51,8 +51,12 @@ export function useAdminGuard(): UseAdminGuardResult {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      setAllowed(null)
+    } = supabase.auth.onAuthStateChange((event) => {
+      // Keep current UI mounted while re-checking to avoid losing in-progress form input.
+      if (event === 'SIGNED_OUT') {
+        setAllowed(false)
+        return
+      }
       check()
     })
 
