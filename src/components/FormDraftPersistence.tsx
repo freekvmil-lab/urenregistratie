@@ -46,14 +46,15 @@ const keyFromElement = (el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectE
   let node: Element | null = el
   const parts: string[] = []
   while (node && node !== document.body) {
-    const parent = node.parentElement
-    const tag = node.tagName.toLowerCase()
+    const currentNode: Element = node
+    const parent: HTMLElement | null = currentNode.parentElement
+    const tag = currentNode.tagName.toLowerCase()
     if (!parent) {
       parts.push(tag)
       break
     }
-    const siblings = Array.from(parent.children).filter((c) => c.tagName === node!.tagName)
-    const idx = siblings.indexOf(node) + 1
+    const siblings = Array.from(parent.children).filter((c) => c.tagName === currentNode.tagName)
+    const idx = siblings.indexOf(currentNode) + 1
     parts.push(`${tag}:nth-of-type(${idx})`)
     node = parent
   }
