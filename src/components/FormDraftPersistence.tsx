@@ -78,7 +78,7 @@ const buildStorageKey = (pathname: string) => `${STORAGE_PREFIX}${pathname}`
 
 export default function FormDraftPersistence() {
   const pathname = usePathname() || '/'
-  const restoredForPathRef = useRef<string | null>(null)
+  const restoreTimersRef = useRef<number[]>([])
 
   useEffect(() => {
     const storageKey = buildStorageKey(pathname)
@@ -113,8 +113,10 @@ export default function FormDraftPersistence() {
     const restoreDraft = () => {
       try {
         const raw = window.sessionStorage.getItem(storageKey)
-        if (!raw) return
+        if (!raw) return 0
         const draft = JSON.parse(raw) as StoredDraft
+
+        let restoredCount = 0
 
         for (const [fieldKey, stored] of Object.entries(draft)) {
           let el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null = null
@@ -141,20 +143,41 @@ export default function FormDraftPersistence() {
               if (el.checked !== stored.checked) {
                 el.checked = stored.checked
                 el.dispatchEvent(new Event('change', { bubbles: true }))
+                restoredCount += 1
               }
             } else if (typeof stored.value === 'string' && el.value !== stored.value) {
               el.value = stored.value
               el.dispatchEvent(new Event('input', { bubbles: true }))
               el.dispatchEvent(new Event('change', { bubbles: true }))
+              restoredCount += 1
             }
           } else if (typeof stored.value === 'string' && el.value !== stored.value) {
             el.value = stored.value
             el.dispatchEvent(new Event('input', { bubbles: true }))
             el.dispatchEvent(new Event('change', { bubbles: true }))
+            restoredCount += 1
           }
         }
+
+        return restoredCount
       } catch {
         // Ignore corrupted JSON etc.
+        return 0
+      }
+    }
+
+    const clearRestoreTimers = () => {
+      for (const t of restoreTimersRef.current) window.clearTimeout(t)
+      restoreTimersRef.current = []
+    }
+
+    const scheduleRestore = (attempts = 20, delayMs = 150) => {
+      clearRestoreTimers()
+      for (let i = 0; i < attempts; i += 1) {
+        const id = window.setTimeout(() => {
+          restoreDraft()
+        }, i * delayMs)
+        restoreTimersRef.current.push(id)
       }
     }
 
@@ -165,22 +188,29 @@ export default function FormDraftPersistence() {
       if (document.visibilityState === 'hidden') saveDraft()
     }
 
-    // Restore once per route after mount/hydration.
-    if (restoredForPathRef.current !== pathname) {
-      restoredForPathRef.current = pathname
-      setTimeout(restoreDraft, 0)
+    const onPageShow = () => scheduleRestore(10, 120)
+    const onVisibilityVisible = () => {
+      if (document.visibilityState === 'visible') scheduleRestore(8, 120)
     }
+
+    // Restore repeatedly per route after mount/hydration to handle delayed-rendered forms.
+    scheduleRestore()
 
     document.addEventListener('input', onInput, true)
     document.addEventListener('change', onChange, true)
     window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
     document.addEventListener('visibilitychange', onVisibility)
+    document.addEventListener('visibilitychange', onVisibilityVisible)
 
     return () => {
+      clearRestoreTimers()
       document.removeEventListener('input', onInput, true)
       document.removeEventListener('change', onChange, true)
       window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
       document.removeEventListener('visibilitychange', onVisibility)
+      document.removeEventListener('visibilitychange', onVisibilityVisible)
     }
   }, [pathname])
 
