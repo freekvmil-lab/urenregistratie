@@ -781,7 +781,7 @@ export default function UserManagement() {
             <th className="border p-2 font-semibold text-gray-900 dark:text-gray-100 bg-orange-100 dark:bg-orange-500/10">Acties</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody data-no-persist-scope>
           {users.map((u) => (
             <tr key={u.id} className="odd:bg-white even:bg-orange-50/30 dark:odd:bg-transparent dark:even:bg-black/10">
               <td className="border p-2 text-gray-900 dark:text-gray-100">

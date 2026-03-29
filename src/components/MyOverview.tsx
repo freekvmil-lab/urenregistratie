@@ -1122,7 +1122,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
       {/* MODALS (rendered once so they also work on empty weeks) */}
       {editing && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+          <div data-no-persist-scope className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
             <h3 className="font-semibold">Bewerk uren</h3>
             <div className="space-y-2">
               <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-full rounded bg-gray-800 border-gray-700 text-white p-2" />
@@ -1253,7 +1253,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       {manual && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+          <div data-no-persist-scope className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
             <h3 className="font-semibold">Nieuwe entry</h3>
             {manualTargetUserId && manualTargetUserId !== userId && (
               <div className="text-xs text-blue-200">
@@ -1375,7 +1375,7 @@ export default function MyOverview({ userId }: { userId?: string }) {
 
       {showEmployeePicker && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
+          <div data-no-persist-scope className="bg-gray-900 text-white p-6 rounded space-y-3 w-full max-w-sm">
             <h3 className="font-semibold">Uren toevoegen werknemer</h3>
 
             {employeePickerLoading ? (

@@ -66,6 +66,7 @@ const isPersistable = (el: Element): el is HTMLInputElement | HTMLTextAreaElemen
     return false
   }
   if (el.hasAttribute('data-no-persist')) return false
+  if (el.closest('[data-no-persist-scope]')) return false
   if ((el as any).disabled || (el as any).readOnly) return false
 
   if (el instanceof HTMLInputElement) {

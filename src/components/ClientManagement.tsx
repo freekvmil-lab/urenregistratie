@@ -166,7 +166,7 @@ export default function ClientManagement() {
                 <th className="p-2">Acties</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody data-no-persist-scope>
               {clients.map((c) => (
                 <tr key={c.id} className="border-t border-gray-700">
                   <td className="p-2">
