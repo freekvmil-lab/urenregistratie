@@ -252,6 +252,19 @@ export default function PlanningBeheer() {
         </div>
       )}
 
+      {/* Kalender */}
+      {view === 'week' ? (
+        <WeekView onNieuwe={(datum, tijd) => {
+          setFormulier(prev => ({ ...prev, datum, start_tijd: tijd }))
+          setNieuw(true)
+        }} />
+      ) : (
+        <MonthView onNieuwe={(datum, tijd) => {
+          setFormulier(prev => ({ ...prev, datum, start_tijd: tijd }))
+          setNieuw(true)
+        }} />
+      )}
+
       {/* Overzicht */}
       {loading ? <p>Laden…</p> : (
         <div className="space-y-3">
