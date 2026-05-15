@@ -6,16 +6,28 @@ const getServiceClient = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function getValidAccessToken(userId: string, supabase: ReturnType<typeof createClient>) {
-  const { data: tokenRow } = await supabase
+interface TokenRow {
+  user_id: string
+  access_token: string
+  refresh_token: string
+  expiry_date: number | null
+}
+
+interface PlanningMedewerker {
+  medewerker_id: string
+  medewerker_naam: string | null
+}
+
+async function getValidAccessToken(userId: string, supabase: ReturnType<typeof getServiceClient>) {
+  const { data } = await supabase
     .from('google_tokens')
-    .select('*')
+    .select('user_id, access_token, refresh_token, expiry_date')
     .eq('user_id', userId)
     .single()
 
+  const tokenRow = data as TokenRow | null
   if (!tokenRow) return null
 
-  // Refresh if expired
   if (tokenRow.expiry_date && Date.now() > tokenRow.expiry_date - 60000) {
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -33,7 +45,7 @@ async function getValidAccessToken(userId: string, supabase: ReturnType<typeof c
         access_token: refreshed.access_token,
         expiry_date: Date.now() + (refreshed.expires_in ?? 3600) * 1000,
       }).eq('user_id', userId)
-      return refreshed.access_token
+      return refreshed.access_token as string
     }
     return null
   }
@@ -60,7 +72,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = getServiceClient()
 
-    // Haal planning op
     const { data: planning } = await supabase
       .from('planning')
       .select('*, planning_medewerkers(medewerker_id, medewerker_naam)')
@@ -72,8 +83,8 @@ export async function POST(req: NextRequest) {
     const startDateTime = `${planning.datum}T${planning.start_tijd}`
     const endDateTime = `${planning.datum}T${planning.eind_tijd}`
 
-    const medewerkerNamen = planning.planning_medewerkers
-      .map((m: { medewerker_naam: string }) => m.medewerker_naam)
+    const medewerkerNamen = (planning.planning_medewerkers as PlanningMedewerker[])
+      .map((m) => m.medewerker_naam ?? '')
       .join(', ')
 
     const eventBody = {
@@ -84,7 +95,6 @@ export async function POST(req: NextRequest) {
       end: { dateTime: endDateTime, timeZone: 'Europe/Amsterdam' },
     }
 
-    // Maak event voor admin
     const { data: adminTokenRow } = await supabase
       .from('google_tokens')
       .select('user_id')
@@ -93,20 +103,18 @@ export async function POST(req: NextRequest) {
 
     let adminEventId = null
     if (adminTokenRow) {
-      const accessToken = await getValidAccessToken(adminTokenRow.user_id, supabase)
+      const accessToken = await getValidAccessToken((adminTokenRow as { user_id: string }).user_id, supabase)
       if (accessToken) {
         const created = await maakGoogleEvent(accessToken, eventBody)
         adminEventId = created.id ?? null
       }
     }
 
-    // Update planning met event id
     if (adminEventId) {
       await supabase.from('planning').update({ google_event_id: adminEventId }).eq('id', planning_id)
     }
 
-    // Maak events voor medewerkers
-    for (const pm of planning.planning_medewerkers) {
+    for (const pm of (planning.planning_medewerkers as PlanningMedewerker[])) {
       const token = await getValidAccessToken(pm.medewerker_id, supabase)
       if (token) {
         const created = await maakGoogleEvent(token, eventBody)
@@ -120,7 +128,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, event_id: adminEventId })
-  } catch (err: any) {
-    return NextResponse.json({ error: String(err?.message ?? err) }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
