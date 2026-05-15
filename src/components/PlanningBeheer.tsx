@@ -149,9 +149,16 @@ export default function PlanningBeheer() {
           <input type="month" value={filterDatum} onChange={e => setFilterDatum(e.target.value)}
             className="rounded border px-2 py-1.5 text-sm" />
           {!googleVerbonden ? (
-            <a href={`/api/google/auth?userId=${userId ?? ''}`} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">
+            <button
+              onClick={async () => {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (!user) { alert('Je bent niet ingelogd'); return }
+                window.location.href = `/api/google/auth?userId=${user.id}`
+              }}
+              className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm"
+            >
               🔗 Google Agenda koppelen
-            </a>
+            </button>
           ) : (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">✅ Google Agenda</span>
           )}
