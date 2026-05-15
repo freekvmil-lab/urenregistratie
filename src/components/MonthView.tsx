@@ -85,11 +85,11 @@ export default function MonthView({ onNieuwe }: { onNieuwe: (datum: string, tijd
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
         <div className="flex items-center gap-2">
-          <button onClick={vorigeMaand} className="p-1 hover:bg-gray-200 rounded">◀</button>
-          <button onClick={vandaag} className="text-sm px-3 py-1 border rounded hover:bg-gray-100">Vandaag</button>
-          <button onClick={volgendeMaand} className="p-1 hover:bg-gray-200 rounded">▶</button>
+          <button onClick={vorigeMaand} className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg hover:bg-gray-800">‹</button>
+          <button onClick={vandaag} className="text-sm px-3 py-1.5 bg-white border-2 border-black rounded font-semibold hover:bg-gray-100">Vandaag</button>
+          <button onClick={volgendeMaand} className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg hover:bg-gray-800">›</button>
         </div>
-        <p className="font-semibold">{MAANDEN[maand]} {jaar}</p>
+        <p className="font-semibold text-lg">{MAANDEN[maand]} {jaar}</p>
         {loading && <span className="text-xs text-gray-400">Laden…</span>}
       </div>
 
