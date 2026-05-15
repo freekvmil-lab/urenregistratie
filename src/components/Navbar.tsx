@@ -51,12 +51,14 @@ export default function Navbar() {
 
   const adminLinks = useMemo(() => {
     return [
-      { href: '/admin', label: 'Uren', adminOnly: true },
-      { href: '/admin/availability', label: 'Beschikbaarheid', adminOnly: true },
-      { href: '/admin/roles', label: 'Werknemers', adminOnly: true },
-      { href: '/admin/clients', label: 'Opdrachtgevers', adminOnly: true },
-      { href: '/admin/push', label: 'Push', adminOnly: true },
-      { href: '/admin/export', label: 'Export', adminOnly: true },
+      { href: '/admin', label: 'Uren' },
+      { href: '/admin/availability', label: 'Beschikbaarheid' },
+      { href: '/admin/roles', label: 'Werknemers' },
+      { href: '/admin/personeel', label: 'Personeel info' },
+      { href: '/admin/cao', label: 'CAO profielen' },
+      { href: '/admin/clients', label: 'Opdrachtgevers' },
+      { href: '/admin/push', label: 'Push' },
+      { href: '/admin/export', label: 'Export' },
     ]
   }, [])
 
