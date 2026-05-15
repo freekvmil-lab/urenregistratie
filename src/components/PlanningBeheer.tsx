@@ -42,6 +42,7 @@ export default function PlanningBeheer() {
   const [formulier, setFormulier] = useState(leeg)
   const [opslaan, setOpslaan] = useState(false)
   const [googleVerbonden, setGoogleVerbonden] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
   const [melding, setMelding] = useState<string | null>(null)
   const [filterDatum, setFilterDatum] = useState(new Date().toISOString().split('T')[0].slice(0, 7))
 
@@ -50,6 +51,9 @@ export default function PlanningBeheer() {
     const [jaar, maand] = filterDatum.split('-')
     const vanDatum = `${jaar}-${maand}-01`
     const totDatum = `${jaar}-${maand}-31`
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) setUserId(user.id)
 
     const [{ data: p }, { data: c }, { data: pl }, { data: tokens }] = await Promise.all([
       supabase.from('profiles').select('id, name, email').is('deleted_at', null).order('name'),
@@ -145,7 +149,7 @@ export default function PlanningBeheer() {
           <input type="month" value={filterDatum} onChange={e => setFilterDatum(e.target.value)}
             className="rounded border px-2 py-1.5 text-sm" />
           {!googleVerbonden ? (
-            <a href="/api/google/auth" className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">
+            <a href={`/api/google/auth?userId=${userId ?? ''}`} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm">
               🔗 Google Agenda koppelen
             </a>
           ) : (
