@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
+const APP_URL = 'https://urenregistratie-six.vercel.app'
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId') ?? ''
+
   const clientId = process.env.GOOGLE_CLIENT_ID!
-  const redirectUri = process.env.NEXT_PUBLIC_APP_URL
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
-    : 'https://urenregistratie-six.vercel.app/api/google/callback'
+  const redirectUri = `${APP_URL}/api/google/callback`
 
   const scopes = [
     'https://www.googleapis.com/auth/calendar.events',
-    'https://www.googleapis.com/auth/userinfo.email',
   ].join(' ')
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -18,6 +20,7 @@ export async function GET() {
   url.searchParams.set('scope', scopes)
   url.searchParams.set('access_type', 'offline')
   url.searchParams.set('prompt', 'consent')
+  url.searchParams.set('state', userId)
 
   return NextResponse.redirect(url.toString())
 }
