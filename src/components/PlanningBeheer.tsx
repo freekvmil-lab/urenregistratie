@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
 import WeekView from '@/components/WeekView'
+import MonthView from '@/components/MonthView'
 
 interface Profiel { id: string; name: string | null; email: string | null }
 interface Client { id: string; name: string }
@@ -45,6 +46,7 @@ export default function PlanningBeheer() {
   const [googleVerbonden, setGoogleVerbonden] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [melding, setMelding] = useState<string | null>(null)
+  const [view, setView] = useState<'week' | 'month'>('week')
   const [filterDatum, setFilterDatum] = useState(new Date().toISOString().split('T')[0].slice(0, 7))
 
   const laad = useCallback(async () => {
@@ -163,6 +165,10 @@ export default function PlanningBeheer() {
           ) : (
             <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded">✅ Google Agenda</span>
           )}
+          <div className="flex border rounded overflow-hidden text-sm">
+            <button onClick={() => setView('week')} className={`px-3 py-1.5 ${view === 'week' ? 'bg-black text-white' : 'bg-white'}`}>Week</button>
+            <button onClick={() => setView('month')} className={`px-3 py-1.5 ${view === 'month' ? 'bg-black text-white' : 'bg-white'}`}>Maand</button>
+          </div>
           <button onClick={() => setNieuw(true)} className="bg-black text-white px-3 py-1.5 rounded text-sm">+ Dienst aanmaken</button>
         </div>
       </div>
