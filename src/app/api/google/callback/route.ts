@@ -1,16 +1,18 @@
-// api/google/callback/route.ts
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-export async function GET(req: Request) {
-  const { searchParams, origin } = new URL(req.url)
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
-  const userId = searchParams.get('state') // expliciet
 
-  if (!code || !userId) {
-    return NextResponse.redirect(`${origin}/?error=oauth`)
+  if (!code) {
+    return NextResponse.redirect('/admin/planning?error=no_code')
   }
 
+  const redirectUri = 'https://urenregistratie-six.vercel.app/api/google/callback'
+
+  // Exchange code for tokens
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -18,61 +20,43 @@ export async function GET(req: Request) {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID!,
       client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
   })
 
-  const token = await tokenRes.json()
-  if (!token.access_token) {
-    return NextResponse.redirect(`${origin}/?error=token`)
+  const tokens = await tokenRes.json()
+
+  if (!tokens.access_token) {
+    return NextResponse.redirect('/admin/planning?error=token_failed')
   }
 
-  const expiresAt = new Date(Date.now() + token.expires_in * 1000).toISOString()
+  // Get Supabase user from cookie
+  const cookieStore = await cookies()
+  const authCookie = cookieStore.getAll().find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+  if (!authCookie) return NextResponse.redirect('/admin/planning?error=not_logged_in')
+
+  let userId: string
+  try {
+    const session = JSON.parse(decodeURIComponent(authCookie.value))
+    userId = session?.user?.id
+    if (!userId) throw new Error('no user id')
+  } catch {
+    return NextResponse.redirect('/admin/planning?error=session_error')
+  }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://shxlihgfdzfxwjewjnmj.supabase.co',
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Google may omit refresh_token on subsequent authorizations.
-  // Never overwrite an existing refresh_token with null/undefined.
-  const { data: existing } = await supabase
-    .from('google_accounts')
-    .select('refresh_token')
-    .eq('user_id', userId)
-    .maybeSingle()
+  await supabase.from('google_tokens').upsert({
+    user_id: userId,
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    expiry_date: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : null,
+    scope: tokens.scope,
+  }, { onConflict: 'user_id' })
 
-  const refreshToStore = token.refresh_token ?? (existing as any)?.refresh_token ?? null
-
-  // Avoid relying on an upsert constraint that might not exist.
-  // Always overwrite the access_token on reconnect.
-  const { data: updated, error: updateError } = await supabase
-    .from('google_accounts')
-    .update({
-      access_token: token.access_token,
-      refresh_token: refreshToStore,
-      expires_at: expiresAt,
-    })
-    .eq('user_id', userId)
-    .select('user_id')
-
-  if (updateError) {
-    return NextResponse.redirect(`${origin}/?error=google_store`)
-  }
-
-  if (!updated || updated.length === 0) {
-    const { error: insertError } = await supabase.from('google_accounts').insert({
-      user_id: userId,
-      access_token: token.access_token,
-      refresh_token: refreshToStore,
-      expires_at: expiresAt,
-    })
-
-    if (insertError) {
-      return NextResponse.redirect(`${origin}/?error=google_store`)
-    }
-  }
-
-  return NextResponse.redirect(`${origin}/`)
+  return NextResponse.redirect('/admin/planning?connected=1')
 }
