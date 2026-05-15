@@ -1,25 +1,23 @@
 import { NextResponse } from 'next/server'
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  // Accept either `state` (userId) or legacy `access_token` param
-  const state = searchParams.get('state') ?? searchParams.get('access_token')
+export async function GET() {
+  const clientId = process.env.GOOGLE_CLIENT_ID!
+  const redirectUri = process.env.NEXT_PUBLIC_APP_URL
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
+    : 'https://urenregistratie-six.vercel.app/api/google/callback'
 
-  if (!state) {
-    // geen sessie → terug naar login
-    return NextResponse.redirect('/login')
-  }
+  const scopes = [
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ].join(' ')
 
-  const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
-    response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/calendar.readonly',
-    access_type: 'offline',
-    prompt: 'consent',
-    state: state, // pass through the user id
-  })
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  url.searchParams.set('client_id', clientId)
+  url.searchParams.set('redirect_uri', redirectUri)
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('scope', scopes)
+  url.searchParams.set('access_type', 'offline')
+  url.searchParams.set('prompt', 'consent')
 
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(url.toString())
 }
