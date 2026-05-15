@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
+import WeekView from '@/components/WeekView'
 
 interface Profiel { id: string; name: string | null; email: string | null }
 interface Client { id: string; name: string }
