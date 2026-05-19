@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface GoogleEvent {
@@ -8,8 +8,6 @@ interface GoogleEvent {
   summary: string
   start: { dateTime?: string; date?: string }
   end: { dateTime?: string; date?: string }
-  location?: string
-  description?: string
 }
 
 interface PlanningEvent {
@@ -18,15 +16,14 @@ interface PlanningEvent {
   datum: string
   start_tijd: string
   eind_tijd: string
-  locatie: string | null
   opdrachtgever_naam: string | null
   planning_medewerkers: { medewerker_naam: string | null }[]
 }
 
-const UREN = Array.from({ length: 16 }, (_, i) => i + 6) // 06:00 - 21:00
+const UREN = Array.from({ length: 16 }, (_, i) => i + 6)
 const DAGEN = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 
-function startVanWeek(datum: Date) {
+function startVanWeek(datum: Date): Date {
   const d = new Date(datum)
   const dag = (d.getDay() + 6) % 7
   d.setDate(d.getDate() - dag)
@@ -34,31 +31,22 @@ function startVanWeek(datum: Date) {
   return d
 }
 
-function formatDatum(d: Date) {
-  return d.toISOString().split('T')[0]
+function toDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
 }
 
-function tijdNaarMinuten(tijd: string) {
+function tijdNaarMin(tijd: string): number {
   const [u, m] = tijd.split(':').map(Number)
   return u * 60 + m
-}
-
-function eventTop(start: string) {
-  const min = tijdNaarMinuten(start.slice(11, 16))
-  return ((min - 6 * 60) / 60) * 64
-}
-
-function eventHoogte(start: string, end: string) {
-  const s = tijdNaarMinuten(start.slice(11, 16))
-  const e = tijdNaarMinuten(end.slice(11, 16))
-  return Math.max(((e - s) / 60) * 64, 24)
 }
 
 export default function WeekView({ onNieuwe }: { onNieuwe: (datum: string, tijd: string) => void }) {
   const [weekStart, setWeekStart] = useState(() => startVanWeek(new Date()))
   const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([])
   const [planningEvents, setPlanningEvents] = useState<PlanningEvent[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const weekDagen = Array.from({ length: 7 }, (_, i) => {
@@ -67,148 +55,134 @@ export default function WeekView({ onNieuwe }: { onNieuwe: (datum: string, tijd:
     return d
   })
 
-  const laad = useCallback(async () => {
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) setUserId(user.id)
+  useEffect(() => {
+    let actief = true
+    const haal = async () => {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      const vanDatum = toDateStr(weekDagen[0])
+      const totDatum = toDateStr(weekDagen[6])
+      const timeMin = weekDagen[0].toISOString()
+      const timeMax = new Date(weekDagen[6].getTime() + 86400000).toISOString()
 
-    const timeMin = weekDagen[0].toISOString()
-    const timeMax = new Date(weekDagen[6].getTime() + 86400000).toISOString()
-    const vanDatum = formatDatum(weekDagen[0])
-    const totDatum = formatDatum(weekDagen[6])
+      const [googleRes, { data: planning }] = await Promise.all([
+        user
+          ? fetch(`/api/google/events?userId=${user.id}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`).then(r => r.json())
+          : Promise.resolve({ events: [] }),
+        supabase.from('planning')
+          .select('*, planning_medewerkers(medewerker_naam)')
+          .gte('datum', vanDatum)
+          .lte('datum', totDatum),
+      ])
 
-    const [googleRes, { data: planning }] = await Promise.all([
-      user ? fetch(`/api/google/events?userId=${user.id}&timeMin=${timeMin}&timeMax=${timeMax}`).then(r => r.json()) : Promise.resolve({ events: [] }),
-      supabase.from('planning').select('*, planning_medewerkers(medewerker_naam)').gte('datum', vanDatum).lte('datum', totDatum),
-    ])
+      if (actief) {
+        setGoogleEvents(googleRes.events ?? [])
+        setPlanningEvents(planning ?? [])
+        setLoading(false)
+      }
+    }
+    haal()
+    return () => { actief = false }
+  }, [weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    setGoogleEvents(googleRes.events ?? [])
-    setPlanningEvents(planning ?? [])
-    setLoading(false)
-  }, [weekStart])
+  const vandaagStr = toDateStr(new Date())
 
-  useEffect(() => { laad() }, [laad])
-
-  const vorigeWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() - 7)
-    setWeekStart(d)
-  }
-
-  const volgendeWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + 7)
-    setWeekStart(d)
-  }
-
-  const vandaag = () => setWeekStart(startVanWeek(new Date()))
-
-  const nuLijn = () => {
-    const nu = new Date()
-    const min = nu.getHours() * 60 + nu.getMinutes()
+  const top = (dt: string) => {
+    const min = tijdNaarMin(dt.slice(11, 16))
     return ((min - 6 * 60) / 60) * 64
   }
 
-  const isVandaag = (d: Date) => formatDatum(d) === formatDatum(new Date())
+  const hoogte = (start: string, end: string) => {
+    const s = tijdNaarMin(start.slice(11, 16))
+    const e = tijdNaarMin(end.slice(11, 16))
+    return Math.max(((e - s) / 60) * 64, 20)
+  }
+
+  const nuTop = () => {
+    const nu = new Date()
+    return ((nu.getHours() * 60 + nu.getMinutes() - 360) / 60) * 64
+  }
 
   return (
     <div className="border rounded-xl overflow-hidden bg-white">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
         <div className="flex items-center gap-2">
-          <button onClick={vorigeWeek} className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg hover:bg-gray-800">‹</button>
-          <button onClick={vandaag} className="text-sm px-3 py-1.5 bg-white border-2 border-black rounded font-semibold hover:bg-gray-100">Vandaag</button>
-          <button onClick={volgendeWeek} className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg hover:bg-gray-800">›</button>
+          <button onClick={() => setWeekStart(s => { const d = new Date(s); d.setDate(d.getDate() - 7); return d })}
+            className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg">‹</button>
+          <button onClick={() => setWeekStart(startVanWeek(new Date()))}
+            className="text-sm px-3 py-1.5 bg-white border-2 border-black rounded font-semibold">Vandaag</button>
+          <button onClick={() => setWeekStart(s => { const d = new Date(s); d.setDate(d.getDate() + 7); return d })}
+            className="px-3 py-1.5 bg-black text-white rounded font-bold text-lg">›</button>
         </div>
         <p className="font-semibold text-sm">
-          {weekDagen[0].toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })} – {weekDagen[6].toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {weekDagen[0].toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })} –{' '}
+          {weekDagen[6].toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
-        {loading && <span className="text-xs text-gray-400">Laden…</span>}
+        {loading && <span className="text-xs text-gray-400">laden…</span>}
       </div>
 
-      <div className="overflow-auto max-h-[75vh]">
+      <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
         <div className="flex">
-          {/* Tijdkolom */}
           <div className="w-14 shrink-0 border-r">
             <div className="h-10 border-b" />
             {UREN.map(u => (
               <div key={u} className="h-16 border-b flex items-start justify-end pr-2 pt-1">
-                <span className="text-xs text-gray-400">{String(u).padStart(2,'0')}:00</span>
+                <span className="text-xs text-gray-400">{String(u).padStart(2, '0')}:00</span>
               </div>
             ))}
           </div>
 
-          {/* Dagkolommen */}
           {weekDagen.map((dag, di) => {
-            const dagStr = formatDatum(dag)
-            const dagGoogle = googleEvents.filter(e => {
-              const start = e.start.dateTime ?? e.start.date ?? ''
-              return start.startsWith(dagStr)
-            })
-            const dagPlanning = planningEvents.filter(e => e.datum === dagStr)
+            const dagStr = toDateStr(dag)
+            const gEvents = googleEvents.filter(e => (e.start.dateTime ?? e.start.date ?? '').slice(0, 10) === dagStr)
+            const pEvents = planningEvents.filter(e => e.datum === dagStr)
+            const isVandaag = dagStr === vandaagStr
 
             return (
-              <div key={di} className="flex-1 min-w-0 border-r last:border-r-0 relative">
-                {/* Dag header */}
-                <div className={`h-10 border-b flex flex-col items-center justify-center sticky top-0 z-10 ${isVandaag(dag) ? 'bg-orange-50' : 'bg-gray-50'}`}>
+              <div key={di} className="flex-1 min-w-0 border-r last:border-r-0">
+                <div className={`h-10 border-b flex flex-col items-center justify-center sticky top-0 z-10 ${isVandaag ? 'bg-orange-50' : 'bg-gray-50'}`}>
                   <span className="text-xs text-gray-500">{DAGEN[di]}</span>
-                  <span className={`text-sm font-bold ${isVandaag(dag) ? 'text-orange-600' : ''}`}>{dag.getDate()}</span>
+                  <span className={`text-sm font-bold ${isVandaag ? 'text-orange-600' : ''}`}>{dag.getDate()}</span>
                 </div>
 
-                {/* Uur vakken */}
                 <div className="relative">
                   {UREN.map(u => (
-                    <div
-                      key={u}
-                      className="h-16 border-b hover:bg-blue-50/30 cursor-pointer transition-colors"
-                      onClick={() => onNieuwe(dagStr, `${String(u).padStart(2,'0')}:00`)}
-                    />
+                    <div key={u} className="h-16 border-b hover:bg-blue-50/40 cursor-pointer"
+                      onClick={() => onNieuwe(dagStr, `${String(u).padStart(2, '0')}:00`)} />
                   ))}
 
-                  {/* Vandaag lijn */}
-                  {isVandaag(dag) && (
-                    <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: nuLijn() }}>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
-                        <div className="flex-1 h-0.5 bg-red-500" />
-                      </div>
+                  {isVandaag && (
+                    <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center" style={{ top: nuTop() }}>
+                      <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shrink-0" />
+                      <div className="flex-1 h-0.5 bg-red-500" />
                     </div>
                   )}
 
-                  {/* Google Calendar events */}
-                  {dagGoogle.map(e => {
+                  {gEvents.map(e => {
                     if (!e.start.dateTime) return null
-                    const top = eventTop(e.start.dateTime)
-                    const hoogte = eventHoogte(e.start.dateTime, e.end.dateTime ?? e.start.dateTime)
-                    if (top < 0) return null
+                    const t = top(e.start.dateTime)
+                    const h = hoogte(e.start.dateTime, e.end.dateTime ?? e.start.dateTime)
+                    if (t < 0 || t > UREN.length * 64) return null
                     return (
-                      <div
-                        key={e.id}
-                        className="absolute left-0.5 right-0.5 bg-blue-500 text-white rounded px-1 py-0.5 overflow-hidden z-10"
-                        style={{ top, height: hoogte }}
-                        title={e.summary}
-                      >
-                        <p className="text-xs font-medium truncate">{e.summary}</p>
-                        {hoogte > 30 && e.location && <p className="text-xs opacity-80 truncate">{e.location}</p>}
+                      <div key={e.id} title={e.summary}
+                        className="absolute left-0.5 right-0.5 bg-blue-500 text-white rounded px-1 py-0.5 overflow-hidden z-10 cursor-default"
+                        style={{ top: t, height: h }}>
+                        <p className="text-xs font-medium truncate leading-tight">{e.summary}</p>
+                        {h > 32 && <p className="text-xs opacity-75 truncate">{e.start.dateTime.slice(11,16)}</p>}
                       </div>
                     )
                   })}
 
-                  {/* Planning events */}
-                  {dagPlanning.map(e => {
-                    const top = eventTop(`${e.datum}T${e.start_tijd}`)
-                    const hoogte = eventHoogte(`${e.datum}T${e.start_tijd}`, `${e.datum}T${e.eind_tijd}`)
-                    if (top < 0) return null
-                    const namen = e.planning_medewerkers.map(m => m.medewerker_naam).filter(Boolean).join(', ')
+                  {pEvents.map(e => {
+                    const t = top(`${e.datum}T${e.start_tijd}`)
+                    const h = hoogte(`${e.datum}T${e.start_tijd}`, `${e.datum}T${e.eind_tijd}`)
+                    if (t < 0 || t > UREN.length * 64) return null
                     return (
-                      <div
-                        key={e.id}
-                        className="absolute left-0.5 right-0.5 bg-orange-500 text-white rounded px-1 py-0.5 overflow-hidden z-10 ml-4"
-                        style={{ top, height: hoogte }}
-                        title={e.titel}
-                      >
-                        <p className="text-xs font-medium truncate">{e.titel}</p>
-                        {hoogte > 30 && namen && <p className="text-xs opacity-80 truncate">{namen}</p>}
+                      <div key={e.id} title={e.titel}
+                        className="absolute left-0.5 right-0.5 bg-orange-500 text-white rounded px-1 py-0.5 overflow-hidden z-10 ml-3 cursor-default"
+                        style={{ top: t, height: h }}>
+                        <p className="text-xs font-medium truncate leading-tight">{e.titel}</p>
+                        {h > 32 && <p className="text-xs opacity-75 truncate">{e.start_tijd.slice(0,5)}</p>}
                       </div>
                     )
                   })}
@@ -219,11 +193,10 @@ export default function WeekView({ onNieuwe }: { onNieuwe: (datum: string, tijd:
         </div>
       </div>
 
-      {/* Legenda */}
       <div className="flex gap-4 px-4 py-2 border-t text-xs text-gray-500">
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> Google Agenda</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-500 inline-block" /> Geplande dienst</span>
-        <span className="text-gray-400">Klik op een tijdvak om een dienst aan te maken</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-500 inline-block" /> Dienst</span>
+        <span>Klik tijdvak = nieuwe dienst</span>
       </div>
     </div>
   )
