@@ -24,9 +24,9 @@ const nu = new Date()
 
 function urenBerekenen(e: TimeEntry): number {
   if (!e.start_time || !e.end_time) return 0
-  const [su, sm] = e.start_time.split(':').map(Number)
-  const [eu, em] = e.end_time.split(':').map(Number)
-  const minuten = (eu * 60 + em) - (su * 60 + sm) - (e.break_minutes ?? 0)
+  const start = new Date(e.start_time)
+  const end = new Date(e.end_time)
+  const minuten = (end.getTime() - start.getTime()) / 60000 - (e.break_minutes ?? 0)
   return Math.max(0, minuten / 60)
 }
 
