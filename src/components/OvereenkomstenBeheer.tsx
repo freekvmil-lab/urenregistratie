@@ -94,12 +94,12 @@ export default function OvereenkomstenBeheer() {
           <h2 className="font-semibold">Nieuwe overeenkomst versturen</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">ZZP'er</label>
+              <label className="block text-xs text-gray-500 mb-1">ZZP’er</label>
               <select value={form.zzp_id} onChange={e => {
                 const zzp = zzpers.find(z => z.id === e.target.value)
                 setForm(p => ({ ...p, zzp_id: e.target.value, tarief: String(zzp?.hourly_rate ?? '') }))
               }} className="w-full rounded border px-3 py-2 text-sm">
-                <option value="">Kies ZZP'er…</option>
+                <option value="">Kies ZZP’er…</option>
                 {zzpers.map(z => <option key={z.id} value={z.id}>{z.name ?? z.email}</option>)}
               </select>
             </div>
@@ -133,7 +133,7 @@ export default function OvereenkomstenBeheer() {
           </div>
           <div className="flex gap-2">
             <button onClick={verstuur} disabled={opslaan} className="bg-black text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-              {opslaan ? 'Versturen…' : '📤 Verstuur naar ZZP'er'}
+              {opslaan ? 'Versturen…' : '📤 Verstuur naar ZZP’er'}
             </button>
             <button onClick={() => setNieuw(false)} className="border px-4 py-2 rounded text-sm">Annuleren</button>
           </div>
