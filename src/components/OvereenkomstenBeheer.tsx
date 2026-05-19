@@ -133,7 +133,7 @@ export default function OvereenkomstenBeheer() {
           </div>
           <div className="flex gap-2">
             <button onClick={verstuur} disabled={opslaan} className="bg-black text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-              {opslaan ? 'Versturen…' : '📤 Verstuur naar ZZP’er'}
+              {opslaan ? 'Versturen…' : 'Verstuur naar ZZPer'}
             </button>
             <button onClick={() => setNieuw(false)} className="border px-4 py-2 rounded text-sm">Annuleren</button>
           </div>
