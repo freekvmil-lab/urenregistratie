@@ -57,6 +57,7 @@ export default function Navbar() {
       { href: '/admin/personeel', label: 'Personeel info' },
       { href: '/admin/cao', label: 'CAO profielen' },
       { href: '/admin/planning', label: 'Planning' },
+      { href: '/admin/accorderen', label: 'Accorderen' },
       { href: '/admin/factuur', label: 'Factuur' },
       { href: '/admin/clients', label: 'Opdrachtgevers' },
       { href: '/admin/push', label: 'Push' },
