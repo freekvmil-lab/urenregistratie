@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const getServiceClient = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://shxlihgfdzfxwjewjnmj.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 interface TokenRow {
   user_id: string
   access_token: string
@@ -17,6 +12,11 @@ interface PlanningMedewerker {
   medewerker_id: string
   medewerker_naam: string | null
 }
+
+const getServiceClient = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://shxlihgfdzfxwjewjnmj.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 async function getValidAccessToken(userId: string, supabase: ReturnType<typeof getServiceClient>) {
   const { data } = await supabase
@@ -49,29 +49,16 @@ async function getValidAccessToken(userId: string, supabase: ReturnType<typeof g
     }
     return null
   }
-
   return tokenRow.access_token
-}
-
-async function maakGoogleEvent(accessToken: string, event: object) {
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(event),
-  })
-  return res.json()
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { planning_id } = body
-
     const supabase = getServiceClient()
 
+    // Haal planning + medewerkers + hun emails op
     const { data: planning } = await supabase
       .from('planning')
       .select('*, planning_medewerkers(medewerker_id, medewerker_naam)')
@@ -80,54 +67,73 @@ export async function POST(req: NextRequest) {
 
     if (!planning) return NextResponse.json({ error: 'planning_not_found' }, { status: 404 })
 
+    const medewerkers = (planning.planning_medewerkers ?? []) as PlanningMedewerker[]
+
+    // Haal email adressen op van medewerkers
+    const medewerkerIds = medewerkers.map((m) => m.medewerker_id)
+    const { data: profielen } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .in('id', medewerkerIds)
+
+    const emailMap: Record<string, string> = {}
+    for (const p of profielen ?? []) {
+      if (p.email) emailMap[p.id] = p.email
+    }
+
+    const attendees = medewerkers
+      .filter(m => emailMap[m.medewerker_id])
+      .map(m => ({ email: emailMap[m.medewerker_id] }))
+
     const startDateTime = `${planning.datum}T${planning.start_tijd}`
     const endDateTime = `${planning.datum}T${planning.eind_tijd}`
-
-    const medewerkerNamen = (planning.planning_medewerkers as PlanningMedewerker[])
-      .map((m) => m.medewerker_naam ?? '')
-      .join(', ')
+    const medewerkerNamen = medewerkers.map(m => m.medewerker_naam ?? '').join(', ')
 
     const eventBody = {
       summary: `${planning.titel}${planning.opdrachtgever_naam ? ` - ${planning.opdrachtgever_naam}` : ''}`,
       location: planning.locatie ?? undefined,
-      description: `Medewerkers: ${medewerkerNamen}\n${planning.notities ?? ''}`,
+      description: `Medewerkers: ${medewerkerNamen}\n${planning.notities ?? ''}`.trim(),
       start: { dateTime: startDateTime, timeZone: 'Europe/Amsterdam' },
       end: { dateTime: endDateTime, timeZone: 'Europe/Amsterdam' },
+      attendees,
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'email', minutes: 24 * 60 },
+          { method: 'popup', minutes: 60 },
+        ],
+      },
     }
 
+    // Haal admin token op (eerste google token = admin)
     const { data: adminTokenRow } = await supabase
       .from('google_tokens')
       .select('user_id')
       .limit(1)
       .single()
 
-    let adminEventId = null
+    let eventId = null
     if (adminTokenRow) {
       const accessToken = await getValidAccessToken((adminTokenRow as { user_id: string }).user_id, supabase)
       if (accessToken) {
-        const created = await maakGoogleEvent(accessToken, eventBody)
-        adminEventId = created.id ?? null
+        const res = await fetch(
+          'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventBody),
+          }
+        )
+        const created = await res.json()
+        eventId = created.id ?? null
       }
     }
 
-    if (adminEventId) {
-      await supabase.from('planning').update({ google_event_id: adminEventId }).eq('id', planning_id)
+    if (eventId) {
+      await supabase.from('planning').update({ google_event_id: eventId }).eq('id', planning_id)
     }
 
-    for (const pm of (planning.planning_medewerkers as PlanningMedewerker[])) {
-      const token = await getValidAccessToken(pm.medewerker_id, supabase)
-      if (token) {
-        const created = await maakGoogleEvent(token, eventBody)
-        if (created.id) {
-          await supabase.from('planning_medewerkers')
-            .update({ google_event_id: created.id })
-            .eq('planning_id', planning_id)
-            .eq('medewerker_id', pm.medewerker_id)
-        }
-      }
-    }
-
-    return NextResponse.json({ ok: true, event_id: adminEventId })
+    return NextResponse.json({ ok: true, event_id: eventId, uitnodigingen_verstuurd: attendees.length })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: msg }, { status: 500 })
