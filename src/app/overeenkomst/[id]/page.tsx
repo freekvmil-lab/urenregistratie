@@ -46,7 +46,7 @@ export default function TekenPagina() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ overeenkomst_id: id, actie }),
     })
-    setKlaar(actie)
+    setKlaar(actie === 'teken' ? 'getekend' : 'geweigerd')
     setBezig(false)
   }
 
